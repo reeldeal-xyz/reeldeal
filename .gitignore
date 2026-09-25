@@ -12,3 +12,5 @@ contracts/broadcast/*/31337/
 *.log
 .run/
 .claude/skills/
+.claude/handoff/
+*.tsbuildinfo

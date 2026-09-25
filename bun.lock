@@ -3,14 +3,14 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "umi-relief",
+      "name": "eth-global-tokyo",
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "^5.9.0",
       },
     },
     "packages/shared": {
-      "name": "@umi/shared",
+      "name": "@repo/shared",
       "version": "0.0.0",
       "dependencies": {
         "viem": "^2.56.9",
@@ -20,7 +20,7 @@
     "pipeline": {
       "name": "pipeline",
       "dependencies": {
-        "@umi/shared": "workspace:*",
+        "@repo/shared": "workspace:*",
         "viem": "^2.56.9",
         "zod": "^3.25.0",
       },
@@ -30,7 +30,7 @@
       "dependencies": {
         "@line/bot-sdk": "^10.0.0",
         "@line/liff": "^2.27.0",
-        "@umi/shared": "workspace:*",
+        "@repo/shared": "workspace:*",
         "@worldcoin/idkit-core": "^4.3.0",
         "next": "^16.3.0",
         "react": "^19.2.0",
@@ -233,6 +233,8 @@
 
     "@noble/secp256k1": ["@noble/secp256k1@2.3.0", "", {}, "sha512-0TQed2gcBbIrh7Ccyw+y/uZQvbJwm7Ao4scBUxqpBCcsOlZG0O4KGfjtNAy/li4W8n1xt3dxrwJ0beZ2h2G6Kw=="],
 
+    "@repo/shared": ["@repo/shared@workspace:packages/shared"],
+
     "@scure/base": ["@scure/base@1.2.6", "", {}, "sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg=="],
 
     "@scure/bip32": ["@scure/bip32@1.7.0", "", { "dependencies": { "@noble/curves": "~1.9.0", "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-E4FFX/N3f4B80AKWp5dP6ow+flD1LQZo/w8UnLGYZO674jS6YnYeepycOOksv+vLPSpgN35wgKgy+ybfTb2SMw=="],
@@ -248,8 +250,6 @@
     "@types/react": ["@types/react@19.3.0", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg=="],
 
     "@types/react-dom": ["@types/react-dom@19.3.0", "", { "peerDependencies": { "@types/react": "^19.3.0" } }, "sha512-ZI7bU42mZXXKHn/qNLEw2IrbiINU7X5+vfgdixBHkCNpYWXjKgfQ/P+uyGb5CjOLB9UcnTeg3rylQtV2hym44Q=="],
-
-    "@umi/shared": ["@umi/shared@workspace:packages/shared"],
 
     "@worldcoin/idkit-core": ["@worldcoin/idkit-core@4.3.0", "", { "dependencies": { "@noble/hashes": "^1.7.2", "@worldcoin/idkit-server": "1.1.1" } }, "sha512-ZEcVhq1TLh7yUb/mkhhMqwKEQRN+ehVC1SQBx24K/5ILv4WuBP29OgleM29Glk/T+gAzeVfgjIh5kWPM28qwsA=="],
 

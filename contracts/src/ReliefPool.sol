@@ -32,7 +32,7 @@ contract ReliefPool is IReliefPool {
         revert NotImplemented();
     }
 
-    /// @dev eventId = keccak256(abi.encode(zoneId, speciesId, perilId, tier, seasonLabel)); mirrors @umi/shared eventIdOf.
+    /// @dev eventId = keccak256(abi.encode(zoneId, speciesId, perilId, tier, seasonLabel)); mirrors @repo/shared eventIdOf.
     function eventIdOf(Trigger calldata t) public pure returns (bytes32) {
         return keccak256(abi.encode(t.zoneId, t.speciesId, t.perilId, t.tier, t.seasonLabel));
     }

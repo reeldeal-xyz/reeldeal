@@ -1,3 +1,3 @@
 import type { NextConfig } from 'next';
-const config: NextConfig = { transpilePackages: ['@umi/shared'] };
+const config: NextConfig = { transpilePackages: ['@repo/shared'] };
 export default config;

@@ -34,7 +34,7 @@ export const TRIGGER_EIP712_TYPES = {
 } as const;
 
 export const eip712Domain = (verifyingContract: Address) =>
-  ({ name: 'UmiRelief', version: '1', chainId: 11155111, verifyingContract }) as const;
+  ({ name: 'ReliefPool', version: '1', chainId: 11155111, verifyingContract }) as const;
 
 export interface SignedTrigger {
   trigger: Trigger;

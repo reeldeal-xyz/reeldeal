@@ -11,7 +11,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@umi/shared": "workspace:*",
+    "@repo/shared": "workspace:*",
     "viem": "^2.56.9",
     "zod": "^3.25.0"
   }

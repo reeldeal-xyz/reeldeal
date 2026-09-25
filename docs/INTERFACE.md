@@ -1,7 +1,7 @@
 # Interface contract: pipeline (Jay) ↔ app (Sailesh)
 
 Frozen at kickoff. Change it only by PR touching `packages/shared/src/feed.ts` + this file, reviewed by both owners.
-Types and zod schemas live in `@umi/shared` (`packages/shared/src`). Everything below is validated with those schemas.
+Types and zod schemas live in `@repo/shared` (`packages/shared/src`). Everything below is validated with those schemas.
 
 ## Identifiers
 
@@ -39,7 +39,7 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 ## Trigger → chain
 
 - `Trigger` fields and order: `packages/shared/src/trigger.ts` ⇔ `contracts/src/interfaces/IReliefPool.sol`.
-- EIP-712 domain: `{ name: "UmiRelief", version: "1", chainId: 11155111, verifyingContract: ReliefPool }`.
+- EIP-712 domain: `{ name: "ReliefPool", version: "1", chainId: 11155111, verifyingContract: ReliefPool }`.
 - The pipeline signs with its key; the app's keeper adds the second signature and calls `attest`, then `settle`.
 - `dataHash` = sha256 of the exact pinned CSV bytes the index was computed from.
 

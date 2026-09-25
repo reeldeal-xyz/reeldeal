@@ -1,4 +1,4 @@
-# Umi Relief: agent notes
+# eth-global-tokyo: agent notes
 
 - bun workspaces; Foundry in `contracts/`. Run `bun run contracts:test` and `bun run typecheck` before committing.
 - The interface contract is `packages/shared` + `docs/INTERFACE.md`. Don't change Trigger fields or feed shapes without updating both sides and the Solidity struct.

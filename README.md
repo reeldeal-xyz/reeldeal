@@ -1,4 +1,4 @@
-# Umi Relief
+# eth-global-tokyo
 
 Donor-funded relief for Kesennuma shellfish farmers: when the sea stays too hot or toxin bans hit, JPYC is paid on Sepolia to whoever farms each plot this season, recorded as ENSv2 names, with World ID capping payouts per real person and a LINE app for farmers.
 
@@ -11,7 +11,7 @@ Donor-funded relief for Kesennuma shellfish farmers: when the sea stays too hot 
 ## Setup
 
 ```sh
-git clone --recurse-submodules <repo> && cd umi-relief
+git clone --recurse-submodules <repo> && cd eth-global-tokyo
 cp .env.example .env
 bun install
 bun run contracts:build && bun run contracts:test

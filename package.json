@@ -1,5 +1,5 @@
 {
-  "name": "umi-relief",
+  "name": "eth-global-tokyo",
   "private": true,
   "workspaces": ["packages/*", "pipeline", "web"],
   "scripts": {
