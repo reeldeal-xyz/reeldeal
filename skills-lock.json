@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "deploy-to-vercel": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deploy-to-vercel/SKILL.md",
+      "computedHash": "d2b5bcc7c09fdb649129ffc7dd7b647ec1b155736974b974292675afd588cb39"
+    },
+    "develop-secure-contracts": {
+      "source": "OpenZeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/develop-secure-contracts/SKILL.md",
+      "computedHash": "92aa3881d7c5db98ce41670852668cfbe691576284d05d78a72587cdb2760fe8"
+    },
+    "setup-solidity-contracts": {
+      "source": "OpenZeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/setup-solidity-contracts/SKILL.md",
+      "computedHash": "9c0e45a4afb334c5460811d1c2db5ba7d7756f9e401b250921322c6aab86be64"
+    },
+    "upgrade-solidity-contracts": {
+      "source": "OpenZeppelin/openzeppelin-skills",
+      "sourceType": "github",
+      "skillPath": "skills/upgrade-solidity-contracts/SKILL.md",
+      "computedHash": "ef8776be9fd2ee6721f6b6b29992bf6029a6122797b3cec6fe3ce185b22be4ef"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357"
+    }
+  }
+}
