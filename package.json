@@ -1,0 +1,18 @@
+{
+  "name": "umi-relief",
+  "private": true,
+  "workspaces": ["packages/*", "pipeline", "web"],
+  "scripts": {
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test && cd contracts && forge test",
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test -vv",
+    "abi": "bun scripts/export-abi.ts",
+    "dev": "bun run --filter web dev",
+    "pipeline": "bun run --filter pipeline start"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/bun": "latest"
+  }
+}

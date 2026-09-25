@@ -1,0 +1,6 @@
+{
+  "extraKnownMarketplaces": {
+    "world-id-demo": { "source": { "source": "github", "repo": "worldcoin/world-id-agent-plugin" } }
+  },
+  "enabledPlugins": { "world-id-sandbox@world-id-demo": true }
+}
