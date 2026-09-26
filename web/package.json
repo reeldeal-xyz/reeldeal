@@ -13,15 +13,19 @@
     "@repo/shared": "workspace:*",
     "@line/liff": "^2.27.0",
     "@line/bot-sdk": "^10.0.0",
+    "@tanstack/react-query": "^5.103.3",
     "@worldcoin/idkit-core": "^4.3.0",
     "next": "^16.3.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "viem": "^2.56.9"
+    "viem": "^2.56.9",
+    "wagmi": "^3.7.7"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@types/node": "^24.0.0"
+    "@types/node": "^24.0.0",
+    "@types/qrcode": "^1.5.6"
   }
 }
