@@ -1,11 +1,11 @@
 ---
 import '../styles/global.css';
 import '../styles/market.css';
-interface Props { title: string; description?: string; section?: string }
-const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'workshop' } = Astro.props;
+interface Props { title: string; description?: string; section?: string; lang?: 'en' | 'ja' }
+const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'workshop', lang = 'en' } = Astro.props;
 ---
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -14,16 +14,16 @@ const { title, description = 'ReelDeal supports coastal communities through loca
   </head>
   <body>
     <div class="app-frame">
-      <a class="skip-link" href="#main">Skip to content</a>
+      <a class="skip-link" href="#main">{lang === 'ja' ? '本文へ移動' : 'Skip to content'}</a>
       <header class="site-header"><div class="shell site-header__inner">
         <a class="brand" href="/">ReelDeal</a>
-        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label="Main navigation">
-          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Market preview</a>
-          <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>HMI</a>
+        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label={lang === 'ja' ? 'メインメニュー' : 'Main navigation'}>
+          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>{lang === 'ja' ? '市場' : 'Market preview'}</a>
+          <a href={lang === 'ja' ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{lang === 'ja' ? '養殖リスク' : 'HMI'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{section === 'hmi' ? 'Aquaculture HMI · live pipeline data only · incomplete layers are labeled' : 'Component preview · synthetic data · no payments or messages'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{section === 'hmi' ? (lang === 'ja' ? '養殖リスクマップ' : 'Aquaculture risk map') : 'Component preview · synthetic data'}</p></div></footer>
     </div>
   </body>
 </html>

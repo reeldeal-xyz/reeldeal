@@ -66,12 +66,27 @@ export async function readHmiData(origin: string | undefined): Promise<HmiData> 
 }
 
 export const HMI_REGION = { west: 140.5, south: 37.2, east: 143.1, north: 40.5 } as const;
+export const HMI_MAP_SIZE = { width: 800, height: 620, padding: 28 } as const;
+
+const referenceLatitude = (HMI_REGION.south + HMI_REGION.north) / 2;
+const longitudeScale = Math.cos(referenceLatitude * Math.PI / 180);
+const projectedWidth = (HMI_REGION.east - HMI_REGION.west) * longitudeScale;
+const projectedHeight = HMI_REGION.north - HMI_REGION.south;
+const unitsPerDegree = Math.min(
+  (HMI_MAP_SIZE.width - HMI_MAP_SIZE.padding * 2) / projectedWidth,
+  (HMI_MAP_SIZE.height - HMI_MAP_SIZE.padding * 2) / projectedHeight,
+);
+const projectedBounds = {
+  x: (HMI_MAP_SIZE.width - projectedWidth * unitsPerDegree) / 2,
+  y: (HMI_MAP_SIZE.height - projectedHeight * unitsPerDegree) / 2,
+  width: projectedWidth * unitsPerDegree,
+  height: projectedHeight * unitsPerDegree,
+};
 
 export function geoPath(shape: HmiPlot['geometry'] | HmiZone['geometry']): string {
   if (!shape) return '';
-  const projectRing = (points: [number, number][]) => points.map(([lon, lat], index) => {
-    const x = ((lon - HMI_REGION.west) / (HMI_REGION.east - HMI_REGION.west)) * 800;
-    const y = ((HMI_REGION.north - lat) / (HMI_REGION.north - HMI_REGION.south)) * 620;
+  const projectRing = (points: [number, number][]) => points.map((point, index) => {
+    const [x, y] = geoPoint(point);
     return `${index ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`;
   }).join(' ') + ' Z';
   const polygons = shape.type === 'Polygon' ? [shape.coordinates] : shape.coordinates;
@@ -80,7 +95,24 @@ export function geoPath(shape: HmiPlot['geometry'] | HmiZone['geometry']): strin
 
 export function geoPoint([lon, lat]: [number, number]): [number, number] {
   return [
-    ((lon - HMI_REGION.west) / (HMI_REGION.east - HMI_REGION.west)) * 800,
-    ((HMI_REGION.north - lat) / (HMI_REGION.north - HMI_REGION.south)) * 620,
+    projectedBounds.x + (lon - HMI_REGION.west) * longitudeScale * unitsPerDegree,
+    projectedBounds.y + (HMI_REGION.north - lat) * unitsPerDegree,
   ];
+}
+
+export function geoGraticule() {
+  const longitudes = [140.5, 141, 141.5, 142, 142.5, 143];
+  const latitudes = [37.5, 38, 38.5, 39, 39.5, 40];
+  return {
+    longitudes: longitudes.map((lon) => {
+      const [x] = geoPoint([lon, HMI_REGION.south]);
+      return { label: `${lon.toFixed(1)}°E`, x, y: projectedBounds.y + projectedBounds.height + 18, d: `M${x.toFixed(2)},${projectedBounds.y.toFixed(2)}V${(projectedBounds.y + projectedBounds.height).toFixed(2)}` };
+    }),
+    latitudes: latitudes.map((lat) => {
+      const [x1, y] = geoPoint([HMI_REGION.west, lat]);
+      const [x2] = geoPoint([HMI_REGION.east, lat]);
+      return { label: `${lat.toFixed(1)}°N`, x: x1 - 38, y: y + 4, d: `M${x1.toFixed(2)},${y.toFixed(2)}H${x2.toFixed(2)}` };
+    }),
+    bounds: projectedBounds,
+  };
 }
