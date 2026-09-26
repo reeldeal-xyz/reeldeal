@@ -10,10 +10,17 @@ import { NEXT_PUBLIC_REOWN_PROJECT_ID, SEPOLIA_RPC_URL } from 'astro:env/server'
 import { jpycFromBaseUnits } from '../lib/format-amount';
 import { createSepoliaClient, getFundSummary, getPlotReliefStory, type ReliefPoolEvent } from '../lib/chain/client.server';
 import { DEPLOYED_RELIEF_PLOTS, deployedEventHint, evidenceForEvent, evidenceForTrigger } from '../lib/relief-evidence';
+import { parseReliefRequest } from '../lib/relief-request';
+import { hasMatchingPayment } from '../lib/chain/relief-proof';
 
 const requestedPlot = Astro.url.searchParams.get('plot') ?? 'p1213-001';
-const selectedPlot = DEPLOYED_RELIEF_PLOTS.find((item) => item.plotLabel === requestedPlot) ?? DEPLOYED_RELIEF_PLOTS[0]!;
-const season = '2026';
+const request = parseReliefRequest(requestedPlot, Astro.url.searchParams);
+const matchedPlot = DEPLOYED_RELIEF_PLOTS.find((item) => item.plotLabel === requestedPlot);
+const requestError = !request ? 'Invalid plot, season or event selection.' : !matchedPlot ? 'This plot is not in the deployed relief registry.' : '';
+if (requestError) Astro.response.status = request ? 404 : 400;
+Astro.response.headers.set('cache-control', 'no-store');
+const selectedPlot = matchedPlot ?? DEPLOYED_RELIEF_PLOTS[0]!;
+const season = request?.season ?? '2026';
 const client = createSepoliaClient(SEPOLIA_RPC_URL);
 
 let summary: Awaited<ReturnType<typeof getFundSummary>> | null = null;
@@ -21,12 +28,17 @@ let story: Awaited<ReturnType<typeof getPlotReliefStory>> | null = null;
 let loadError = false;
 
 try {
-  summary = await getFundSummary(client);
-  story = await getPlotReliefStory(client, selectedPlot.plotLabel, season, {
-    events: summary.events,
-    eventsAvailable: summary.eventsAvailable,
-    eventIdHint: deployedEventHint(selectedPlot.plotLabel, season),
-  });
+  if (!requestError) {
+    summary = await getFundSummary(client);
+    story = await getPlotReliefStory(client, selectedPlot.plotLabel, season, {
+      events: summary.events,
+      eventsAvailable: summary.eventsAvailable,
+      eventsComplete: summary.eventsComplete,
+      blockNumber: BigInt(summary.atBlock),
+      eventId: request?.eventId,
+      eventIdHint: deployedEventHint(selectedPlot.plotLabel, season),
+    });
+  }
 } catch {
   loadError = true;
 }
@@ -56,18 +68,21 @@ async function txProof(hash: string | null | undefined) {
     return {
       status: receipt.status,
       blockNumber: receipt.blockNumber.toString(),
-      confirmations: Math.max(1, Number(head - receipt.blockNumber + 1n)),
+      confirmations: Math.max(0, Number(head - receipt.blockNumber + 1n)),
+      paymentMatches: !!settlement && hash === settlement.txHash && hasMatchingPayment(selectedPlot.plotLabel, settlement, receipt),
     };
   } catch {
     return null;
   }
 }
-const settlementProof = await txProof(settlement?.txHash);
-const attestationProof = await txProof(attestedEvent?.txHash);
+const [settlementProof, attestationProof] = await Promise.all([txProof(settlement?.txHash), txProof(attestedEvent?.txHash)]);
+const paymentConfirmed = !!settlementProof?.paymentMatches && settlementProof.confirmations >= 2;
+const chainUnavailable = loadError || !summary || !story || !story.plotReadAvailable || !story.targetReadAvailable
+  || story.settlementReadStatus === 'unavailable' || summary.balanceWei === null || summary.reservedWei === null;
 
 const now = Math.floor(Date.now() / 1000);
 const slotActive = Boolean(story?.payoutTarget && Number(story.payoutTarget.slotExpiry) > now);
-const claimWindowActive = Boolean(settlement && Number(settlement.claimDeadline) > now);
+const claimWindowActive = Boolean(settlement && Number(settlement.claimDeadline) >= now);
 const identityVerified = story?.identity?.status === 'available' && story.identity.level > 0;
 const claimReady = Boolean(
   settlement?.state === 'held'
@@ -79,14 +94,14 @@ const claimReady = Boolean(
 );
 
 const stateLabel = !story ? 'Unavailable'
-  : !story.eventsAvailable && !settlement ? 'Activity unavailable'
+  : story.settlementReadStatus === 'unavailable' ? 'Settlement unavailable'
   : !settlement ? 'No relief event'
-  : settlement.state === 'paid' || settlement.state === 'claimed' ? 'Payment confirmed'
+  : settlement.state === 'paid' || settlement.state === 'claimed' ? (paymentConfirmed ? 'Payment confirmed' : 'Payment recorded · receipt unverified')
   : settlement.state === 'held' ? 'Payment on hold'
   : settlement.state === 'swept' ? 'Claim window ended'
   : 'Awaiting settlement';
 
-const stateTone = settlement?.state === 'paid' || settlement?.state === 'claimed' ? 'green'
+const stateTone = paymentConfirmed ? 'green'
   : settlement?.state === 'held' ? 'pink'
   : settlement?.state === 'unsettled' ? 'yellow'
   : 'ink';
@@ -107,24 +122,30 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
   type === 'Paid' || type === 'Claimed' ? 'green' : type === 'Held' ? 'pink' : type === 'Attested' ? 'yellow' : 'blue';
 ---
 
-<BaseLayout title="My relief status" description="Live 2026 ReelDeal relief status from ReliefPool, ENS slots, HumanRegistry and pinned Miyagi evidence." section="relief">
-  <div class="relief-page shell">
+<BaseLayout title="Relief status" description="Live 2026 ReelDeal relief status from ReliefPool, ENS slots, HumanRegistry and pinned Miyagi evidence." section="relief">
+  {requestError ? <section class="relief-page shell" aria-labelledby="request-error-title">
+    <h1 id="request-error-title">Relief selection unavailable</h1>
+    <p role="alert">{requestError} No payment or eligibility has been inferred.</p>
+    <a class="button-link" href="/relief">Choose a registered plot</a>
+    <a href="/hmi">Return to the coastal map</a>
+  </section> : <div class="relief-page shell">
     <header class="relief-heading">
       <div>
-        <p class="eyebrow">REELDEAL · 2026 SEPOLIA RELIEF</p>
-        <h1>My relief status</h1>
+        <p class="eyebrow">REELDEAL · {season} SEPOLIA RELIEF</p>
+        <h1>Relief status</h1>
         <p>One plot → accepted evidence → on-chain allocation → payment or next action.</p>
       </div>
       <div class="relief-heading__actions">
         <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
-        <span class:list={['live-badge', (loadError || !summary) && 'offline']}><i></i>{loadError || !summary ? 'Chain read unavailable' : 'Live on Sepolia'}</span>
+        <span class:list={['live-badge', chainUnavailable && 'offline']}><i></i>{chainUnavailable ? 'Some chain reads unavailable' : 'Live on Sepolia'}</span>
       </div>
     </header>
 
-    <p class="demo-banner">Sepolia test funds · live 2026 BANWEEKS demo event · no production yen.</p>
+    <p class="demo-banner">Historical replay · Sepolia test funds · public plot lookup, not proof of wallet ownership.</p>
 
     <form class="plot-picker" method="get">
-      <label for="plot">Registered 2026 plot</label>
+      <input type="hidden" name="season" value={season} />
+      <label for="plot">Registered plot · {season}</label>
       <div>
         <select id="plot" name="plot">
           {DEPLOYED_RELIEF_PLOTS.map((plot) => <option value={plot.plotLabel} selected={plot.plotLabel === selectedPlot.plotLabel}>
@@ -147,26 +168,26 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       {story ? <>
         <dl class="facts">
           <div><dt>Species</dt><dd>{selectedPlot.species}</dd></div>
-          <div><dt>ReliefPool enrolled</dt><dd>{story.enrolled ? 'Yes' : 'No'}</dd></div>
-          <div><dt>2026 ENS slot</dt><dd>{story.payoutTarget ? (slotActive ? 'Issued · active' : 'Issued · expired') : 'No farmer resolved'}</dd></div>
-          <div><dt>HumanRegistry</dt><dd>{story.identity?.status === 'available' ? `Level ${story.identity.level}` : story.identity ? 'Unavailable' : 'No farmer'}</dd></div>
+          <div><dt>ReliefPool enrolled</dt><dd>{story.enrolled === null ? 'Unavailable' : story.enrolled ? 'Yes' : 'No'}</dd></div>
+          <div><dt>{season} ENS slot</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.payoutTarget ? (slotActive ? 'Issued · active' : 'Issued · expired') : 'No farmer resolved'}</dd></div>
+          <div><dt>HumanRegistry</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.identity?.status === 'available' ? `Level ${story.identity.level}` : story.identity ? 'Unavailable' : 'No farmer'}</dd></div>
         </dl>
 
         {story.payoutTarget && <p class="address-row">Registered farmer <Address value={story.payoutTarget.farmer} compact /></p>}
 
-        {!settlement && story.eventsAvailable && <p class="notice">No settlement is recorded for this plot in the deployed relief events. This is not a statement about future eligibility.</p>}
-        {!settlement && !story.eventsAvailable && <p class="notice">Event indexing is unavailable, so “no payment” is not asserted. Plot and slot reads above remain direct contract reads.</p>}
+        {!settlement && story.settlementReadStatus === 'not-found' && <p class="notice">No settlement is recorded for this plot in the deployed relief events. This is not a statement about future eligibility.</p>}
+        {!settlement && story.settlementReadStatus === 'unavailable' && <p class="notice">Settlement or event reads are unavailable, so “no payment” is not asserted. Plot and slot reads above remain direct contract reads.</p>}
 
         {settlement && <>
           <div class="payout">
-            <span>{settlement.state === 'paid' || settlement.state === 'claimed' ? 'Confirmed relief payment' : 'Allocated per plot'}</span>
+            <span>{paymentConfirmed ? 'Confirmed relief payment' : settlement.state === 'paid' || settlement.state === 'claimed' ? 'Recorded amount · receipt unverified' : 'Allocated per plot'}</span>
             <strong>{toAmount(settlement.amountWei) ? <Amount value={toAmount(settlement.amountWei)!} /> : 'Unavailable'}</strong>
           </div>
 
           {settlement.state === 'held' && <div class="hold-box">
             <strong>{settlement.holdReason ?? 'Held'}</strong>
             <p>{holdCopy[settlement.holdReason ?? ''] ?? 'ReliefPool currently holds this allocation.'}</p>
-            {settlement.holdReason === 'UNVERIFIED' && !identityVerified && <a class="button-link" href={`/liff?plot=${encodeURIComponent(selectedPlot.plotLabel)}`}>Verify identity in LINE / World ID</a>}
+            {settlement.holdReason === 'UNVERIFIED' && story.identity?.status === 'available' && !identityVerified && <a class="button-link" href={`/liff?plot=${encodeURIComponent(selectedPlot.plotLabel)}`}>Verify identity in LINE / World ID</a>}
             {claimReady && story.payoutTarget && <ReliefClaimAction
               eventId={settlement.eventId}
               plotLabel={selectedPlot.plotLabel}
@@ -198,7 +219,7 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
 
     {settlement && <section class="relief-card evidence-card" aria-labelledby="evidence-title">
       <div class="card-head">
-        <div><p class="eyebrow">ACCEPTED EVIDENCE</p><h2 id="evidence-title">Why this event fired</h2></div>
+        <div><p class="eyebrow">EVENT EVIDENCE</p><h2 id="evidence-title">Why this event fired</h2></div>
         {sourceEvidence ? <Badge label="Pinned source" tone="lime" /> : <Badge label="Source mapping unavailable" tone="ink" />}
       </div>
 
@@ -239,9 +260,9 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
         <div><span>Spendable</span><strong>{toAmount(summary?.availableWei) ? <Amount value={toAmount(summary?.availableWei)!} /> : 'Unavailable'}</strong></div>
         <div><span>Reserved</span><strong>{toAmount(summary?.reservedWei) ? <Amount value={toAmount(summary?.reservedWei)!} /> : 'Unavailable'}</strong></div>
         <div><span>Pool balance</span><strong>{toAmount(summary?.balanceWei) ? <Amount value={toAmount(summary?.balanceWei)!} /> : 'Unavailable'}</strong></div>
-        <div><span>Paid / claimed</span><strong>{toAmount(summary?.totals.paidWei) ? <Amount value={toAmount(summary?.totals.paidWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Paid / claimed</span><strong>{toAmount(summary?.totals?.paidWei) ? <Amount value={toAmount(summary?.totals?.paidWei)!} /> : 'Unavailable'}</strong></div>
       </div>
-      <p class="proof-note">Spendable = current JPYC balance − ReliefPool.reserved(). Held allocations remain reserved until claimed or swept.</p>
+      <p class="proof-note">Snapshot block {summary?.atBlock ?? 'unavailable'}. Spendable = current JPYC balance − ReliefPool.reserved(). Held allocations remain reserved until claimed or swept.</p>
     </section>
 
     <div class="relief-lower">
@@ -261,7 +282,7 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
 
       <aside class="donate-wrap"><DonateForm client:load /></aside>
     </div>
-  </div>
+  </div>}
 </BaseLayout>
 
 <style>

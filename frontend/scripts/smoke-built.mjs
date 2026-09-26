@@ -71,6 +71,22 @@ await withServer(undefined, async (request) => {
     assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
   }
 
+  for (const [path, expected] of [
+    ['/relief?plot=does-not-exist', 404],
+    ['/relief?plot=p1213-001&season=bad', 400],
+    ['/relief?plot=p1213-001&plot=p1213-002', 400],
+    ['/api/relief/plot/p1213-001?season=bad', 400],
+    ['/api/relief/plot/p1213-001?season=2026&season=2025', 400],
+    ['/api/relief/plot/p1213-001?eventId=0x1', 400],
+  ]) {
+    const response = await request(path);
+    assert.equal(response.status, expected, `Relief request must reject invalid selection: ${path}`);
+    const html = await response.text();
+    assert(!html.includes('Payment confirmed'), `Invalid selection displayed another plot payment: ${path}`);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  console.log('PASS relief selection rejects unknown plots and malformed/duplicate season/event without a payment fallback');
+
   const heat = await request('/api/risk/heat/p1213-001?season=2025');
   assert.equal(heat.status, 503);
   assert.equal(heat.headers.get('cache-control'), 'no-store');
