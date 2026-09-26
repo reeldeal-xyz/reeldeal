@@ -8,8 +8,8 @@ import { getFundActivity } from '@/lib/fund-activity';
 // actually served this request.
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const limitParam = Number(searchParams.get('limit') ?? '100');
-  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 250) : 100;
+  const limitParam = Number(searchParams.get('limit') ?? '50');
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 50) : 50; // MultiBaas max page size is 50
 
   try {
     const result = await getFundActivity({ limit });
