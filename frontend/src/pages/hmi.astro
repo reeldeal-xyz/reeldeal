@@ -8,7 +8,7 @@ import { readSpecies } from '../lib/species.server';
 
 const hmi = await readHmiData(PIPELINE_API_URL);
 const plotCode = Astro.url.searchParams.get('plot') ?? '';
-const season = /^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season')! : '2025';
+const season = /^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season')! : '2026';
 const requestedSpecies = Astro.url.searchParams.get('species') ?? '';
 const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
   : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
