@@ -33,12 +33,18 @@ export async function handleListMyRequests(lineUserId: string, deps: SlotRequest
 }
 
 /** POST: `lineUserId` and `displayName` always come from the caller's own session (route.ts), never the
- *  request body -- a client could send any `lineUserId`/`farmerName` it likes otherwise. */
+ *  request body -- a client could send any `lineUserId`/`farmerName` it likes otherwise.
+ *
+ *  `sessionKind` (default 'line', so every existing caller/test keeps working unchanged) gates the
+ *  wallet<->LINE push-directory bind below: a wallet session's "lineUserId" is `wallet:<address>` (see
+ *  lib/siwe.ts) -- there's no LINE account to route a push notification to, so binding it would just write
+ *  a pointless self-mapping into lib/payout-directory.ts's walletLinks table. */
 export async function handleCreateSlotRequest(
   raw: unknown,
   lineUserId: string,
   displayName: string | undefined,
   deps: SlotRequestDeps = defaultSlotRequestDeps(),
+  sessionKind: 'line' | 'wallet' = 'line',
 ): Promise<SlotRequestResponse> {
   const b = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {};
   const plotLabel = b.plotLabel;
@@ -62,8 +68,11 @@ export async function handleCreateSlotRequest(
 
   // Bind wallet<->LINE user now, not only after World ID verification -- payout-directory.ts's
   // bindWalletToLineUser docstring explicitly allows "as soon as the wallet + LINE login both exist", and
-  // doing it here means a Held/Paid push can reach this farmer even before they verify.
-  deps.bindWalletToLineUser(wallet, lineUserId);
+  // doing it here means a Held/Paid push can reach this farmer even before they verify. LINE-only: see
+  // the doc comment above for why a wallet session skips this.
+  if (sessionKind === 'line') {
+    deps.bindWalletToLineUser(wallet, lineUserId);
+  }
 
   const input: NewSlotRequest = { plotLabel, farmerAddress: wallet, seasonLabel: SEASON_LABEL, farmerName: displayName, lineUserId };
   const created = await deps.store.create(input);

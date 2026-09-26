@@ -4,7 +4,7 @@
 // dependency-injected there).
 import { NextResponse, type NextRequest } from 'next/server';
 import { handleCreateSlotRequest, handleListMyRequests } from '@/lib/liff/slot-request';
-import { readSessionFromRequest } from '@/lib/session';
+import { readSessionFromRequest, sessionKind } from '@/lib/session';
 
 export async function GET(req: NextRequest) {
   const session = readSessionFromRequest(req);
@@ -23,6 +23,6 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = await req.json().catch(() => null);
-  const { status, body } = await handleCreateSlotRequest(raw, session.userId, session.displayName);
+  const { status, body } = await handleCreateSlotRequest(raw, session.userId, session.displayName, undefined, sessionKind(session));
   return NextResponse.json(body, { status });
 }

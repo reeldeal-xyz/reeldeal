@@ -46,4 +46,17 @@ describe('POST /api/liff/claim (adapter)', () => {
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
+
+  test('authorizes a wallet-kind session the same as a LINE one -- claimHeld never reads lineUserId', async () => {
+    const walletSession = createSessionCookie({ userId: 'wallet:0xabc', kind: 'wallet', iat: Math.floor(Date.now() / 1000) });
+    const req = new NextRequest('http://localhost/api/liff/claim', {
+      method: 'POST',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${walletSession}` },
+      body: JSON.stringify({ nope: true }),
+    });
+    const res = await POST(req);
+    // Same 400 as the LINE-session case above (invalid body), not a 401 -- the session gate passed.
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('invalid_request');
+  });
 });

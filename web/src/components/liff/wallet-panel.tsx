@@ -15,22 +15,36 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Address, Hex, PublicClient } from 'viem';
 import { parseUnits } from 'viem';
+import { useSignTypedData, useWriteContract } from 'wagmi';
 import QRCode from 'qrcode';
-import { JPYC, JPYC_DECIMALS, JpycAbi } from '@repo/shared';
+import { CHAIN_ID, JPYC, JPYC_DECIMALS, JPYC_EIP712_DOMAIN, JpycAbi } from '@repo/shared';
 import { formatJpyc, shortAddress } from '@/lib/format';
 import { exportPrivateKey, getOrCreateWalletAccount, hasWallet, importPrivateKey } from '@/lib/wallet';
-import { signTransferAuthorization } from '@/lib/liff/wallet-authorization';
+import {
+  randomNonce,
+  signTransferAuthorization,
+  TRANSFER_AUTHORIZATION_WINDOW_SECONDS,
+  TRANSFER_WITH_AUTHORIZATION_TYPES,
+} from '@/lib/liff/wallet-authorization';
 import { fetchWalletActivity, type WalletActivityItem } from '@/lib/liff/wallet-activity';
 import { credentialLabelForSchema, LEVEL2_LABEL_BILINGUAL } from '@/lib/world/schema';
+import type { SessionKind } from '@/lib/session';
 
 export type WalletPanelClient = Pick<PublicClient, 'readContract' | 'getBalance' | 'getLogs'>;
 
 export interface WalletPanelProps {
   client: WalletPanelClient | null;
-  /** This device's own signing key (lib/wallet.ts). Null until the effect that reads it has run. */
+  /** This device's own signing key (lib/wallet.ts) for a LINE session. For a wallet session, callers pass
+   *  the same value as `identityAddress` -- the connected wallet is its own signer, so this always "matches"
+   *  and the canSign check below stays true. Null until the effect that reads it has run. */
   deviceAddress: Address | null;
-  /** The session's pinned wallet -- where this farmer's payouts actually land (POST /api/liff/session). */
+  /** The session's pinned wallet -- where this farmer's payouts actually land (POST /api/liff/session), or
+   *  the connected wallet itself for a wallet session. */
   identityAddress: Address | null;
+  /** 'line': sign the gasless authorization with the on-device key (lib/wallet.ts) and offer the local
+   *  backup/import flow. 'wallet': sign it with the connected wallet via wagmi instead, offer a
+   *  pay-your-own-gas direct transfer, and hide the local-key backup UI (there's no local key). */
+  sessionKind: SessionKind;
   worldLevel: number | null;
   worldSchemaId: number | null;
   reliefPoolAddress?: Address;
@@ -148,12 +162,18 @@ export function WalletPanel({
   client,
   deviceAddress,
   identityAddress,
+  sessionKind,
   worldLevel,
   worldSchemaId,
   reliefPoolAddress,
   reliefPoolDeployBlock,
 }: WalletPanelProps) {
   const canSign = Boolean(deviceAddress && identityAddress && deviceAddress.toLowerCase() === identityAddress.toLowerCase());
+
+  // Only touched for a wallet session (sessionKind === 'wallet') -- these hooks are always called (Rules of
+  // Hooks) but idle otherwise; there's no wallet connected via wagmi on a LINE session's plain WagmiProvider.
+  const { signTypedDataAsync } = useSignTypedData();
+  const { writeContractAsync } = useWriteContract();
 
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -167,6 +187,12 @@ export function WalletPanel({
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendTxHash, setSendTxHash] = useState<Hex | null>(null);
+
+  // Wallet-session-only: send JPYC directly on-chain from the connected wallet, paying its own Sepolia gas,
+  // as an alternative to the gasless relay below (spec: "wallet users can also send JPYC directly").
+  const [directSendBusy, setDirectSendBusy] = useState(false);
+  const [directSendError, setDirectSendError] = useState<string | null>(null);
+  const [directSendTxHash, setDirectSendTxHash] = useState<Hex | null>(null);
 
   const [showBackupConfirm, setShowBackupConfirm] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
@@ -277,8 +303,27 @@ export function WalletPanel({
 
     setSendBusy(true);
     try {
-      const account = getOrCreateWalletAccount();
-      const signed = await signTransferAuthorization(account, sendTo.trim() as Address, amountWei);
+      const to = sendTo.trim() as Address;
+      let signed: Awaited<ReturnType<typeof signTransferAuthorization>>;
+      if (sessionKind === 'wallet') {
+        // Same EIP-3009 authorization, signed by the connected wallet (wagmi) instead of the LIFF in-app
+        // device key -- the relay endpoint doesn't care which signed it, only that the signer recovers to
+        // this session's pinned wallet (lib/liff/wallet-relay.ts).
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const validAfter = 0n;
+        const validBefore = BigInt(nowSeconds + TRANSFER_AUTHORIZATION_WINDOW_SECONDS);
+        const nonce = randomNonce();
+        const signature = await signTypedDataAsync({
+          domain: { ...JPYC_EIP712_DOMAIN, chainId: CHAIN_ID, verifyingContract: JPYC },
+          types: TRANSFER_WITH_AUTHORIZATION_TYPES,
+          primaryType: 'TransferWithAuthorization',
+          message: { from: identityAddress, to, value: amountWei, validAfter, validBefore, nonce },
+        });
+        signed = { from: identityAddress, to, value: amountWei, validAfter, validBefore, nonce, signature };
+      } else {
+        const account = getOrCreateWalletAccount();
+        signed = await signTransferAuthorization(account, to, amountWei);
+      }
 
       const res = await fetch('/api/liff/wallet/relay-transfer', {
         method: 'POST',
@@ -306,6 +351,56 @@ export function WalletPanel({
       setSendError('送信できませんでした。もう一度お試しください。 / Could not send. Please try again.');
     } finally {
       setSendBusy(false);
+    }
+  }
+
+  /** Wallet-session-only alternative to the gasless relay above: calls JPYC's plain `transfer` straight from
+   *  the connected wallet, which pays its own Sepolia gas. Duplicates handleSend's input validation rather
+   *  than sharing it -- small enough, and keeps the two send paths independently readable. */
+  async function handleDirectSend() {
+    if (!identityAddress) return;
+    setDirectSendError(null);
+    setDirectSendTxHash(null);
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(sendTo.trim())) {
+      setDirectSendError('宛先アドレスが正しくありません / Invalid recipient address.');
+      return;
+    }
+    if (sendTo.trim().toLowerCase() === identityAddress.toLowerCase()) {
+      setDirectSendError('自分のウォレットには送金できません / You cannot send JPYC to your own wallet.');
+      return;
+    }
+    let amountWei: bigint;
+    try {
+      amountWei = parseUnits(sendAmount.trim(), JPYC_DECIMALS);
+      if (amountWei <= 0n) throw new Error('non-positive');
+    } catch {
+      setDirectSendError('金額が正しくありません / Invalid amount.');
+      return;
+    }
+    if (jpycBalance !== null && amountWei > jpycBalance) {
+      setDirectSendError('残高が不足しています / Amount exceeds your JPYC balance.');
+      return;
+    }
+
+    setDirectSendBusy(true);
+    try {
+      const txHash = await writeContractAsync({
+        address: JPYC,
+        abi: JpycAbi,
+        functionName: 'transfer',
+        args: [sendTo.trim() as Address, amountWei],
+      });
+      setDirectSendTxHash(txHash);
+      setSendTo('');
+      setSendAmount('');
+      refreshBalances();
+      refreshActivity();
+    } catch (err) {
+      console.warn('[wallet] direct transfer failed', err);
+      setDirectSendError('送信できませんでした（ガス代不足の可能性があります）。 / Could not send (you may be out of Sepolia ETH for gas).');
+    } finally {
+      setDirectSendBusy(false);
     }
   }
 
@@ -364,7 +459,7 @@ export function WalletPanel({
         </div>
       )}
 
-      {!canSign && (
+      {sessionKind === 'line' && !canSign && (
         <div style={{ ...styles.banner, ...styles.bannerWarn }}>
           このデバイスは、このLINEアカウントに紐づくウォレットの鍵を持っていません。閲覧のみ可能です。送金や復元キーの表示にはできません。「復元キーをインポート」から正しい鍵を復元してください。
           <br />
@@ -444,6 +539,32 @@ export function WalletPanel({
         </div>
       )}
 
+      {/* --- Send JPYC directly (wallet session only): pays its own Sepolia gas, no relay involved ------ */}
+      {sessionKind === 'wallet' && (
+        <>
+          <p style={{ ...styles.smallMuted, marginTop: 12 }}>
+            またはウォレットから直接送る（ガス代が必要）/ Or send directly from your wallet (pays its own gas)
+          </p>
+          <button
+            type="button"
+            style={{ ...styles.buttonSecondary, ...(directSendBusy ? styles.buttonDisabled : {}) }}
+            onClick={handleDirectSend}
+            disabled={directSendBusy}
+          >
+            {directSendBusy ? '送信中… / Sending…' : '直接送る / Send directly'}
+          </button>
+          {directSendError && <p style={styles.error}>{directSendError}</p>}
+          {directSendTxHash && (
+            <div style={{ ...styles.banner, ...styles.bannerSuccess }}>
+              送金しました / Sent —{' '}
+              <a href={`${ETHERSCAN}/tx/${directSendTxHash}`} target="_blank" rel="noreferrer">
+                Etherscan
+              </a>
+            </div>
+          )}
+        </>
+      )}
+
       {/* --- Recent activity ----------------------------------------------------------------------- */}
       <p style={{ ...styles.cardTitleJa, marginTop: 20 }}>最近のアクティビティ</p>
       <p style={styles.cardTitleEn}>Recent activity</p>
@@ -477,7 +598,9 @@ export function WalletPanel({
         </div>
       )}
 
-      {/* --- Backup / import ----------------------------------------------------------------------- */}
+      {/* --- Backup / import: LINE-only (there's no local private key for a wallet session) ---------- */}
+      {sessionKind === 'line' && (
+        <>
       <p style={{ ...styles.cardTitleJa, marginTop: 20 }}>バックアップ</p>
       <p style={styles.cardTitleEn}>Backup</p>
       <p style={styles.smallMuted}>
@@ -558,6 +681,8 @@ export function WalletPanel({
         </>
       )}
       {!hasWallet() && <p style={styles.smallMuted}>このデバイスにはまだウォレットがありません。 / No wallet on this device yet.</p>}
+        </>
+      )}
     </div>
   );
 }
