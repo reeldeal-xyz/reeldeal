@@ -19,7 +19,7 @@ export const speciesColor = (species: readonly string[]) => {
 };
 
 export type PlotFacts = {
-  plotCode: string; source: string; operation: string; species: string[]; areaM2: number; seaArea: string | null;
+  plotCode: string; source: string; operation: string | null; species: string[]; areaM2: number; seaArea: string | null;
 };
 export type PlotLabels = {
   sources: Record<string, string>; operations: Record<string, string>; species: Record<string, string>;
@@ -35,6 +35,6 @@ export function plotFacts(plot: PlotFacts, labels: PlotLabels): string[] {
   const hectares = (plot.areaM2 / 10_000).toLocaleString(labels.locale, { maximumFractionDigits: plot.areaM2 < 100_000 ? 2 : 1 });
   return [
     ...(plot.species.length ? [plot.species.map((item) => labels.species[item] ?? item).join(', ')] : []),
-    [labels.operations[plot.operation] ?? plot.operation, `${hectares} ${labels.hectares}`].join(' · '),
+    [plot.operation ? labels.operations[plot.operation] ?? plot.operation : '', `${hectares} ${labels.hectares}`].filter(Boolean).join(' · '),
   ];
 }

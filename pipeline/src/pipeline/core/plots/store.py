@@ -30,19 +30,23 @@ class PlotRecord:
     geometry: BaseGeometry
     geojson: dict
     species: tuple[str, ...]
-    operation: str
+    operation: str | None
     sea_area: str | None
     prefecture: str | None
     source: str
+    centroid_value: tuple[float, float] | None = None
+    area_m2_value: float | None = None
 
     @property
     def centroid(self) -> tuple[float, float]:
+        if self.centroid_value is not None:
+            return self.centroid_value
         c = self.geometry.centroid
         return (round(c.x, 6), round(c.y, 6))
 
     @property
     def area_m2(self) -> float:
-        return area_m2(self.geometry)
+        return self.area_m2_value if self.area_m2_value is not None else area_m2(self.geometry)
 
 
 def area_m2(geom: BaseGeometry) -> float:

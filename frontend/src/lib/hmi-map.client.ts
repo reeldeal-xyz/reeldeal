@@ -6,7 +6,7 @@ import { speciesColor, plotAreaName, plotFacts, type PlotLabels } from './plot-l
 
 type Plot = {
   plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
-  operation: string; areaM2: number; seaArea: string | null;
+  operation: string | null; areaM2: number; seaArea: string | null;
 };
 type HabSource = {
   url: string; bounds: L.LatLngBoundsLiteral; note: string; period: string;
@@ -45,6 +45,16 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   const status = scene.querySelector<HTMLElement>('[data-view-status]')!;
   const seasonInput = dock.elements.namedItem('season') as HTMLInputElement;
   const plotInput = scene.querySelector<HTMLSelectElement>('select[name="plot"]')!;
+  const coastToggle = scene.querySelector<HTMLButtonElement>('[data-coast-toggle]');
+  const closeCoast = () => coastToggle?.setAttribute('aria-expanded', 'false');
+  window.matchMedia('(max-width: 699px)').addEventListener('change', closeCoast);
+  coastToggle?.addEventListener('click', () => coastToggle.setAttribute('aria-expanded', String(coastToggle.getAttribute('aria-expanded') !== 'true')));
+  scene.addEventListener('pointerdown', (event) => {
+    if (!(event.target as Element).closest('.coast-label')) closeCoast();
+  });
+  plotInput.addEventListener('change', () => {
+    if (coastToggle?.getAttribute('aria-expanded') === 'true') { closeCoast(); coastToggle.focus({ preventScroll: true }); }
+  });
   const metricInput = scene.querySelector<HTMLSelectElement>('select[name="metric"]');
   const habMonthInput = scene.querySelector<HTMLSelectElement>('select[name="habMonth"]');
   const selectedSpecies = () => (dock.querySelector<HTMLInputElement>('input[name="species"]:checked')?.value ?? '');
@@ -263,6 +273,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   selectedMarker();
 
   function openShelf(name: string | null) {
+    if (name) closeCoast();
     const previous = scene!.querySelector<HTMLElement>('.map-shelf[data-open]')?.id.replace('-shelf', '');
     scene!.querySelectorAll<HTMLElement>('.map-shelf').forEach((shelf) => {
       const open = shelf.id === `${name}-shelf`;
@@ -281,7 +292,11 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     openShelf(button.getAttribute('aria-expanded') === 'true' ? null : button.dataset.shelf ?? null);
   }));
   scene.querySelectorAll<HTMLButtonElement>('[data-close-shelf]').forEach((button) => button.addEventListener('click', () => openShelf(null)));
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') openShelf(null); });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (coastToggle?.getAttribute('aria-expanded') === 'true') { closeCoast(); coastToggle.focus({ preventScroll: true }); }
+    openShelf(null);
+  });
 
   // HAB legend chip over the map: ramp, range and the "not toxin status" caveat stay visible while the layer is on.
   const habChip = scene.querySelector<HTMLElement>('[data-hab-chip]');

@@ -54,6 +54,37 @@ export const MobileLayers = {
   },
 };
 export const Mobile320 = { globals: { viewport: { value: 'mobile320', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };
+const mobileControls = async ({ canvasElement, args, globals }) => {
+  const width = { iphone17: 402, mobile320: 320, mobile390: 390 }[globals.viewport.value];
+  await waitFor(() => expect(canvasElement.ownerDocument.defaultView.innerWidth).toBe(width));
+  await initMap(canvasElement);
+  const canvas = within(canvasElement);
+  const toggle = canvas.getByRole('button', { name: args.lang === 'ja' ? '日本沿岸' : 'Japan coast', exact: true });
+  const controls = canvasElement.querySelector('#coast-controls');
+  await expect(controls).not.toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(canvasElement.querySelector('.coast-label').getBoundingClientRect().height).toBeLessThanOrEqual(48);
+  await userEvent.click(toggle);
+  await expect(controls).toBeVisible();
+  await expect(within(controls).getByRole('combobox')).toBeVisible();
+  await expect(within(controls).getByRole('link', { name: '日本語' })).toBeVisible();
+  const rect = controls.getBoundingClientRect();
+  expect(rect.right).toBeLessThanOrEqual(canvasElement.querySelector('.map-tools').getBoundingClientRect().left);
+  expect(rect.bottom).toBeLessThan(canvasElement.querySelector('.coast-dock').getBoundingClientRect().top);
+  await userEvent.keyboard('{Escape}');
+  await expect(controls).not.toBeVisible();
+  await expect(toggle).toHaveFocus();
+  await userEvent.click(toggle);
+  await userEvent.click(canvasElement.querySelector('#hmi-map'));
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await userEvent.click(toggle);
+  await userEvent.click(canvas.getByRole('button', { name: args.lang === 'ja' ? 'レイヤー' : 'Layers', exact: true }));
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await userEvent.keyboard('{Escape}');
+};
+export const IPhoneMapControls = { globals: { viewport: { value: 'iphone17', isRotated: false } }, play: mobileControls };
+export const NarrowMapControls = { globals: { viewport: { value: 'mobile320', isRotated: false } }, play: mobileControls };
+export const JapaneseMapControls = { globals: { viewport: { value: 'mobile390', isRotated: false } }, args: { lang: 'ja' }, play: mobileControls };
 export const Mobile320Layers = {
   globals: { viewport: { value: 'mobile320', isRotated: false } },
   play: async ({ canvasElement }) => {

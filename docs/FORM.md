@@ -8,7 +8,7 @@ Exact text for the ETHGlobal Tokyo project form. The long versions with links li
 
 **Emoji:** 🐟
 
-**Demo link:** https://web-production-746aa.up.railway.app
+**Demo link:** https://app.13-196-78-137.sslip.io/hmi
 
 **Short description (≤100 chars):**
 
@@ -36,11 +36,13 @@ Curvegrid MultiBaas indexes every ReliefPool, HumanRegistry and JPYC event, powe
 
 TypeSafe Jev (via OpenRouter) is a typed decision model used as a safety gate: before attesting, it decides attest_now vs co_op_review with calibrated probabilities; low confidence escalates to a co-op approval card. It also routes farmers' LINE messages to fixed bilingual templates. It never writes text and never moves money.
 
-Marketplace: SaleRouter atomically pays the seller and donates a share to the pool (donate(relief, "sale:<orderId>")) using server-signed EIP-712 quotes with replay and double-sale protection.
+Marketplace: the Astro storefront leads with scallop, hoya and oyster. SaleRouter atomically pays 95% to the seller and donates 5% to the pool (donate(relief, "sale:<orderId>")) using server-signed EIP-712 quotes with replay and double-sale protection.
 
-Data: a Python FastAPI risk API ingests JAXA SGLI/AMSR2 sea-surface temperature with byte-pinned inputs plus Miyagi toxin-ban bulletins; PostGIS stores plots and sea areas; an Astro + Storybook frontend hosts the operator HMI. The Next.js LINE app runs on Railway; the pipeline, database and Astro app on AWS EC2.
+Data: a Python FastAPI risk API ingests JAXA SGLI/AMSR2 sea-surface temperature with byte-pinned inputs plus Miyagi toxin-ban bulletins; PostGIS stores plots and sea areas; Astro hosts the coastal HMI, fish market and relief dashboard, with Storybook for component validation. The Next.js LINE app runs on Railway; the pipeline, database and Astro app on AWS EC2.
 
 Notable hacks: the keeper falls back to self-signing when the feed has no signed trigger; a fork-mode e2e harness (bun run e2e) replays the whole payout path against a local fork of live Sepolia in ~75 s; and Trigger v2 bumps the EIP-712 domain so v1 signatures can never verify against the new pool.
+
+**Release status:** Sepolia. Primary-species quotes and live data reads are verified; see the checks and remaining limitations in [SUBMISSION.md](SUBMISSION.md).
 
 **GitHub repository:** https://github.com/reeldeal-xyz/reeldeal (in the form, choose *Add GitHub Account* and grant ETHGlobal access to the reeldeal-xyz org)
 

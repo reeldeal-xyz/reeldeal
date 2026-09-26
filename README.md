@@ -4,49 +4,52 @@
 
 **Community-funded relief payments for aquaculture farmers.**
 
-Reel Deal is parametric relief for Japan's aquaculture farmers. Donors and marketplace sales fund a
-pool. When a public ocean-risk index crosses a species threshold, the pool pays JPYC on Sepolia. The
-risk index is built from JAXA satellite sea-surface temperature and Miyagi Prefecture shellfish-toxin
-bulletins. The money goes to whoever holds the affected plot's ENSv2 season slot. Payouts are capped
-per real person with World ID and explained to farmers over LINE.
+Buy local seafood. Put **5% of each purchase into a relief fund**. Use public ocean
+data and species-specific rules to direct JPYC relief to eligible farmers.
 
-Built at ETHGlobal Tokyo 2026 (Classic track). The submission write-up is
-**[docs/SUBMISSION.md](docs/SUBMISSION.md)**. It has a sponsor-by-sponsor integration table with code
-references and proof transactions, the demo script, the team, and an honest list of what's real today
-and what's still in progress.
+Built at ETHGlobal Tokyo 2026, Classic track. The deployed contracts use
+**Sepolia, chain 11155111**.
 
-## Deployed
+[Coastal map](https://app.13-196-78-137.sslip.io/hmi) ·
+[Fish market](https://app.13-196-78-137.sslip.io/market) ·
+[Relief dashboard](https://app.13-196-78-137.sslip.io/relief) ·
+[LINE farmer app](https://liff.line.me/2011749457-SgvM5ahH) ·
+[Submission](docs/SUBMISSION.md) · [Form text](docs/FORM.md)
 
-| What | URL | Hosting |
-|---|---|---|
-| Map, marketplace, relief dashboard (Astro `frontend/`) | <https://app.13-196-78-137.sslip.io> (`/hmi`, `/market`, `/relief`) | AWS EC2 (Tokyo), Caddy |
-| Co-op, holder, donor and farmer web app (Next.js `web/`) | <https://web-production-746aa.up.railway.app> (`/coop`, `/holder`, `/donate`, `/app`, `/verify/[eventId]`) | Railway |
-| Farmer app in LINE (LIFF) | <https://liff.line.me/2011749457-SgvM5ahH> (opens `web/` `/liff`) | Railway, inside LINE |
-| Pipeline risk API (FastAPI) | <https://13-196-78-137.sslip.io> (`/health`, `/plots`, `/heat/*`, `/hab/*`) | AWS EC2, with PostGIS |
+## The problem
 
-### Contracts (Sepolia, chain id 11155111)
+Heat stress and shipping restrictions disrupt aquaculture livelihoods. Farmers,
+co-ops and supporters need a shared view of ocean conditions, clear relief rules
+and a record of where contributions go. A restriction bulletin is evidence of
+constrained sales; it does not measure an individual farm's loss.
 
-Source of truth: [`packages/shared/src/addresses.ts`](packages/shared/src/addresses.ts).
+## What Reel Deal does
 
-| Contract | Address | Role |
-|---|---|---|
-| ReliefPool (v2) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | Holds donations, verifies 2-of-3 signed Triggers, pays or holds per plot |
-| HumanRegistry | [`0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8) | Wallet ↔ World ID nullifier binding and level |
-| SaleRouter | [`0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) | Atomic marketplace checkout: pays the seller and donates the relief share |
-| EnsPlotResolver | [`0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) | Reads a plot's `zone` / `species` text records from ENSv2 |
-| EnsSlotResolver | [`0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) | Reads who holds a plot's season slot, and until when |
-| JPYC | [`0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29) | Payment token (18 decimals) |
+| Screen | Purpose |
+| --- | --- |
+| Coastal map | Explore Japan's coast from Miyagi: plot polygons, satellite imagery, sea temperature/anomaly, chlorophyll, species thresholds and advisory forecast playback. Select a plot or draw an area. |
+| Fish market | Scallop, sea pineapple (hoya) and oyster lead the catalogue. Review the price and **95% seller / 5% relief** split before wallet checkout. |
+| Relief | Inspect fund balances, contributions, plot outcomes, payment evidence and held-payment claims. |
+| LINE | Farmer identity, season slots, wallet and payment notifications through LIFF. |
 
-The first attest, settle and LINE push ran on an earlier ReliefPool v2 at
-[`0x560E…96D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32),
-which the pool above has since replaced. ENSv2 on Sepolia is redeployed about monthly. Its registry
-addresses are also in `addresses.ts`.
-
----
+The map and market support English/Japanese. Mobile map controls collapse; market
+purchase reviews use a dialog. Generated seafood illustrations are documented in
+[asset provenance](frontend/public/images/fish/README.md).
 
 ## How it works
 
-Every flow below is drawn from the code on `main`. Each diagram is followed by the files that
+1. A donation or SaleRouter checkout funds ReliefPool in JPYC.
+2. A farmer holds an ENSv2 plot season slot and verifies identity with World ID.
+3. The pipeline supplies ocean observations and reviewed restriction indices.
+   Shared species rules determine whether a relief trigger fires.
+4. The keeper applies the confidence/review gate and submits a signed trigger.
+   ReliefPool requires two signer signatures.
+5. Settlement resolves the season-slot owner and either pays or records a held
+   share with a reason. MultiBaas events drive the LINE notification path.
+
+Forecast playback is advisory. Moving the slider does not trigger a payment.
+
+The diagrams below are drawn from the code on `main`. Each one is followed by the files that
 implement it.
 
 ### 1. System overview
@@ -523,185 +526,117 @@ sequenceDiagram
 - **Why it matters.** `dataHash` on chain is the sha256 of the pinned input, and `rules.ts` is public.
   Nobody has to trust the keeper to check that a payout was owed.
 
----
+## Architecture
 
-## Why parametric relief
+Astro is the main UI on AWS EC2. The legacy `web/` service on Railway still owns
+quote signing, the keeper, LINE and remaining co-op/holder/verification pages.
+Astro redirects those pages explicitly. Storybook is a separate component catalogue.
 
-Reel Deal is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and
-storm damage. Conditions are getting less predictable, and fishers and aquaculture operators struggle
-to respond and adapt. The fund is paid for by the sale of local goods and by donations. It's informed
-by real-time satellite data and existing oceanographic sensor networks, and it releases money
-transparently and on time to affected farms. The scope is Japan's Exclusive Economic Zone.
+| Directory | Responsibility |
+| --- | --- |
+| [`frontend/`](frontend/README.md) | Astro screens, wallet islands and Storybook |
+| [`pipeline/`](pipeline/README.md) | FastAPI plot inventory, heat and HAB data |
+| [`db/`](db/README.md) | PostGIS schema, migrations and deployment |
+| `web/` | Quote signer, keeper, LINE and legacy routes |
+| `contracts/` | Solidity ReliefPool, SaleRouter, HumanRegistry and ENS adapters |
+| `packages/shared/` | Rules, schemas, catalogue, ABIs and addresses |
 
-Insurance collects manageable payments ahead of time, so it can pay beneficiaries when an event damages
-their business. There are two broad kinds:
+[Pipeline interface](docs/INTERFACE.md) · [ADRs](docs/adrs) ·
+[HMI handoff](docs/HMI-HANDOFF.md) · [Deployment](frontend/DEPLOY.md)
 
-1. **Damages-based insurance.** After an event (say, a car accident), the insurer assesses the damage
-   and pays according to its value. Payment waits for the assessment.
-2. **Parametric insurance.** Payment is triggered by a measured threshold, not by assessed damage. In
-   a wildfire, for example, it might pay when a property reaches 200 °C. Nobody has to assess damage,
-   so the money arrives sooner and can be used to respond to the event.
+## Deployed
 
-Reel Deal uses the parametric model. The thresholds depend on the species and the farming gear,
-because finfish, shellfish and seaweed tolerate heat, storm energy and algal-bloom toxins differently.
-It is a relief fund, a social good, rather than insurance, which avoids insurance's legal burden.
+| What | URL | Hosting |
+|---|---|---|
+| Map, marketplace, relief dashboard (Astro `frontend/`) | <https://app.13-196-78-137.sslip.io> (`/hmi`, `/market`, `/relief`) | AWS EC2 (Tokyo), Caddy |
+| Co-op, holder, donor and farmer web app (Next.js `web/`) | <https://web-production-746aa.up.railway.app> (`/coop`, `/holder`, `/donate`, `/app`, `/verify/[eventId]`) | Railway |
+| Farmer app in LINE (LIFF) | <https://liff.line.me/2011749457-SgvM5ahH> (opens `web/` `/liff`) | Railway, inside LINE |
+| Pipeline risk API (FastAPI) | <https://13-196-78-137.sslip.io> (`/health`, `/plots`, `/heat/*`, `/hab/*`) | AWS EC2, with PostGIS |
 
-The fund has three sources:
+### Contracts (Sepolia, chain id 11155111)
 
-1. Direct donations.
-2. Fees from fishers and aquaculture farmers (planned).
-3. Sales of local products through the Reel Deal marketplace. 5% of each sale goes to the pool.
+Source of truth: [`packages/shared/src/addresses.ts`](packages/shared/src/addresses.ts).
 
-Threshold data comes from satellite products (JAXA today, with NASA and ESA as candidates), in-water
-sensor networks and prefecture bulletins. Sensors and prefecture reports are the ground truth for
-calibrating satellite-derived values. Together they support forecasting and hindcasting where, and how
-likely, thresholds are crossed.
+| Contract | Address | Role |
+|---|---|---|
+| ReliefPool (v2) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | Holds donations, verifies 2-of-3 signed Triggers, pays or holds per plot |
+| HumanRegistry | [`0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8) | Wallet ↔ World ID nullifier binding and level |
+| SaleRouter | [`0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) | Atomic marketplace checkout: pays the seller and donates the relief share |
+| EnsPlotResolver | [`0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) | Reads a plot's `zone` / `species` text records from ENSv2 |
+| EnsSlotResolver | [`0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) | Reads who holds a plot's season slot, and until when |
+| JPYC | [`0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29) | Payment token (18 decimals) |
 
-## Data model
+ENSv2 on Sepolia is redeployed about monthly; its registry addresses are also in `addresses.ts`.
 
-The conceptual model the app and pipeline schemas grew from. On chain there are only wallets, plot
-codes, zone and species ids, and nullifiers. Farmers' personal details stay off chain.
+## Integration evidence
 
-```mermaid
-erDiagram
-    AquacultureFarmer ||--o{ Farm : owns
-    AquacultureFarmer }o--|| Fund : "member of"
-    Farm }o--|| Species : farms
-    Farm }o--|| Equipment : uses
-    Species ||--o{ Threshold : "tolerates up to"
-    RiskModel ||--o{ Threshold : "evaluated by"
-    RiskModel }o--|| RiskType : predicts
-    RiskModel }o--o{ RiskDataLayer : "reads inputs"
-    RiskDataProvider ||--o{ RiskDataLayer : publishes
-    Threshold ||--o{ Event : "crossed in"
-    Farm ||--o{ Event : "affected by"
-    Fund ||--o{ Event : "pays out for"
-    Fund ||--o{ Transaction : ledger
-    Buyer ||--o{ Transaction : "purchase fee"
-    Donor ||--o{ Transaction : donates
-    AquacultureFarmer |o--o{ Transaction : "pays fee"
-    Event |o--o{ Transaction : payout
+| Integration | Role | Implementation / evidence |
+| --- | --- | --- |
+| ENSv2 | Resolve the current holder of a plot's expiring season slot | [ENS adapters](contracts/src/adapters), [deployment and recorded runs](docs/SUBMISSION.md#deployed-addresses-sepolia-chain-11155111) |
+| World ID | Bind a verified person to a wallet and cap relief units per person | [HumanRegistry](contracts/src/HumanRegistry.sol), [verification record](docs/WORLD_DEBRIEF.md) |
+| Curvegrid MultiBaas | Index relief events and deliver authenticated webhooks | [Integration](docs/MULTIBAAS.md) |
+| JPYC | Sale, donation and relief currency, with 18-decimal accounting | [SaleRouter](contracts/src/SaleRouter.sol), [ReliefPool](contracts/src/ReliefPool.sol) |
+| LINE | LIFF farmer interface and payment notifications | [LINE integration](web/src/lib/line.ts) |
+| TypeSafe Jev | Typed confidence gate and fixed bilingual reply selection | [Integration and recorded calls](docs/JEV.md) |
 
-    AquacultureFarmer {
-        uuid id PK
-        uuid fund_id FK
-        string wallet "no PII on chain"
-    }
-    Farm {
-        uuid id PK
-        geometry location "GeoJSON polygon, EPSG:4326"
-        string species FK
-        string equipment FK
-        uuid farmer_id FK
-    }
-    Species {
-        string name PK
-    }
-    Equipment {
-        string type PK
-        string description
-    }
-    Threshold {
-        uuid id PK
-        string species FK
-        uuid risk_model_id FK
-        string op "above | below | between"
-        numeric low
-        numeric high
-    }
-    Event {
-        uuid id PK
-        uuid threshold_id FK
-        uuid farm_id FK
-        uuid fund_id FK
-        timestamptz datetime
-    }
-    Fund {
-        uuid id PK
-        numeric total_value "JPYC, 18 decimals"
-    }
-    Transaction {
-        uuid id PK
-        uuid fund_id FK
-        uuid buyer_id FK "nullable"
-        uuid donor_id FK "nullable"
-        uuid farmer_id FK "nullable, fee"
-        uuid event_id FK "nullable, payout"
-        numeric amount
-        string tx_hash
-    }
-    Buyer {
-        uuid id PK
-    }
-    Donor {
-        uuid id PK
-    }
-    RiskDataProvider {
-        string name PK "NASA, ESA, JAXA"
-    }
-    RiskDataLayer {
-        uuid id PK
-        string provider FK
-        string name "e.g. NASA SST"
-        int frequency_days "1 daily, 30 monthly"
-    }
-    RiskModel {
-        uuid id PK
-        string name "e.g. HAB Model v1"
-        string version
-        string risk_type FK
-    }
-    RiskType {
-        string name PK "HAB, Heat Stress, Storm Damage"
-        string units
-    }
-```
+Contract addresses are in the [Deployed](#deployed) table.
+The [recorded end-to-end run](docs/SUBMISSION.md#recorded-end-to-end-run-2026-09-26)
+links donations, attestations and settlements. No new transaction is implied by a UI screenshot.
 
-- Each Species has one `Threshold` row per risk model. Each RiskModel predicts one RiskType.
-- A Transaction has exactly one counterparty: a buyer (a marketplace sale), a donor, a farmer (a fee),
-  or an event (a payout).
-- The on-chain ReliefPool balance is the source of truth for money. `Fund.total_value` is derived
-  from transactions and reconciled against it.
-- Postgres schema ownership is recorded in [ADR 0004](docs/adrs/0004-postgres-schema-ownership.md).
-  The pipeline owns `geo` and `risk`. `web/` owns `app`, which holds wallet links, plot wallets and
-  the notification log.
+## Run locally
 
-## Repository structure
-
-- `contracts/`: Foundry. `ReliefPool`, `HumanRegistry`, `SaleRouter`, the ENSv2 adapters
-  (`EnsPlotResolver`, `EnsSlotResolver`), tests and deploy scripts.
-- `packages/shared/`: the interface contract. Trigger and Quote types, EIP-712 domains, rules, ids,
-  ABIs, addresses, the marketplace catalogue and the quote builder.
-- `web/`: Next.js. The LIFF farmer app, `/app`, `/coop`, `/holder`, `/donate`, `/market`, `/map` and
-  `/verify/[eventId]`, plus every keyed API route: keeper, World ID, market quote, LINE and MultiBaas
-  webhooks.
-- `frontend/`: Astro with Solid and React islands. `/hmi`, `/market`, `/relief`, the risk and tile
-  proxies, and Storybook.
-- `pipeline/`: Python (uv, FastAPI). JAXA ingestion, sha256 pinning, heat and HAB indices and layers.
-  Storm routes are still stubs (501). Spec: `pipeline/README.md`.
-- `db/`: the Postgres + PostGIS service, with migrations for `geo` and `risk`.
-- `docs/`: [INTERFACE.md](docs/INTERFACE.md) (pipeline ↔ app contract),
-  [ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADRs](docs/adrs/README.md), and the integration notes
-  [JEV.md](docs/JEV.md), [MULTIBAAS.md](docs/MULTIBAAS.md), [SALE-ROUTER.md](docs/SALE-ROUTER.md) and
-  [WORLD_DEBRIEF.md](docs/WORLD_DEBRIEF.md). Justin's [HMI handoff](docs/HMI-HANDOFF.md) covers the
-  map work.
-- `specs/`: Dotdog specs. `bun run dog:map && bun run dog:check` checks that every file is covered and
-  that reviewed areas haven't drifted (see [docs/REPO-MAP.md](docs/REPO-MAP.md)).
-
-## Setup
+Use Bun 1.3.14, Node 24 and uv. Foundry is required for contract tests; Docker is
+required for the disposable PostGIS integration tests.
 
 ```sh
 git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
 cd reeldeal
+bun install --frozen-lockfile
 cp .env.example .env
-bun install
+cp frontend/.env.example frontend/.env
 (cd pipeline && uv sync)
-bun run contracts:build && bun run contracts:test
-bun run typecheck
-bun run pipeline       # pipeline API on :8787 (uv run pipeline-serve)
-bun run pipeline:test
-bun run dev            # web/ on :3000
-bun run frontend:dev   # frontend/ (Astro)
 ```
 
-Built at ETHGlobal Tokyo 2026 (Classic track), from 21:00 JST Friday 25 Sep.
+Configure the backend origins and RPC in `frontend/.env`; see the
+[frontend guide](frontend/README.md). Start each service in its own terminal:
+
+```sh
+bun run frontend:dev  # Astro: http://localhost:4321/hmi
+bun run pipeline      # FastAPI: http://localhost:8787
+bun run dev           # Legacy service: http://localhost:3000
+bun run storybook     # Components: http://localhost:6008
+```
+
+A connected plot inventory needs a migrated PostGIS database and pipeline data.
+Follow [database setup](db/README.md) and [pipeline setup](pipeline/README.md).
+Never commit environment files or signing keys.
+
+## Verify
+
+```sh
+bun run frontend:check
+bun test frontend/scripts packages/shared/test
+bun run frontend:build
+bun run --cwd frontend smoke:built
+bun run storybook:build
+bun run pipeline:test
+bun run contracts:test
+bun run dog:map
+bun run dog:check
+```
+
+CI also exercises the API against migrated PostGIS and smoke-tests the deployed
+container routes. The [submission write-up](docs/SUBMISSION.md#tests) describes the
+fork-based payout test and its recorded result.
+
+## Release status
+
+The deployed app reads the plot inventory, heat/HAB data, weather forecast and
+Sepolia relief events. Remaining release gaps are recorded in
+[submission status](docs/SUBMISSION.md#current-release): the legacy quote service
+must stay on the same shared catalogue revision; storm risk and heat/HAB onset
+forecasts are not implemented; imported polygons do not verify farmer ownership.
+This is a Sepolia submission, not a mainnet launch.
+
+[Team](docs/SUBMISSION.md#team) · [Research](docs/research/aquaculture-evidence.md) ·
+[Original design notes](docs/original-design-notes.md)

@@ -20,7 +20,7 @@ export const pipelinePlotRecord = z.object({
   plotCode: recordPlotCode,
   geometry: pipelineGeometry,
   species: z.array(z.string()),
-  operation: z.string(),
+  operation: z.string().nullable(),
   seaArea: z.string().nullable(),
   prefecture: z.string().nullable(),
   areaM2: z.number().finite().nonnegative(),

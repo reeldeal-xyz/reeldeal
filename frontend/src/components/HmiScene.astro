@@ -106,8 +106,8 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温�
   : risk?.status === 'invalid-payload' ? (ja ? '水温データを検証できませんでした。' : 'Heat response failed validation.')
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
 const operationNames: Record<string, string> = ja
-  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', other: 'その他・複合' }
-  : { longline: 'longline', raft: 'raft', cage: 'cage', other: 'other / mixed' };
+  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', bottom: '底置き', other: 'その他・複合' }
+  : { longline: 'longline', raft: 'raft', cage: 'cage', bottom: 'bottom', other: 'other / mixed' };
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots });
@@ -163,8 +163,9 @@ const languageHref = (locale: 'en' | 'ja') => {
     </div>
     <div class="coast-stack">
       <div class="coast-label">
-        <h1>{copy.coast}</h1>
-        <span><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? copy.online : pipelineStatus}</span>
+        <h1><span class="coast-title">{copy.coast}</span><button type="button" class="coast-toggle" data-coast-toggle aria-expanded="false" aria-controls="coast-controls">{copy.coast}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button></h1>
+        <div id="coast-controls" class="coast-controls">
+        <span class="coast-status"><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? copy.online : pipelineStatus}</span>
         <label class="plot-picker"><span class="sr-only">{copy.plot}</span>
           <select name="plot" form="hmi-view" disabled={!speciesPlots.length}>
             {speciesPlots.length
@@ -176,6 +177,7 @@ const languageHref = (locale: 'en' | 'ja') => {
           <a href={languageHref('en')} data-lang-link="en" aria-current={lang === 'en' ? 'page' : undefined}>EN</a>
           <a href={languageHref('ja')} data-lang-link="ja" lang="ja" aria-current={lang === 'ja' ? 'page' : undefined}>日本語</a>
         </nav>
+        </div>
       </div>
       <p class="pipeline-status" role="status" hidden={!statusText}>{statusText}</p>
       <div class="map-message" data-map-message role="status" hidden>
