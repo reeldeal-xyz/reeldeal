@@ -307,3 +307,12 @@ Roles as recorded in the issues/PRs, not job titles:
 Before a real-money launch: independently review contracts and custody/signing operations, validate farmer enrolments and data
 freshness, and provide production identity/provider configuration. Those checks are
 not satisfied by a successful testnet demo.
+
+
+## Final demo run (2026-09-27, pool `0xa9F67EA1717D2D068C7Cd4599CEB50755a8A2a68`)
+
+- Hoya heat tier 1 event anchored: `0x081d4738a7661868c8c6f57772bd2b48446ab2d0440bdbc2b47b3f856985933e`
+- p1213-009 paid 20,000 JPYC to the verified farmer `0x722Ee41ddc2bFEbF91166CC3dB016cCb452462c7`: `0xd2ea35b94c130e58ad1030f7382c64ff165baf6b44a08af7fd88fb64b72968e2`
+- Plots p1213-010..012 held `UNVERIFIED` (claimable for 90 days).
+- Market: SaleRouter `0xD7aa137538874D05a375cF3BF152F3Fc57d89296` checkout donated 190 JPYC (5% of 3,800) to the pool.
+- World ID in this recording uses the World ID Simulator (staging actions); production actions remain registered.
