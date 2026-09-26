@@ -20,8 +20,8 @@ This is the spec for the database. The database is its own service, deployed and
 | Compose project | `db/docker-compose.yml`, project name `reeldeal-db` |
 | Network | External Docker network `reeldeal`. Clients connect to `db:5432`. |
 | Ports | None public. `127.0.0.1:5432` on the host for admin access over SSM port forwarding. |
-| Data | Bind mount `/srv/pgdata` on a **dedicated EBS gp3 volume** (20 GB), separate from the root volume and the pipeline's `data/` and `out/` |
-| Config | `db/postgresql.conf`, sized for a shared 4 GB host: `shared_buffers=512MB`, `work_mem=16MB`, `max_connections=50` (`D1`) |
+| Data | `/srv/pgdata/postgres` on a **dedicated encrypted EBS gp3 volume** (20 GB), separate from the root volume and the pipeline's `data/` and `out/`. The unmounted `/srv/pgdata` is `chattr +i`, so if the volume is missing the container fails instead of starting an empty database on the root disk. |
+| Config | `db/postgresql.conf`, sized for the shared t3.xlarge (16 GB): `shared_buffers=1GB`, `work_mem=16MB`, `max_connections=50`. `db/pg_hba.conf`: `postgres` is socket-only (peer); other roles use scram over the network. |
 | Health | `pg_isready` healthcheck. `restart: unless-stopped`. |
 | Secrets | `db/.env` on the server only (role passwords). Never committed. |
 
@@ -32,24 +32,22 @@ The pipeline's and app's Compose projects join the `reeldeal` network as `extern
 ```
 db/
   README.md                 # this spec
-  docker-compose.yml        # db, migrate (one-shot), backup (cron sidecar)
-  postgresql.conf
-  .env.example              # POSTGRES_PASSWORD, role passwords, PIPELINE_S3_BUCKET
-  init/                     # runs once on an empty data dir
-    00-extensions.sql
-    01-roles.sql            # roles with NOLOGIN; passwords set from .env by 02
-    02-role-passwords.sh
-  migrations/               # dbmate, plain SQL, forward-only
-    2026xxxx_schemas.sql
-    2026xxxx_geo.sql
-    2026xxxx_risk.sql
-  seeds/                    # idempotent reference seeds (providers, risk types)
+  docker-compose.yml        # db, migrate (dbmate, one-shot), backup (nightly dump sidecar)
+  postgresql.conf  pg_hba.conf
+  .env.example              # role passwords; DB_DATA and DB_BACKUP_S3_URI on the server
+  bootstrap/bootstrap.sh    # extensions, roles, passwords, schemas, grants; idempotent
+  init/10-bootstrap.sh      # first boot runs bootstrap (replaces the image's tiger/topology init)
+  migrations/               # dbmate, plain SQL, forward-only; reference data is a migration too
+    20260926100000_geo.sql
+    20260926100100_risk.sql
+    20260926100200_risk_reference_data.sql
+  backup/                   # Dockerfile, backup.sh (pg_dump -> S3), schedule.sh
   scripts/
-    backup.sh  restore.sh  psql.sh
-  tests/                    # SQL tests (pgTAP) for grants and constraints
+    up.sh  test.sh  psql.sh  reset.sh  restore.sh  gen-env.sh
+  tests/                    # plain SQL assertions (roll back): grant matrix, constraints
 ```
 
-Migrations use **dbmate**: plain SQL that works from any language and ships as a single binary with a Docker image. This replaces the Alembic plan for `risk` in PR #30 and ADR 0004, because the database no longer lives in the pipeline's Python project. The `app` schema keeps Drizzle in `packages/app-core` (#62) and runs after dbmate (§6).
+Migrations use **dbmate** (table `dbmate.schema_migrations`): plain SQL that works from any language and ships as a single binary with a Docker image. This replaces the Alembic plan for `risk` in PR #30 and ADR 0004, because the database no longer lives in the pipeline's Python project. The `app` schema keeps Drizzle in `packages/app-core` (#62) and runs after dbmate (§6).
 
 ## 4. Schemas
 
@@ -67,12 +65,12 @@ Migrations use **dbmate**: plain SQL that works from any language and ships as a
 |---|---|
 | `prefectures` | `code` (JIS 01–47) PK, `name_ja`, `name_en`, `geom` MultiPolygon |
 | `sea_areas` | `id` text PK (e.g. `miyagi-kesennuma`), `prefecture_code`, `name_ja`, `name_en`, `kind` (`toxin_monitoring`, `red_tide`, …), `geom` MultiPolygon, `accuracy` (`official`, `approximate, traced from <source>`), `source_url`, `source_sha256`, `valid_from`, `valid_to` |
-| `plots` | `id` uuid PK, `plot_code` text UNIQUE (fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
+| `plots` | `id` uuid PK, `plot_code` text, unique among live plots (fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated, `ST_PointOnSurface`, so it's always inside the plot), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
 | `stations` | `id` text PK, `name`, `source`, `type` (`buoy`, `tide`, `shore`, `research`), `geom` Point, `prefecture_code`, `sea_area_id`, `variables` text[], `cadence`, `url`, `first_obs`, `last_obs` |
 | `coast_segments` | `id` PK, `geom` MultiLineString, `prefecture_code`. Storm surge uses these to match plots to tide stations. |
 | `coastal_mask` | `id`, `version`, `offshore_km` (`Q8`), `geom` MultiPolygon: the coastal strip that the pipeline's grid is masked to |
 
-Rows are never hard-deleted. Plots and sea areas are retired with `valid_to`/`retired_at` so that historical index values keep their geometry. A changed geometry becomes a new row. `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
+Rows are never hard-deleted (the pipeline role has no `DELETE`). Plots and sea areas are retired with `valid_to`/`retired_at`. Ids are stable: an UPDATE that changes `geom` copies the old row into `plots_history` / `sea_areas_history` (trigger) and resets `valid_from`, so the geometry behind any past index value can be recovered. `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
 
 ### 4.2 `risk`
 
@@ -104,25 +102,28 @@ Defined by #59 and implemented by #62 in Drizzle. This spec fixes only the inter
 
 ## 5. Roles
 
-All roles are created by `init/01-roles.sql`. Passwords come from `db/.env`.
+All roles, schemas and default privileges are created by `bootstrap/bootstrap.sh`. It runs on first boot and again on every deploy, so passwords follow `db/.env` and grants follow the file. Schemas are created here rather than in a migration because `app` and `drizzle` belong to `app_migrator`, whom dbmate's role can't create objects for.
 
 | Role | Login | Rights |
 |---|---|---|
-| `postgres` | Local socket only | Superuser. Bootstrap and emergencies only. |
+| `postgres` | Local socket only | Superuser. Bootstrap, restore and emergencies only. |
 | `db_migrator` | Yes | Owns `geo` and `risk`. Runs dbmate. |
 | `pipeline` | Yes | `SELECT, INSERT, UPDATE` on `geo.*` and `risk.*`. No `DELETE` (retire instead), no DDL. |
 | `app_migrator` | Yes | Owns `app`. Runs Drizzle migrations. `USAGE` + `REFERENCES` on `geo.plots` and `risk.models`. |
 | `app` | Yes | DML on `app.*`. `SELECT` on `geo.*` and `risk.*`. |
 | `readonly` | Yes | `SELECT` on `geo.*`, `risk.*` and non-PII `app` views. For dashboards, QA and Dotdog. |
+| `db_backup` | Yes | `pg_read_all_data`. Used only by the backup sidecar. |
 
-`ALTER DEFAULT PRIVILEGES` in each migration keeps grants correct for new tables. `db/tests/` asserts the matrix: `pipeline` cannot write `app`, `app` cannot write `geo`, `readonly` cannot read PII.
+`ALTER DEFAULT PRIVILEGES` in each migration keeps grants correct for new tables. `db/tests/10_grants.sql` asserts the matrix: `pipeline` cannot write `app`, `app` cannot write `geo`, `readonly` cannot read PII.
 
 ## 6. Migrations and startup order
 
-1. `db` starts and becomes healthy. `init/` runs only on an empty data directory.
-2. The `migrate` one-shot (`docker compose run --rm migrate up`, dbmate as `db_migrator`) applies `geo`/`risk` migrations and reference seeds.
+`scripts/up.sh` does steps 1–2 and then runs the tests.
+
+1. `db` starts and becomes healthy. `init/` runs only on an empty data directory; `bootstrap.sh` then re-runs on every start.
+2. The `migrate` one-shot (`docker compose run --rm migrate up`, dbmate as `db_migrator`) applies `geo`/`risk` migrations and reference data.
 3. The app's Drizzle migrations run as `app_migrator` in the app's deploy (#62/#71). They can depend on `geo`/`risk` tables but never alter them.
-4. The pipeline and app start. Each checks at startup that the schema version it needs is present (`schema_migrations`) and reports it in `/health`.
+4. The pipeline and app start. Each checks at startup that the schema version it needs is present (`dbmate.schema_migrations`) and reports it in `/health`.
 
 Migrations are forward-only and must not break the currently deployed clients (expand, then contract across two deploys).
 
@@ -140,30 +141,44 @@ The pipeline uses `psycopg` 3 with a small connection pool and `shapely` for geo
 ## 8. Local development
 
 ```sh
-bun run db:up        # docker compose -f db/docker-compose.yml up -d --wait, then migrate
-bun run db:psql      # psql as db_migrator
-bun run db:reset     # drop the local volume, re-init, migrate, seed
+bun run db:up        # scripts/up.sh: network, db + backup, bootstrap, migrate, tests (creates db/.env from the example)
+bun run db:psql      # psql as db_migrator; `bun run db:psql pipeline` for another role
+bun run db:test      # the SQL tests against the running database
+bun run db:reset     # drop the local volume and rebuild (refuses when DB_DATA is set)
+bun run db:down
 ```
 
-Local development uses a named volume and `db/.env.example` passwords. Pipeline tests run against this database (or a throwaway one in CI via a `services: postgres` container using the same image), never against the shared server.
+Local development uses a named volume and `db/.env.example` passwords (set `DB_PORT` if 5432 is taken). Pipeline tests run against this database (or a throwaway one in CI via a `services: postgres` container using the same image), never against the shared server.
 
 ## 9. Deployment (EC2)
 
 - Same instance as the pipeline (`pipeline/DEPLOY.md`), in its own directory: `/home/ubuntu/reeldeal/db`.
-- One-time setup: attach a 20 GB gp3 EBS volume, format it, mount it at `/srv/pgdata` through fstab, `docker network create reeldeal`, and write `db/.env`.
-- `.github/workflows/deploy-db.yml` triggers on pushes to `main` that touch `db/**`. It runs the pgTAP/grant tests against a CI Postgres, then, over the same OIDC + SSM path as `deploy-pipeline.yml`, runs `cd db && docker compose up -d --wait && docker compose run --rm migrate up`. It fails if `pg_isready` or the migration fails.
+- One-time setup (done 2026-09-26: volume `vol-090df665bc1dd8141`, repo variable `DB_VOLUME_ID`):
+  ```sh
+  aws ec2 create-volume --availability-zone ap-northeast-1c --size 20 --volume-type gp3 --encrypted …
+  aws ec2 attach-volume --volume-id <vol> --instance-id <instance> --device /dev/sdf
+  # on the instance
+  dev=$(readlink -f /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_<vol without dash>)
+  sudo mkfs.ext4 -L pgdata $dev && sudo mkdir -p /srv/pgdata && sudo chattr +i /srv/pgdata
+  echo "UUID=$(sudo blkid -s UUID -o value $dev) /srv/pgdata ext4 defaults,nofail,noatime 0 2" | sudo tee -a /etc/fstab
+  sudo mount /srv/pgdata && sudo mkdir /srv/pgdata/postgres
+  DB_BACKUP_S3_URI=s3://<bucket>/db db/scripts/gen-env.sh   # random passwords, never printed
+  db/scripts/up.sh
+  ```
+  The deploy role also needs `ec2:CreateSnapshot` on the volume, `ec2:CreateTags` on new snapshots, `ec2:DescribeSnapshots`, and `ec2:DeleteSnapshot` on snapshots tagged `reeldeal=db-predeploy`.
+- `.github/workflows/deploy-db.yml` triggers on pushes to `main` that touch `db/**`. On a fresh CI database it runs `up.sh` and a backup/restore round trip. Then it snapshots the data volume (keeping 14 days) and, over the same OIDC + SSM path as `deploy-pipeline.yml`, runs `db/scripts/up.sh` on the instance. That fails if the database isn't healthy, a migration fails, or a test fails. Both workflows share the `deploy-ec2` concurrency group because they share the instance's checkout.
 - `deploy-pipeline.yml` does not touch `db/`. The pipeline's Compose file adds `networks: [reeldeal]` and a `DATABASE_URL` only.
-- Memory: Postgres, the pipeline API, the xarray daily build and Astro share 4 GB. Upgrade to `t3.large` before the app moves onto the host (`D1`).
+- Memory: the instance is a t3.xlarge (16 GB), shared by Postgres, the pipeline API, the xarray daily build and Astro.
 
 ## 10. Backup and restore
 
-- The `backup` sidecar runs nightly at 02:00 JST, before the pipeline's 03:00 build: `pg_dump -Fc` as `postgres` to `s3://$PIPELINE_S3_BUCKET/db/<YYYY-MM-DD>.dump` using the instance role. An S3 lifecycle rule keeps 14 dailies.
+- The `backup` sidecar runs nightly at 02:00 JST, before the pipeline's 03:00 build: `pg_dump -Fc` as `db_backup` to `$DB_BACKUP_S3_URI/<YYYY-MM-DD>.dump` (`s3://eth-global-tokyo-pipeline/db/`) using the instance role. The S3 lifecycle rule `db-dumps-14d` expires them after 14 days; the last 3 dumps also stay in the `backups` volume. Run one now with `docker compose exec backup backup.sh`.
 - Rasters and pinned inputs are already on S3 and are not in the dump. The dump holds their catalogue rows.
-- `scripts/restore.sh <date>` restores into a scratch database and runs the grant tests plus row-count checks. It is rehearsed before the demo (#71). An EBS snapshot of `/srv/pgdata` before each migration deploy is a cheap second line of defence.
+- `scripts/restore.sh <YYYY-MM-DD|latest>` restores into a scratch database `restore_check`, runs the tests against it and prints live vs restored row counts. CI runs it on every change, and it is rehearsed on the server before the demo (#71). `deploy-db.yml` takes an EBS snapshot before each deploy as a second line of defence.
 
 ## 11. Open questions
 
-- **D1** Instance size: stay on `t3.medium` with tight Postgres settings, or move to `t3.large` now? Who pays?
+- **D1** ~~Instance size~~: resolved. The instance is already a t3.xlarge.
 - **D2** MSIL (海しる) fishery-right polygons: licence and bulk-download terms (pipeline `Q3`) decide whether national plots can be stored and served.
 - **D3** Station observation volume nationally (hourly × stations × depths): is yearly partitioning needed for the demo, or later?
 - **D4** Species and sea-area ids: does `geo.sea_areas` / the species list become the source that `packages/shared/src/ids.ts` is generated from (pipeline `Q7`)?
