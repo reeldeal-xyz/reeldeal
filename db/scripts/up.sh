@@ -17,6 +17,9 @@ fi
 
 docker network inspect reeldeal >/dev/null 2>&1 || docker network create reeldeal >/dev/null
 docker compose up -d --build --wait --quiet-pull db backup
+docker compose exec -T -u postgres db psql -X -q -Atc "SELECT pg_reload_conf()" >/dev/null
+pending=$(docker compose exec -T -u postgres db psql -X -Atc "SELECT string_agg(name, ', ') FROM pg_settings WHERE pending_restart")
+[ -z "$pending" ] || echo "up: restart needed for: $pending (docker compose restart db)" >&2
 docker compose exec -T -u postgres db bash /db/bootstrap/bootstrap.sh
 docker compose run --rm --quiet-pull migrate up
 ./scripts/test.sh

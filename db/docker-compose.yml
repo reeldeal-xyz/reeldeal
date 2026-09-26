@@ -10,7 +10,7 @@ services:
   db:
     image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
     restart: unless-stopped
-    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    command: ["postgres", "-c", "config_file=/db/postgresql.conf"]
     shm_size: 256mb
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-reeldeal}
@@ -26,12 +26,12 @@ services:
     volumes:
       # A named volume locally; /srv/pgdata (dedicated EBS volume) on the server.
       - ${DB_DATA:-pgdata}:/var/lib/postgresql/data
-      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
-      # Replaces the image's init scripts (which would also install tiger/topology).
+      # The whole db/ directory, not single files or subdirectories: git replaces files and directories
+      # on checkout, and a bind mount would keep pointing at the old ones. db/ itself is never replaced
+      # (db/.env lives there). scripts/up.sh reloads the config on every deploy.
+      - .:/db:ro
+      # Replaces the image's init scripts (which would also install tiger/topology). First boot only.
       - ./init:/docker-entrypoint-initdb.d:ro
-      - ./bootstrap:/db/bootstrap:ro
-      - ./tests:/db/tests:ro
       - backups:/backups
     ports:
       - "127.0.0.1:${DB_PORT:-5432}:5432"
