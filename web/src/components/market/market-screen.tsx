@@ -18,12 +18,12 @@ const ROUTER = DEPLOYED.SaleRouter as Address;
 const LINK = { color: 'var(--ops-accent)' } as const;
 
 const SPECIES_TINT: Record<Listing['species'], string> = {
-  scallop: '#e8834a',
-  hoya: '#e2685f',
-  oyster: '#8aa6b8',
   katsuo: '#4f7fbe',
   sanma: '#9aa9b8',
-  wakame: '#4fbe8e',
+  saba: '#4fbe8e',
+  hotate: '#e8834a',
+  mebachi: '#e2685f',
+  awabi: '#8aa6b8',
 };
 
 type Step = 'quote' | 'approve' | 'checkout' | 'done' | 'error';

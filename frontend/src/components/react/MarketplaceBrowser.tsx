@@ -13,12 +13,16 @@ interface Props {
   initialSpecies?: PreviewSpecies | 'all';
   initialAvailability?: PreviewAvailability | 'all';
   initialState?: 'ready' | 'loading' | 'unavailable';
+  /** Copy set; defaults to the sample-preview wording. The live storefront passes its own. */
+  copy?: MarketplaceCopy;
 }
+
+export type MarketplaceCopy = Record<MarketplaceLocale, Record<keyof typeof marketplaceCopy.en, string>>;
 
 /** Local preview controller. It never reads a wallet or calls a service. */
 export default function MarketplaceBrowser({
   items, children, initialLocale = 'en', initialQuery = '', initialSpecies = 'all',
-  initialAvailability = 'all', initialState = 'ready',
+  initialAvailability = 'all', initialState = 'ready', copy = marketplaceCopy,
 }: Props) {
   const [locale, setLocale] = useState(initialLocale);
   const [query, setQuery] = useState(initialQuery);
@@ -27,7 +31,7 @@ export default function MarketplaceBrowser({
   const [state, setState] = useState(initialState);
   const cards = useRef<HTMLDivElement>(null);
   const inputId = useId();
-  const t = marketplaceCopy[locale];
+  const t = copy[locale];
   const speciesOptions = [...new Map(items.map(item => [item.species, item])).values()];
   const visible = useMemo(() => filterPreviewItems(items, { query, species, availability }), [items, query, species, availability]);
 
@@ -40,20 +44,20 @@ export default function MarketplaceBrowser({
       for (const label of card.querySelectorAll<HTMLElement>('[data-preview-en][data-preview-ja]')) {
         label.textContent = (locale === 'ja' ? label.dataset.previewJa : label.dataset.previewEn) ?? '';
       }
-      const copy = marketplaceCopy[locale];
+      const c = copy[locale];
       const localizedLabels = [
-        ['.market-card__status strong', copy.previewBadge],
-        ['.market-card__image-facts small', copy.sampleLanding],
-        ['.market-card__action', copy.view],
+        ['.market-card__status strong', c.previewBadge],
+        ['.market-card__image-facts small', c.sampleLanding],
+        ['.market-card__action', c.view],
       ] as const;
       for (const [selector, text] of localizedLabels) {
         const label = card.querySelector<HTMLElement>(selector);
         if (label) label.textContent = text;
       }
       const image = card.querySelector<HTMLImageElement>('.market-card__media img');
-      if (image) image.alt = copy.imageAlt;
+      if (image) image.alt = c.imageAlt;
     }
-  }, [visible, locale]);
+  }, [visible, locale, copy]);
 
   function revealDetail(event: MouseEvent<HTMLDivElement>) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
