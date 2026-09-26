@@ -1,0 +1,12 @@
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+data/
+out/
+.env
+Caddyfile
+docker-compose.yml
+DEPLOY.md
+*.pem
