@@ -53,15 +53,18 @@ Inspect at 320, 390 and 1440 pixels. Check keyboard focus, cancellation, natural
 scrolling, the provenance disclosure and the absence of a claim button for
 non-UNVERIFIED reasons.
 
-Local checks: frontend typecheck, Astro build, four existing frontend tests and
-113 contract tests passed. Static Storybook initially generated all nineteen farmer
-stories with the inline CSS and React hydration references. It retains the
-documented Astro adapter transport-disconnect diagnostic during cleanup.
+Local checks include frontend typecheck, Astro build and the standard frontend
+tests, including five claim-preview guard tests. The initial contract check
+passed all 113 tests. Static Storybook contains the farmer stories, inline CSS
+and React hydration references; it retains the documented Astro adapter
+transport-disconnect diagnostic during cleanup.
 Whole-repository typecheck encountered TS2688 in `web/` from ambient
 `/Users/ericmanganaro/node_modules/@types/minimatch` outside this repository;
 this is home-directory type contamination, not an established source failure.
-Shared, pipeline and frontend checks pass. Browser
-visual inspection and play execution remain required for this slice.
+Shared, pipeline and frontend checks pass. Root's browser validation at 320px
+passed `CancelIdentityCheck` and `ClaimRequestStaysHeld`, and confirmed that
+`VerifiedHeldExpiredSlot` shows its explanation with no claim action. Broader
+390/1440px inspection and the remaining states still need browser acceptance.
 
 The component inlines its own prefixed CSS so it also survives static Astro
 Storybook rendering. It uses existing eggshell surfaces and tokens; no shared
