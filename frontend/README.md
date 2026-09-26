@@ -86,7 +86,8 @@ Until a replacement route exists, the catch-all redirects these page URLs to
 `LEGACY_WEB_ORIGIN`, preserving path and query. Unknown paths are 404, missing
 configuration is 503, and a same-origin destination is rejected to avoid a loop.
 API routes are not proxied. New Astro page files take precedence over the
-catch-all. `/` currently opens `/workshop`; it is an explicit fixture surface.
+catch-all. `/` opens the coastal map at `/hmi` (`/hmi?lang=ja` for Japanese);
+`/workshop` remains the explicit fixture surface.
 
 ## Server and pipeline integration
 

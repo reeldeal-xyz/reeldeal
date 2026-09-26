@@ -2,6 +2,7 @@
 
 
 import SpeciesIcon from './SpeciesIcon.astro';
+import HmiObservations from './organisms/HmiObservations.astro';
 import WalletConnect from './react/WalletConnect';
 import CheckoutForm from './solid/CheckoutForm';
 import ContributionSplit from './molecules/relief/ContributionSplit.astro';
@@ -10,13 +11,23 @@ import { jpycFromBaseUnits } from '../lib/format-amount';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
 
-import { heatCoverage, heatDays, SPECIES } from '@repo/shared';
+import { heatDays, SPECIES } from '@repo/shared';
 import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
+import type { HabLayerResult } from '../lib/hab-layers.server';
+import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
 
-interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; walletProjectId?: string; checkoutEnabled?: boolean; checkoutUnavailableMessage?: string }
-const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, walletProjectId, checkoutEnabled = false, checkoutUnavailableMessage } = Astro.props;
+interface Props {
+  hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string;
+  endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; lang?: 'en' | 'ja'; hab?: HabLayerResult | null; habMonth?: string;
+  walletProjectId?: string; checkoutEnabled?: boolean; checkoutUnavailableMessage?: string;
+}
+const {
+  hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, lang = 'en', hab = null, habMonth = '08',
+  walletProjectId, checkoutEnabled = false, checkoutUnavailableMessage,
+} = Astro.props;
+const ja = lang === 'ja';
 const reliefAmount = DEMO_LISTING.totalWei * BigInt(DEMO_LISTING.reliefBps) / 10_000n;
 const listingPrice = Number(jpycFromBaseUnits(DEMO_LISTING.totalWei) ?? '0').toLocaleString('ja-JP');
 const listingForIsland = { listingId: DEMO_LISTING.listingId, sellerAddress: DEMO_LISTING.sellerAddress, totalWei: DEMO_LISTING.totalWei.toString(), reliefBps: DEMO_LISTING.reliefBps };
@@ -27,109 +38,235 @@ const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supported
 const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
 const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
 const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
+const speciesPlots = plots.filter((item) => item.species.includes(species));
+
+const copy = ja ? {
+  mapLabel: '宮城県沿岸のインタラクティブ地図', coast: '宮城県沿岸', online: '衛星・海洋観測', panels: '地図パネル', market: '魚市場',
+  layers: 'レイヤー', thresholds: '基準値', forecast: '予報', area: '範囲', observations: '観測', close: '閉じる',
+  plot: '養殖区画', noPlot: '区画データなし', language: '言語',
+  satellite: '衛星写真', sst: '海面水温', anom: '水温偏差', chl: 'クロロフィル',
+  chlNote: 'クロロフィルは海色を示すもので、赤潮・貝毒の確認ではありません。',
+  imageryContext: '地図画像は参考表示です。区画ごとの検証済み観測値とは別のデータです。',
+  speciesThresholds: '魚種別の基準値', daysAbove: '基準水温以上の日数。補償の判定は別に行われます。',
+  noThreshold: 'この魚種の水温基準は未登録です。', rules: 'ルール', profiles: 'プロファイル', evidence: '根拠資料',
+  forecastNone: '予報データはありません。地図とグラフは観測値を示します。',
+  oceanObservations: '海洋観測', metric: '観測項目', noObservations: 'この条件の観測値はありません。',
+  areaTitle: '範囲解析', draw: '範囲を描く', cancel: '描画を終了', analyze: '範囲を解析', clear: '消去',
+  help: '地図をクリックして3点以上を指定し、解析してください。', extent: '範囲は宮城県沿岸に限られます。',
+  sampling: '衛星水温データを集計中…', noData: '有効な水温データはありません。',
+  areaFailed: '範囲を解析できませんでした。区画別の観測データは引き続き利用できます。',
+  zoom: '地図の拡大縮小', zoomIn: '拡大', zoomOut: '縮小', viewControls: '表示条件', speciesLegend: '魚種',
+  noMapPlot: '地図上の区画なし', noSpecies: '魚種データなし', seasonLabel: 'データ年', prevSeason: '前の年', nextSeason: '次の年', show: '表示',
+  tilesFailed: '地図タイルを読み込めませんでした。区画と観測データは引き続き利用できます。', retry: '再試行',
+  loading: '観測値を読み込み中…', loaded: '読み込み完了', updateFailed: '観測値を更新できませんでした。再度お試しください。',
+  panelFailed: '観測値を更新できませんでした。', outlines: '輪郭のみ', satelliteNote: '衛星写真 · Esri',
+  overlayUnavailable: '{layer}の画像は{time}には利用できません。',
+} : {
+  mapLabel: 'Interactive map of the Miyagi coast', coast: 'Miyagi coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
+  layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
+  plot: 'Farm plot', noPlot: 'No plot data', language: 'Language',
+  satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
+  chlNote: 'Chlorophyll shows ocean colour, not a confirmed bloom.',
+  imageryContext: 'Map imagery is visual context, separate from validated plot observations.',
+  speciesThresholds: 'Species thresholds', daysAbove: 'Days above the temperature threshold. Relief eligibility is determined separately.',
+  noThreshold: 'No heat threshold is registered for this species.', rules: 'Rules', profiles: 'profiles', evidence: 'Response evidence',
+  forecastNone: 'Forecast data is unavailable. The map and chart show observed conditions.',
+  oceanObservations: 'Ocean observations', metric: 'Observation', noObservations: 'No observations available for this selection.',
+  areaTitle: 'Area analysis', draw: 'Draw area', cancel: 'Finish drawing', analyze: 'Analyze area', clear: 'Clear',
+  help: 'Click the map to add 3 or more points, then analyze.', extent: 'Area limited to the mapped Miyagi coast.',
+  sampling: 'Sampling satellite temperature data…', noData: 'No valid temperature data.',
+  areaFailed: 'Area analysis unavailable.',
+  zoom: 'Map zoom', zoomIn: 'Zoom in', zoomOut: 'Zoom out', viewControls: 'Ocean view controls', speciesLegend: 'Species',
+  noMapPlot: 'No map plot yet', noSpecies: 'No species data', seasonLabel: 'Season', prevSeason: 'Previous season', nextSeason: 'Next season', show: 'Show selection',
+  tilesFailed: 'Map tiles failed to load. Plot and observation data remain available.', retry: 'Retry',
+  loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
+  panelFailed: 'Observations could not be updated.', outlines: 'Outlines only', satelliteNote: 'Satellite · Esri',
+  overlayUnavailable: '{layer} imagery is unavailable for {time}.',
+};
+const speciesNames: Record<string, string> = ja ? {
+  scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', yellowtail: 'ブリ',
+  'sea-bream': 'マダイ', salmon: 'サケ', 'bluefin-tuna': 'クロマグロ',
+} : {
+  scallop: 'Scallop', oyster: 'Oyster', hoya: 'Sea pineapple',
+  nori: 'Nori', wakame: 'Wakame', kombu: 'Kombu', yellowtail: 'Yellowtail',
+  'sea-bream': 'Sea bream', salmon: 'Salmon', 'bluefin-tuna': 'Bluefin tuna',
+};
+const metricNames = ja
+  ? { SST: '海面水温', SST_ANOM: '水温偏差', SST_MONTH: '月平均水温' }
+  : { SST: 'Sea temperature', SST_ANOM: 'Temperature anomaly', SST_MONTH: 'Monthly temperature' };
 
 const data = risk?.data ?? null;
-const series = data?.indices.filter((item) => item.index === metric) ?? [];
-const values = series.flatMap((item) => item.value === null ? [] : [item.value]);
-const min = values.length ? Math.min(...values) : 0;
-const max = values.length ? Math.max(...values) : 1;
-const chartSegments: string[] = [];
-let chartSegment: string[] = [];
-series.forEach((item, index) => {
-  if (item.value === null) {
-    if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
-    chartSegment = [];
-    return;
-  }
-  chartSegment.push(`${(index / Math.max(series.length - 1, 1) * 760 + 20).toFixed(1)},${(180 - ((item.value - min) / Math.max(max - min, 0.1)) * 140).toFixed(1)}`);
-});
-if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
-const coverage = data ? heatCoverage(data) : null;
-const provenance = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()].slice(0, 4);
 const speciesData = speciesInfo?.data ?? null;
 const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
 const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
 const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
   ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
 const speciesText = !species || speciesInfo?.status === 'available' ? ''
-  : speciesInfo?.status === 'not-configured' ? 'Species reference data is not configured for this deployment.'
-  : speciesInfo?.status === 'not-found' ? `No species reference for ${species}.`
-  : speciesInfo?.status === 'invalid-payload' ? 'Species reference failed validation.'
-  : 'Species reference data is unavailable.';
-const statusText = hmi.status === 'not-configured' ? 'Pipeline is not configured for this deployment.'
-  : hmi.status === 'unavailable' ? 'Live plot and zone data are unavailable.'
-  : hmi.status === 'invalid-payload' ? 'Pipeline map data failed validation.' : '';
-const riskText = !plot ? '' : risk?.status === 'not-configured' ? 'Heat data is not configured for this deployment.'
-  : risk?.status === 'unimplemented' ? 'Heat analysis is not implemented by the connected pipeline.'
-  : risk?.status === 'not-found' ? `No heat data for ${plot.plotCode} in ${season}.`
-  : risk?.status === 'stale' ? 'Heat data does not reach the selected season’s required observation date.'
-  : risk?.status === 'partial' ? 'Heat observations have missing or null days.'
-  : risk?.status === 'invalid-payload' ? 'Heat response failed validation.'
-  : risk?.status === 'timeout' || risk?.status === 'unavailable' ? 'Heat service is unavailable.' : '';
-const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a surveyed farm'
-  : plot?.source === 'msil' ? 'MSIL plot geometry' : plot ? 'Uploaded plot geometry' : '';
-const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
-  : hmi.status === 'not-configured' ? 'Pipeline not configured' : 'Pipeline unavailable';
+  : speciesInfo?.status === 'not-configured' ? (ja ? '魚種の基準データは未設定です。' : 'Species reference data is not configured for this deployment.')
+  : speciesInfo?.status === 'not-found' ? (ja ? `${speciesNames[species] ?? species}の魚種基準データがありません。` : `No species reference for ${speciesNames[species] ?? species}.`)
+  : speciesInfo?.status === 'invalid-payload' ? (ja ? '魚種の基準データを検証できませんでした。' : 'Species reference failed validation.')
+  : (ja ? '魚種の基準データに接続できません。' : 'Species reference data is unavailable.');
+const statusText = hmi.status === 'not-configured' ? (ja ? 'データパイプラインが未設定です。' : 'Pipeline is not configured for this deployment.')
+  : hmi.status === 'unavailable' ? (ja ? '区画・海域データを取得できません。' : 'Live plot and zone data are unavailable.')
+  : hmi.status === 'invalid-payload' ? (ja ? '地図データを検証できませんでした。' : 'Pipeline map data failed validation.') : '';
+const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温データは未設定です。' : 'Heat data is not configured for this deployment.')
+  : risk?.status === 'unimplemented' ? (ja ? '接続中のパイプラインは水温解析に未対応です。' : 'Heat analysis is not implemented by the connected pipeline.')
+  : risk?.status === 'not-found' ? (ja ? `${plot.plotCode}の${season}年水温データはありません。` : `No heat data for ${plot.plotCode} in ${season}.`)
+  : risk?.status === 'stale' ? (ja ? '水温データが対象期間の必要な観測日まで届いていません。' : 'Heat data does not reach the selected season’s required observation date.')
+  : risk?.status === 'partial' ? (ja ? '水温データに欠測日があります。' : 'Heat observations have missing or null days.')
+  : risk?.status === 'invalid-payload' ? (ja ? '水温データを検証できませんでした。' : 'Heat response failed validation.')
+  : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
+const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区画ではありません' : 'Synthetic demo geometry · not a surveyed farm')
+  : plot?.source === 'msil' ? (ja ? 'MSIL区画形状' : 'MSIL plot geometry') : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
+const operationNames: Record<string, string> = ja
+  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀' }
+  : { longline: 'longline', raft: 'raft', cage: 'cage' };
+const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
+  : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
-const speciesNames: Record<string, string> = {
-  scallop: 'Scallop', oyster: 'Oyster', hoya: 'Sea pineapple',
-  nori: 'Nori', wakame: 'Wakame', kombu: 'Kombu', yellowtail: 'Yellowtail',
-  'sea-bream': 'Sea bream', salmon: 'Salmon', 'bluefin-tuna': 'Bluefin tuna',
+// JAXA SGLI chl-a from the pipeline's own tiles (#135), proxied same-origin by /api/tiles.
+const habLayer = hab?.status === 'available' ? hab.layer : null;
+const habText = habLayer ? ''
+  : hab?.status === 'not-built' ? (ja ? `${season}年${Number(habMonth)}月のクロロフィルaレイヤーは未作成です。` : `No chlorophyll-a layer built for ${season}-${habMonth}.`)
+  : hab?.status === 'unavailable' || hab?.status === 'invalid-payload' ? (ja ? 'クロロフィルaレイヤーに接続できません。' : 'Chlorophyll-a layer is unavailable.')
+  : (ja ? 'HABレイヤーは未設定です。' : 'HAB layer is not configured.');
+const habOverlay = habLayer ? JSON.stringify({
+  url: `/api/tiles${habLayer.tileUrl}`,
+  bounds: [[habLayer.bbox[1], habLayer.bbox[0]], [habLayer.bbox[3], habLayer.bbox[2]]],
+  note: `JAXA GCOM-C SGLI · ${habLayer.cadence === 'monthly' ? habLayer.date.slice(0, 7) : habLayer.date}`,
+  period: habLayer.cadence === 'monthly'
+    ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`)
+    : habLayer.date,
+  scale: habLayer.tileScale,
+}) : '';
+const monthName = (value: string) => ja ? `${Number(value)}月`
+  : new Date(Date.UTC(2000, Number(value) - 1, 1)).toLocaleString('en', { month: 'long', timeZone: 'UTC' });
+const clientCopy = JSON.stringify({
+  draw: copy.draw, cancel: copy.cancel, help: copy.help, extent: copy.extent, sampling: copy.sampling, noData: copy.noData,
+  areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
+  updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
+  overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl, habLog: ja ? '（対数）' : '(log)',
+});
+const languageHref = (locale: 'en' | 'ja') => {
+  const params = new URLSearchParams({ lang: locale, season, metric, habMonth });
+  if (species) params.set('species', species);
+  if (plot) params.set('plot', plot.plotCode);
+  return `${endpoint ?? '/hmi'}?${params}`;
 };
 ---
 
-  <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''}>
-    <div id="hmi-map" aria-label="Interactive map of the Miyagi coast" tabindex="0"></div>
+  <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''} data-lang={lang} data-copy={clientCopy}>
+    <div id="hmi-map" role="application" aria-label={copy.mapLabel} aria-describedby="hmi-map-help" tabindex="0"></div>
+    <p id="hmi-map-help" class="sr-only">{ja ? '矢印キーで移動、＋／−で拡大・縮小します。区画は「養殖区画」の選択欄から選べます。' : 'Use the arrow keys to pan and +/− to zoom. Choose a plot with the Farm plot select.'}</p>
     <div class="market-actions">
-      <button type="button" class="market-action" data-shelf="market" aria-expanded="false" aria-controls="market-shelf">Fish market</button>
+      <button type="button" class="market-action" data-shelf="market" aria-expanded="false" aria-controls="market-shelf">{copy.market}</button>
       <WalletConnect projectId={walletProjectId} preview={!checkoutEnabled} client:only="react" />
     </div>
-    <div class="coast-label"><h1>Miyagi coast</h1><span><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? 'Satellite & ocean observations' : pipelineStatus}</span></div>
-    <p class="map-message" data-map-message role="status" hidden={!statusText}>{statusText}</p>
-    <div class="map-tools" aria-label="Map panels">
-      <button type="button" class="map-tool" data-shelf="layers" aria-expanded="false" aria-controls="layers-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5M3 16l9 5 9-5" /></svg><span>Layers</span></button>
-      <button type="button" class="map-tool" data-shelf="thresholds" aria-expanded="false" aria-controls="thresholds-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14V5a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0Z M12 10v7 M18 6h3m-3 4h2" /></svg><span>Thresholds</span></button>
-      <button type="button" class="map-tool" data-shelf="forecast" aria-expanded="false" aria-controls="forecast-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17a4 4 0 0 1-1-8 6 6 0 0 1 11-2 5 5 0 1 1 1 10H6 M8 20l-1 2m6-2-1 2m6-2-1 2" /></svg><span>Forecast</span></button>
+    <div class="coast-stack">
+      <div class="coast-label">
+        <h1>{copy.coast}</h1>
+        <span><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? copy.online : pipelineStatus}</span>
+        <label class="plot-picker"><span class="sr-only">{copy.plot}</span>
+          <select name="plot" form="hmi-view" disabled={!speciesPlots.length}>
+            {speciesPlots.length
+              ? speciesPlots.map((item) => <option value={item.plotCode} selected={item.plotCode === plot?.plotCode}>{item.plotCode}{item.source === 'demo' ? (ja ? ' · デモ' : ' · demo') : ''}</option>)
+              : <option value="">{copy.noPlot}</option>}
+          </select>
+        </label>
+        <nav class="language-switch" aria-label={copy.language}>
+          <a href={languageHref('en')} data-lang-link="en" aria-current={lang === 'en' ? 'page' : undefined}>EN</a>
+          <a href={languageHref('ja')} data-lang-link="ja" lang="ja" aria-current={lang === 'ja' ? 'page' : undefined}>日本語</a>
+        </nav>
+      </div>
+      <p class="pipeline-status" role="status" hidden={!statusText}>{statusText}</p>
+      <div class="map-message" data-map-message role="status" hidden>
+        <span data-map-message-text></span>
+        <button type="button" data-map-retry hidden>{copy.retry}</button>
+      </div>
+      <div class="hab-chip" data-hab-chip hidden>
+        <p><strong>{ja ? 'クロロフィルa（JAXA）' : 'Chlorophyll-a (JAXA)'}</strong> · <span data-hab-chip-period></span></p>
+        <div class="hab-ramp" data-hab-chip-ramp></div>
+        <p class="hab-ramp-labels"><span data-hab-chip-min></span><span data-hab-chip-max></span></p>
+        <p class="hab-chip-caveat">{ja ? '藻類量の指標。貝毒・出荷規制を示すものではありません。' : 'Bloom proxy only; not toxin status or shipment restrictions.'}</p>
+      </div>
+    </div>
+    <div class="map-tools" role="group" aria-label={copy.panels}>
+      <button type="button" class="map-tool" data-shelf="layers" aria-expanded="false" aria-controls="layers-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5M3 16l9 5 9-5" /></svg><span>{copy.layers}</span></button>
+      <button type="button" class="map-tool" data-shelf="thresholds" aria-expanded="false" aria-controls="thresholds-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14V5a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0Z M12 10v7 M18 6h3m-3 4h2" /></svg><span>{copy.thresholds}</span></button>
+      <button type="button" class="map-tool" data-shelf="forecast" aria-expanded="false" aria-controls="forecast-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17a4 4 0 0 1-1-8 6 6 0 0 1 11-2 5 5 0 1 1 1 10H6 M8 20l-1 2m6-2-1 2m6-2-1 2" /></svg><span>{copy.forecast}</span></button>
+      <button type="button" class="map-tool" data-shelf="area" aria-expanded="false" aria-controls="area-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7 12 3l7 6-2 10H7Z" /><circle cx="5" cy="7" r="1.6" /><circle cx="12" cy="3.5" r="1.6" /><circle cx="19" cy="9" r="1.6" /></svg><span>{copy.area}</span></button>
     </div>
 
     <section id="layers-shelf" class="map-shelf side-shelf" aria-labelledby="layers-heading" inert>
-      <header><h2 id="layers-heading">Layers</h2><button type="button" data-close-shelf aria-label="Close layers">×</button></header>
-      <fieldset class="layer-choices"><legend class="sr-only">Map imagery</legend>
-        <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>Satellite</span></label>
-        <label><input type="checkbox" name="map-layer" value="sst" /><span>Sea temperature</span></label>
-        <label><input type="checkbox" name="map-layer" value="anom" /><span>Temp anomaly</span></label>
-        <label><input type="checkbox" name="map-layer" value="chl" /><span>Chlorophyll</span></label>
+      <header><h2 id="layers-heading">{copy.layers}</h2><button type="button" data-close-shelf aria-label={ja ? 'レイヤーを閉じる' : 'Close layers'}>×</button></header>
+      <fieldset class="layer-choices"><legend class="sr-only">{ja ? '地図画像' : 'Map imagery'}</legend>
+        <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>{copy.satellite}</span></label>
+        <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
+        <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
+        <label><input type="checkbox" name="map-layer" value="chl" /><span>{copy.chl}</span></label>
+        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
-      <p class="shelf-note" data-layer-date>Satellite · Esri</p>
-      <p class="shelf-note" data-chlorophyll-note hidden>Chlorophyll shows ocean colour, not a confirmed bloom.</p>
+      <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
+        <select name="habMonth" form="hmi-view">
+          {HAB_MONTHS.map((value) => <option value={value} selected={value === habMonth}>{monthName(value)}</option>)}
+        </select>
+      </label>
+      <p class="shelf-note" data-layer-date>{copy.satelliteNote}</p>
+      <p class="shelf-note" data-chlorophyll-note hidden>{copy.chlNote}</p>
+      <div data-response-panel="hab">
+        <div data-hab-source data-overlay={habOverlay}></div>
+        <p id="hab-reason" class="shelf-note" aria-live="polite">{habText}</p>
+        {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
+          <p class="hab-legend-title"><strong>{ja ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong> · {habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
+          <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
+          <p class="hab-ramp-labels"><span>≤{habLayer.tileScale.min}</span><span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span><span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (ja ? '（対数）' : ' (log)') : ''}</span></p>
+          <p class="shelf-note">{ja ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}</p>
+          <p class="shelf-note">{habLayer.product} · <code>{habLayer.sha256.slice(0, 12)}</code></p>
+          <p class="shelf-note">{ja ? 'クロロフィルaは藻類量の指標で、貝毒や出荷規制の有無を示すものではありません。' : 'Chlorophyll-a is a bloom proxy only; it does not show toxin status or shipment restrictions.'}</p>
+        </section>}
+      </div>
+      <p class="shelf-note">{copy.imageryContext}</p>
     </section>
 
     <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
-      <header><h2 id="thresholds-heading">Species thresholds</h2><button type="button" data-close-shelf aria-label="Close thresholds">×</button></header>
+      <header><h2 id="thresholds-heading">{copy.speciesThresholds}</h2><button type="button" data-close-shelf aria-label={ja ? '基準値を閉じる' : 'Close thresholds'}>×</button></header>
       <div data-response-panel="thresholds">
         <p class="shelf-kicker">{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : speciesNames[species] ?? species} · {season}</p>
         {speciesData && <p class="shelf-note">{speciesData.taxon}</p>}
-        {speciesText ? <p class="shelf-note">{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>{rule.tempC}°C</strong><span>Tier {rule.tier} · {rule.window?.start} – {rule.window?.end}</span></div><b>{count}<small> / {rule.threshold} days</small></b></div>) : <p class="shelf-note">No heat threshold is registered for this species.</p>}
-        <p class="shelf-note">Days above the temperature threshold. Relief eligibility is determined separately.</p>
-        {speciesData && <p class="shelf-note">Rules {speciesData.rules_version} · profiles {speciesData.profile_version}</p>}
-        {speciesData && !!speciesData.evidence.length && <details class="data-sources"><summary>Response evidence</summary>{speciesData.evidence.map((study) => <p><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.status === 'measured' ? `${study.points.length} measured points` : 'No supported response data'}{study.note && ` · ${study.note}`}</p>)}</details>}
+        {speciesText ? <p class="shelf-note">{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>{rule.tempC}°C</strong><span>{ja ? `段階 ${rule.tier}` : `Tier ${rule.tier}`} · {rule.tempC == null ? '' : `${(rule.tempC * 9 / 5 + 32).toFixed(1)}°F · `}{rule.window?.start} – {rule.window?.end}</span></div><b>{count}<small> / {rule.threshold}{ja ? '日' : ' days'}</small></b></div>) : <p class="shelf-note">{copy.noThreshold}</p>}
+        <p class="shelf-note">{copy.daysAbove}</p>
+        {speciesData && <p class="shelf-note">{copy.rules} {speciesData.rules_version} · {copy.profiles} {speciesData.profile_version}</p>}
+        {speciesData && !!speciesData.evidence.length && <details class="data-sources"><summary>{copy.evidence}</summary>{speciesData.evidence.map((study) => <p><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.factors.join(', ').replaceAll('_', ' ')} · {study.lifeStage ?? (ja ? '成長段階の記録なし' : 'life stage unrecorded')} · {study.status === 'measured' ? `${study.points.length} ${ja ? '測定点' : 'measured points'}` : (ja ? '対応データなし' : 'No supported response data')}{study.note && ` · ${study.note}`}</p>)}</details>}
       </div>
     </section>
 
     <section id="forecast-shelf" class="map-shelf bottom-shelf" aria-labelledby="forecast-heading" inert>
-      <header><h2 id="forecast-heading">Forecast</h2><button type="button" data-close-shelf aria-label="Close forecast">×</button></header>
-      <p class="shelf-kicker">Miyagi coast</p><p class="shelf-note">Forecast data is unavailable. The map and chart show observed conditions.</p>
+      <header><h2 id="forecast-heading">{copy.forecast}</h2><button type="button" data-close-shelf aria-label={ja ? '予報を閉じる' : 'Close forecast'}>×</button></header>
+      <p class="shelf-kicker">{copy.coast}</p><p class="shelf-note">{copy.forecastNone}</p>
+    </section>
+
+    <section id="area-shelf" class="map-shelf side-shelf" aria-labelledby="area-heading" inert>
+      <header><h2 id="area-heading">{copy.areaTitle}</h2><button type="button" data-close-shelf aria-label={ja ? '範囲解析を閉じる' : 'Close area analysis'}>×</button></header>
+      <p class="shelf-note" data-area-help aria-live="polite">{copy.help} {copy.extent}</p>
+      <div class="area-controls" role="group" aria-label={copy.areaTitle}>
+        <button type="button" data-area-draw aria-pressed="false">{copy.draw}</button>
+        <button type="button" data-area-run disabled>{copy.analyze}</button>
+        <button type="button" data-area-clear disabled>{copy.clear}</button>
+      </div>
+      <p class="area-result" data-area-result aria-live="polite" hidden></p>
     </section>
 
     <section id="market-shelf" class="map-shelf market-shelf" aria-labelledby="market-heading" inert>
-      <header><h2 id="market-heading">Fish market</h2><button type="button" data-close-shelf aria-label="Close fish market">×</button></header>
-      <p class="shelf-kicker">Sepolia · JPYC checkout</p>
+      <header><h2 id="market-heading">{copy.market}</h2><button type="button" data-close-shelf aria-label={ja ? '魚市場を閉じる' : 'Close fish market'}>×</button></header>
+      <p class="shelf-kicker">{ja ? 'Sepolia · JPYC決済' : 'Sepolia · JPYC checkout'}</p>
       <div class="market-listing">
         <span class="market-listing__mark" aria-hidden="true">鰹</span>
         <div><strong>{DEMO_LISTING.titleJa}</strong><span>{DEMO_LISTING.titleEn}</span></div>
         <b>¥{listingPrice}</b>
       </div>
-      <p class="shelf-note">Fixed demo item. The seller address is a placeholder; this is a Sepolia test transaction, not a real fish order.</p>
+      <p class="shelf-note">{ja
+        ? 'デモ用の固定商品です。販売者アドレスは仮のもので、実際の注文ではなくSepoliaテストネットの取引です。'
+        : 'Fixed demo item. The seller address is a placeholder; this is a Sepolia test transaction, not a real fish order.'}</p>
       {checkoutUnavailableMessage && <p class="market-shelf__status" role="status">{checkoutUnavailableMessage}</p>}
       <ContributionSplit
         reference={`listing:${DEMO_LISTING.listingId.slice(0, 10)}…`}
@@ -138,36 +275,37 @@ const speciesNames: Record<string, string> = {
         fundAmount={jpycFromBaseUnits(reliefAmount) ?? '0'}
         fundShareLabel={`${DEMO_LISTING.reliefBps / 100}%`}
         state="proposed"
-        explanation="The signed quote confirms this split before checkout."
+        explanation={ja ? '署名付き見積で、購入前にこの配分を確認します。' : 'The signed quote confirms this split before checkout.'}
       />
-      <CheckoutForm listing={listingForIsland} enabled={checkoutEnabled} disabledLabel={checkoutUnavailableMessage ? 'Checkout unavailable' : undefined} client:load />
-      <a class="market-shelf__all" href="/market">Explore the fish market <span aria-hidden="true">↗</span></a>
+      <CheckoutForm listing={listingForIsland} enabled={checkoutEnabled} disabledLabel={checkoutUnavailableMessage ? (ja ? '購入は利用できません' : 'Checkout unavailable') : undefined} client:load />
+      <a class="market-shelf__all" href="/market">{ja ? '魚市場を見る' : 'Explore the fish market'} <span aria-hidden="true">↗</span></a>
     </section>
 
     <section id="observations-shelf" class="map-shelf bottom-shelf" aria-labelledby="observations-heading" inert>
-      <header><h2 id="observations-heading">Ocean observations</h2><button type="button" data-close-shelf aria-label="Close observations">×</button></header>
+      <header><h2 id="observations-heading">{copy.oceanObservations}</h2><button type="button" data-close-shelf aria-label={ja ? '観測を閉じる' : 'Close observations'}>×</button></header>
+      <label class="metric-picker">{copy.metric}
+        <select name="metric" form="hmi-view">
+          {(['SST', 'SST_ANOM', 'SST_MONTH'] as const).map((value) => <option value={value} selected={value === metric}>{metricNames[value]}</option>)}
+        </select>
+      </label>
       <div data-response-panel="observations">
-        <div class="observation-heading"><div><p class="shelf-kicker">{speciesNames[species] ?? species} · {season}</p><h3>{metric === 'SST_ANOM' ? 'Temperature anomaly' : metric === 'SST_MONTH' ? 'Monthly temperature' : 'Sea temperature'}</h3></div><span>°C</span></div>
-        {data && values.length > 1 ? <svg class="chart" viewBox="0 0 800 210" role="img" aria-label={`${metric} observed time series for ${plot?.plotCode}`}><path class="chart-grid" d="M20 40H780M20 110H780M20 180H780"/>{chartSegments.map((points) => <polyline points={points} />)}<text x="20" y="202">{series[0]?.asOf}</text><text x="690" y="202">{series.at(-1)?.asOf}</text></svg> : <p class="shelf-note">{riskText || 'No observations available for this selection.'}</p>}
-        {coverage && <p class="shelf-note">{coverage.observedDays} observed days · {coverage.nullDays + coverage.omittedDays} missing</p>}
-        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}</p>}
-        {!!provenance.length && <details class="data-sources"><summary>Data sources</summary><p>{provenance.map((source) => `${source.product} · ${source.sha256.slice(0, 12)}`).join(' / ')}</p></details>}
+        <HmiObservations data={data} metric={metric} lang={lang} kicker={`${speciesNames[species] ?? species} · ${season}`} title={metricNames[metric]} note={riskText} empty={riskText || copy.noObservations} />
+        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}{plot.areaM2 ? ` · ${plot.areaM2.toLocaleString(ja ? 'ja-JP' : 'en-US')} m²` : ''}{plot.operation ? ` · ${operationNames[plot.operation] ?? plot.operation}` : ''}</p>}
       </div>
     </section>
 
-    <button type="button" class="observations-toggle" data-shelf="observations" aria-expanded="false" aria-controls="observations-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18V5m0 13h18M6 14l4-5 4 3 6-8" /></svg>Observations<span>↑</span></button>
-    <div class="map-zoom" aria-label="Map zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" aria-label="Zoom out">−</button></div>
-    <form class="coast-dock" method="get" aria-label="Ocean view controls">
-      <input type="hidden" name="plot" value={plot?.plotCode ?? ''} />
-      <input type="hidden" name="metric" value={metric} />
+    <button type="button" class="observations-toggle" data-shelf="observations" aria-expanded="false" aria-controls="observations-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18V5m0 13h18M6 14l4-5 4 3 6-8" /></svg>{copy.observations}<span>↑</span></button>
+    <div class="map-zoom" role="group" aria-label={copy.zoom}><button type="button" data-zoom="in" aria-label={copy.zoomIn}>+</button><button type="button" data-zoom="out" aria-label={copy.zoomOut}>−</button></div>
+    <form id="hmi-view" class="coast-dock" method="get" aria-label={copy.viewControls}>
       <input type="hidden" name="season" value={season} />
-      <fieldset class="species-picker"><legend class="sr-only">Species</legend>
-        {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · No map plot yet`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
-        {!supportedSpecies.length && <p class="shelf-note">No species data</p>}
+      <input type="hidden" name="lang" value={lang} />
+      <fieldset class="species-picker"><legend class="sr-only">{copy.speciesLegend}</legend>
+        {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
+        {!supportedSpecies.length && <p class="shelf-note">{copy.noSpecies}</p>}
       </fieldset>
-      <div class="season-picker" aria-label="Observation season"><span>Season</span><div><button type="button" data-season-step="-1" aria-label="Previous season" disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label="Next season" disabled={Number(season) >= 2025}>›</button></div></div>
+      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2025}>›</button></div></div>
       <p class="dock-status sr-only" data-view-status role="status"></p>
-      <noscript><button type="submit">Show selection</button></noscript>
+      <noscript><button type="submit">{copy.show}</button></noscript>
     </form>
   </div>
 
