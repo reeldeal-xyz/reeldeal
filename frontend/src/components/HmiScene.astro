@@ -39,7 +39,6 @@ const copy = ja ? {
   layers: 'レイヤー', thresholds: '基準値', forecast: '予報', area: '範囲', observations: '観測', close: '閉じる',
   plot: '養殖区画', noPlot: '区画データなし', language: '言語',
   satellite: '衛星写真', sst: '海面水温', anom: '水温偏差',
-  imageryContext: '地図画像は参考表示です。区画ごとの検証済み観測値とは別のデータです。',
   speciesThresholds: '補償の基準値', daysAbove: '基準水温以上の日数。補償の判定は別に行われます。',
   noThreshold: 'この魚種の水温基準は未登録です。', rules: 'ルール', profiles: 'プロファイル', evidence: '根拠資料',
   forecastNone: '予報データはありません。地図とグラフは観測値を示します。',
@@ -62,8 +61,7 @@ const copy = ja ? {
   mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
   plot: 'Farm plot', noPlot: 'No plot data', language: 'Language',
-  satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly',
-  imageryContext: 'Map imagery is visual context, separate from validated plot observations.',
+  satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temperature anomaly',
   speciesThresholds: 'Relief thresholds', daysAbove: 'Days above the temperature threshold. Relief eligibility is determined separately.',
   noThreshold: 'No heat threshold is registered for this species.', rules: 'Rules', profiles: 'profiles', evidence: 'Response evidence',
   forecastNone: 'Forecast data is unavailable. The map and chart show observed conditions.',
@@ -107,10 +105,6 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温�
   : risk?.status === 'partial' ? (ja ? '水温データに欠測日があります。' : 'Heat observations have missing or null days.')
   : risk?.status === 'invalid-payload' ? (ja ? '水温データを検証できませんでした。' : 'Heat response failed validation.')
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
-const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区画ではありません' : 'Synthetic demo geometry · not a surveyed farm')
-  : plot?.source === 'msil' ? (ja ? 'MSIL区画形状' : 'MSIL plot geometry')
-  : plot?.source === 'fishery_right' ? (ja ? '区画漁業権の許可区画' : 'Licensed fishery-right polygon')
-  : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
 const operationNames: Record<string, string> = ja
   ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', other: 'その他・複合' }
   : { longline: 'longline', raft: 'raft', cage: 'cage', other: 'other / mixed' };
@@ -205,36 +199,35 @@ const languageHref = (locale: 'en' | 'ja') => {
     <section id="layers-shelf" class="map-shelf side-shelf" aria-labelledby="layers-heading" inert>
       <header><h2 id="layers-heading">{copy.layers}</h2><button type="button" data-close-shelf aria-label={ja ? 'レイヤーを閉じる' : 'Close layers'}>×</button></header>
       <fieldset class="layer-choices"><legend class="sr-only">{ja ? '地図画像' : 'Map imagery'}</legend>
-        <label><input type="checkbox" name="map-layer" value="plots" checked disabled={!plots.length} /><span>{copy.plots}{plots.length ? ` · ${plots.length}` : ''}</span></label>
+        <label><input type="checkbox" name="map-layer" value="plots" checked disabled={!plots.length} /><span>{copy.plots}</span>{!!plots.length && <small>{plots.length}</small>}</label>
         <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>{copy.satellite}</span></label>
         <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
         <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
-        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
+        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'クロロフィルa' : 'Chlorophyll-a'}</span></label>
       </fieldset>
-      {!!plots.length && <ul class="plot-legend" aria-label={ja ? '区画の凡例' : 'Plot legend'}>
+      {!!plots.length && <details class="layer-details plot-key"><summary>{ja ? '魚種の凡例' : 'Species key'}</summary><ul class="plot-legend" aria-label={ja ? '区画の凡例' : 'Plot legend'}>
         {speciesShown.map((item) => <li><i style={`background: ${speciesColor([item])}`}></i>{item === 'unassigned' ? (ja ? '魚種未登録' : 'Unrecorded') : item === 'mixed' ? (ja ? '複数魚種' : 'Mixed species') : speciesNames[item] ?? item}</li>)}
-      </ul>}
-      <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
+      </ul></details>}
+      <label class="shelf-select" data-hab-controls hidden={!!habLayer}>{ja ? 'クロロフィルaの月' : 'Chlorophyll month'}
         <select name="habMonth" form="hmi-view">
           {HAB_MONTHS.map((value) => <option value={value} selected={value === habMonth}>{monthName(value)}</option>)}
         </select>
       </label>
-      <details class="layer-details"><summary>{ja ? 'レイヤーの詳細' : 'Layer details'}</summary>
-      <p class="shelf-note" data-layer-date>{copy.satelliteNote}</p>
       <div data-response-panel="hab">
         <div data-hab-source data-overlay={habOverlay}></div>
-        <p id="hab-reason" class="shelf-note" aria-live="polite">{habText}</p>
+        <p id="hab-reason" class="shelf-note" aria-live="polite" hidden={!habText}>{habText}</p>
         {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
-          <p class="hab-legend-title"><strong>{ja ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong> · {habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
+          <p class="hab-legend-title">{habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
           <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
           <p class="hab-ramp-labels"><span>≤{habLayer.tileScale.min}</span><span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span><span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (ja ? '（対数）' : ' (log)') : ''}</span></p>
-          <p class="shelf-note">{ja ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}</p>
-          <p class="shelf-note">{habLayer.product} · <code>{habLayer.sha256.slice(0, 12)}</code></p>
-          <p class="shelf-note">{ja ? 'クロロフィルaは藻類量の指標で、貝毒や出荷規制の有無を示すものではありません。' : 'Chlorophyll-a is a bloom proxy only; it does not show toxin status or shipment restrictions.'}</p>
+          <p class="shelf-note">{ja ? '藻類量の指標。貝毒・出荷規制は示しません。' : 'Algae indicator; not toxin or closure status.'}</p>
+          <details class="layer-details"><summary>{ja ? 'データの詳細' : 'Data details'}</summary>
+            <p class="shelf-note">{ja ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}</p>
+            <p class="shelf-note">{habLayer.product} · <code>{habLayer.sha256.slice(0, 12)}</code></p>
+          </details>
         </section>}
       </div>
-      <p class="shelf-note">{copy.imageryContext}</p>
-      </details>
+      <p class="shelf-note layer-date" data-layer-date hidden></p>
     </section>
 
     <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
@@ -277,7 +270,7 @@ const languageHref = (locale: 'en' | 'ja') => {
       </label>
       <div data-response-panel="observations">
         <HmiObservations data={data} metric={metric} lang={lang} kicker={`${speciesNames[species] ?? species} · ${season}`} title={metricNames[metric]} note={riskText} empty={riskText || copy.noObservations} />
-        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}{plot.areaM2 ? ` · ${plot.areaM2.toLocaleString(ja ? 'ja-JP' : 'en-US')} m²` : ''}{plot.operation ? ` · ${operationNames[plot.operation] ?? plot.operation}` : ''}</p>}
+        {plot && <p class="shelf-note">{plot.plotCode}{plot.areaM2 ? ` · ${(plot.areaM2 / 10000).toLocaleString(ja ? 'ja-JP' : 'en-US', { maximumFractionDigits: 1 })} ha` : ''}{plot.operation ? ` · ${operationNames[plot.operation] ?? plot.operation}` : ''}</p>}
       </div>
     </section>
 

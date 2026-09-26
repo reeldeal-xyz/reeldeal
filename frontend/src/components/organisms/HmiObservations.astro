@@ -78,14 +78,14 @@ const strategies: Record<string, string> = ja
   {chart && note && <p class="shelf-note">{note}</p>}
   {data && <p class="shelf-note">{labels.window}: <time datetime={data.window.start}>{data.window.start}</time> – <time datetime={data.window.end}>{data.window.end}</time></p>}
 
+  {series.length > 0 && <details class="observation-evidence">
+    <summary>{labels.evidence}</summary>
   {latest?.pixels && <p class="shelf-note">
     {labels.support}: {strategies[latest.pixels.strategy] ?? latest.pixels.strategy}
     · {latest.pixels.count} {ja ? '画素' : 'pixels'}
     {latest.pixels.distanceKm != null ? ` · ${latest.pixels.distanceKm.toFixed(1)} km` : ''}
   </p>}
 
-  {series.length > 0 && <details class="observation-evidence">
-    <summary>{labels.evidence}</summary>
     <div class="observation-table" tabindex="0" role="region" aria-label={labels.observed}>
       <table>
         <caption>{title} · °C</caption>

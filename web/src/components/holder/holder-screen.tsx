@@ -24,7 +24,7 @@ export function HolderScreen({ ensAddresses }: { ensAddresses: EnsAddresses }) {
   const [errorByRequest, setErrorByRequest] = useState<Record<string, string>>({});
 
   const canWrite = isConnected && chainId === sepolia.id;
-  const registryDeployed = Boolean(ensAddresses.slotRegistry);
+  const registryDeployed = Boolean(ensAddresses.slotRegistry || ensAddresses.parentRegistry);
 
   const pending = requests?.filter((r) => r.status === 'pending') ?? [];
   const issued = requests?.filter((r) => r.status === 'issued') ?? [];
@@ -41,7 +41,7 @@ export function HolderScreen({ ensAddresses }: { ensAddresses: EnsAddresses }) {
             seasonLabel: request.seasonLabel,
             expires: SEASON_2026_EXPIRY,
           })
-        : await revokeSeasonSlot(config, ensAddresses, request.seasonLabel);
+        : await revokeSeasonSlot(config, ensAddresses, request.plotLabel, request.seasonLabel);
 
     setBusyId(null);
     if (result.ok) {

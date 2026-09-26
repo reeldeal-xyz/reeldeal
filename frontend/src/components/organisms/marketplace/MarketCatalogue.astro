@@ -26,7 +26,7 @@ const listings = compact ? LISTINGS.slice(0, 3) : LISTINGS;
         <p>{listing.unit} · {listing.origin}</p></div>
       <strong class="catalogue-price"><Amount value={String(listing.priceYen)} /></strong>
       {!compact && <dl class="catalogue-split"><div><dt>Seller</dt><dd><Amount value={jpycFromBaseUnits(seller)!} /></dd></div><div><dt>Relief · {MARKET_RELIEF_BPS / 100}%</dt><dd><Amount value={jpycFromBaseUnits(relief)!} /></dd></div></dl>}
-      {compact ? <Button href={`/market#listing-${listing.slug}`} variant="secondary">{ja ? '見る' : 'View'}</Button>
+      {compact ? <Button href={`/market#market-preview-detail-${listing.slug.toUpperCase()}`} variant="secondary">{ja ? '見る' : 'View'}</Button>
         : <Button data-market-buy={listing.slug} disabled aria-label={`Review ${listing.name}`}>Review purchase</Button>}
     </article>;
   })}

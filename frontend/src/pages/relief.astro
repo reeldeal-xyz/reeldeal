@@ -110,11 +110,11 @@ const stateTone = paymentConfirmed ? 'green'
   : 'ink';
 
 const holdCopy: Record<string, string> = {
-  UNVERIFIED: 'The registered farmer had no qualifying HumanRegistry verification when ReliefPool settled this event.',
-  NO_FARMER: 'No farmer was resolved from the 2026 ENS season slot.',
-  PLOT_EXPIRED: 'The 2026 season slot had expired when ReliefPool evaluated this plot.',
-  CAP: 'The verified human had already reached the event unit cap.',
-  ZONE_MISMATCH: 'The plot enrollment did not match this event’s zone/species.',
+  UNVERIFIED: 'Farmer identity was unverified when this payment was assessed.',
+  NO_FARMER: 'No farmer was registered for this season.',
+  PLOT_EXPIRED: 'The season registration had expired.',
+  CAP: 'The farmer reached the plot limit for this event.',
+  ZONE_MISMATCH: 'The registered area or species did not match this event.',
 };
 
 const eventLabel: Record<ReliefPoolEvent['type'], string> = {
@@ -125,10 +125,10 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
   type === 'Paid' || type === 'Claimed' ? 'green' : type === 'Held' ? 'pink' : type === 'Attested' ? 'yellow' : 'blue';
 ---
 
-<BaseLayout title="Relief status" description="Live 2026 ReelDeal relief status from ReliefPool, ENS slots, HumanRegistry and pinned Miyagi evidence." section="relief">
+<BaseLayout title="Relief status" description="ReelDeal relief fund balance and farmer payments." section="relief">
   {requestError ? <section class="relief-page shell" aria-labelledby="request-error-title">
     <h1 id="request-error-title">Relief selection unavailable</h1>
-    <p role="alert">{requestError} No payment or eligibility has been inferred.</p>
+    <p role="alert">{requestError}</p>
     <a class="button-link" href="/relief">Choose a registered plot</a>
     <a href="/hmi">Return to the coastal map</a>
   </section> : <div class="relief-page shell">
@@ -136,18 +136,17 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       <div>
         <p class="eyebrow">REELDEAL · {season} SEPOLIA RELIEF</p>
         <h1>Relief status</h1>
-        <p>Fund balance and farmer payments.</p>
       </div>
       <div class="relief-heading__actions">
         <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
-        <span class:list={['live-badge', chainUnavailable && 'offline']}><i></i>{chainUnavailable ? 'Some chain reads unavailable' : 'Live on Sepolia'}</span>
+        <span class:list={['live-badge', chainUnavailable && 'offline']}><i></i>{chainUnavailable ? 'Data unavailable' : 'Connected'}</span>
       </div>
     </header>
 
     <p class="demo-banner">Sepolia test funds · historical relief replay.</p>
 
     <section class="relief-card fund-card" aria-labelledby="fund-title">
-      <div class="card-head"><div><p class="eyebrow">RELIEF FUND</p><h2 id="fund-title">Relief fund</h2></div><Badge label="JPYC · Sepolia" tone="blue" /></div>
+      <div class="card-head"><h2 id="fund-title">Relief fund</h2><Badge label="JPYC" tone="blue" /></div>
       <div class="fund-grid">
         <div><span>Available for relief</span><strong>{toAmount(summary?.availableWei) ? <Amount value={toAmount(summary?.availableWei)!} /> : 'Unavailable'}</strong></div>
         <div><span>Reserved</span><strong>{toAmount(summary?.reservedWei) ? <Amount value={toAmount(summary?.reservedWei)!} /> : 'Unavailable'}</strong></div>
@@ -172,7 +171,7 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       <p>{selectedPlot.ensName}</p>
     </form>
 
-    {loadError && <p class="notice" role="status">ReliefPool could not be read. No eligibility or payment state is inferred while chain data is unavailable.</p>}
+    {loadError && <p class="notice" role="status">Relief data unavailable. <a href="">Retry</a></p>}
 
     <section class="relief-card relief-status" aria-labelledby="relief-outcome">
       <div class="card-head">
@@ -182,8 +181,8 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
 
       {story ? <>
 
-        {!settlement && story.settlementReadStatus === 'not-found' && <p class="notice">No settlement is recorded for this plot in the deployed relief events. This is not a statement about future eligibility.</p>}
-        {!settlement && story.settlementReadStatus === 'unavailable' && <p class="notice">Settlement or event reads are unavailable, so “no payment” is not asserted. Plot and slot reads above remain direct contract reads.</p>}
+        {!settlement && story.settlementReadStatus === 'not-found' && <p class="notice">No relief payment recorded for this plot and season.</p>}
+        {!settlement && story.settlementReadStatus === 'unavailable' && <p class="notice">Payment status unavailable. <a href="">Retry</a></p>}
 
         {settlement && <>
           <div class="payout">
@@ -192,8 +191,8 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
           </div>
 
           {settlement.state === 'held' && <div class="hold-box">
-            <strong>{settlement.holdReason ?? 'Held'}</strong>
-            <p>{holdCopy[settlement.holdReason ?? ''] ?? 'ReliefPool currently holds this allocation.'}</p>
+            <strong>Payment on hold</strong>
+            <p>{holdCopy[settlement.holdReason ?? ''] ?? 'This allocation is held for review.'}</p>
             {settlement.holdReason === 'UNVERIFIED' && story.identity?.status === 'available' && !identityVerified && <a class="button-link" href={`/liff?plot=${encodeURIComponent(selectedPlot.plotLabel)}`}>Verify identity in LINE / World ID</a>}
             {claimReady && story.payoutTarget && <ReliefClaimAction
               eventId={settlement.eventId}
@@ -219,15 +218,15 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
             <a href={txUrl(settlement.txHash)} target="_blank" rel="noreferrer">{shortHash(settlement.txHash)}</a>
             {settlementProof
               ? <span>Block {settlementProof.blockNumber} · {settlementProof.confirmations} confirmations · {settlementProof.status}</span>
-              : <span>Receipt confirmation unavailable from the current RPC.</span>}
+              : <span>Transaction confirmation unavailable.</span>}
           </div>}
         </>}
         <details class="relief-details"><summary>Registration details</summary>
         <dl class="facts">
           <div><dt>Species</dt><dd>{selectedPlot.species}</dd></div>
-          <div><dt>ReliefPool enrolled</dt><dd>{story.enrolled === null ? 'Unavailable' : story.enrolled ? 'Yes' : 'No'}</dd></div>
-          <div><dt>{season} ENS slot</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.payoutTarget ? (slotActive ? 'Issued · active' : 'Issued · expired') : 'No farmer resolved'}</dd></div>
-          <div><dt>HumanRegistry</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.identity?.status === 'available' ? `Level ${story.identity.level}` : story.identity ? 'Unavailable' : 'No farmer'}</dd></div>
+          <div><dt>Relief enrollment</dt><dd>{story.enrolled === null ? 'Unavailable' : story.enrolled ? 'Yes' : 'No'}</dd></div>
+          <div><dt>{season} registration</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.payoutTarget ? (slotActive ? 'Active' : 'Expired') : 'No farmer registered'}</dd></div>
+          <div><dt>Identity verification</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.identity?.status === 'available' ? (story.identity.level > 0 ? 'Verified' : 'Unverified') : story.identity ? 'Unavailable' : 'No farmer registered'}</dd></div>
         </dl>
 
         {story.payoutTarget && <p class="address-row">Registered farmer <Address value={story.payoutTarget.farmer} compact /></p>}

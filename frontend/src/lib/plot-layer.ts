@@ -13,7 +13,10 @@ export const plotSpecies = (species: readonly string[]) => {
   const unique = [...new Set(species)];
   return unique.length > 1 ? 'mixed' : unique[0] || 'unassigned';
 };
-export const speciesColor = (species: readonly string[]) => SPECIES_COLORS[plotSpecies(species)] ?? SPECIES_COLORS.unassigned;
+export const speciesColor = (species: readonly string[]) => {
+  const key = plotSpecies(species);
+  return SPECIES_COLORS[key === 'hotate' ? 'scallop' : key] ?? SPECIES_COLORS.unassigned;
+};
 
 export type PlotFacts = {
   plotCode: string; source: string; operation: string; species: string[]; areaM2: number; seaArea: string | null;

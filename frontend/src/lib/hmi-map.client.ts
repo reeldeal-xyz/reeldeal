@@ -318,6 +318,8 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     const habLegend = scene!.querySelector<HTMLElement>('[data-hab-legend]');
     const habOn = selected.some((input) => input.value === 'hab') && !!habSource;
     if (habLegend) habLegend.hidden = !habOn;
+    const habControls = scene!.querySelector<HTMLElement>('[data-hab-controls]');
+    if (habControls) habControls.hidden = !habOn && !!habSource;
     renderHabChip(habOn ? habSource : null);
     if (habOn && habSource) {
       // The pipeline's JAXA SGLI chl-a tiles, bounded to the layer grid so nothing is requested outside it.
@@ -343,7 +345,8 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       watchTiles(overlay, () => copy.overlayUnavailable.replace('{layer}', layer.label).replace('{time}', time));
       activeOverlays.set(input.value, overlay.addTo(map));
     });
-    layerNote.textContent = notes.length ? notes.join(' / ') : satellite ? copy.satelliteNote : copy.outlines;
+    layerNote.textContent = notes.join(' · ');
+    layerNote.hidden = !notes.length;
     rendered = { hab: habSourceRaw(), season: seasonInput.value, habOn };
   }
   // After an in-place update the HAB panel is swapped: follow whether a layer exists, restore the user's

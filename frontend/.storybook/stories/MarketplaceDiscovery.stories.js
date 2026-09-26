@@ -22,6 +22,27 @@ export default {
 
 export const English = {};
 export const Japanese = { args: { initialLocale: 'ja' } };
+export const Storefront = {
+  args: { live: true },
+  globals: { viewport: { value: 'iphone17', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = await hydratedCanvas(canvasElement);
+    await userEvent.type(canvas.getByRole('searchbox', { name: 'Search fish' }), 'saba');
+    await expect(canvas.getByRole('status')).toHaveTextContent('1 item');
+    await expect(canvas.getByRole('heading', { name: 'Chub mackerel' })).toBeVisible();
+    const detail = canvasElement.querySelector('#market-preview-detail-RD-LOT-003');
+    await userEvent.click(within(detail).getByText('Review purchase'));
+    await expect(detail).toHaveAttribute('open');
+    await expect(within(detail).getByText('Relief fund · 5%')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: '日本語' }));
+    await expect(canvas.getByRole('heading', { name: 'サバ' })).toBeVisible();
+    await expect(within(detail).getByRole('button', { name: 'ウォレットで支払う' })).toBeVisible();
+    const grid = canvasElement.querySelector('.marketplace-preview__grid');
+    expect(grid.scrollWidth).toBeLessThanOrEqual(grid.clientWidth + 1);
+  },
+};
+export const StorefrontIPad = { args: { live: true }, globals: { viewport: { value: 'ipad', isRotated: false } } };
+export const StorefrontDesktop = { args: { live: true }, globals: { viewport: { value: 'desktop1440', isRotated: false } } };
 export const Sold = { args: { initialAvailability: 'sold' } };
 export const EmptySearch = { args: { initialQuery: 'no matching fish' } };
 export const Loading = { args: { initialState: 'loading' } };

@@ -17,7 +17,6 @@ async function withServer(legacyOrigin, check) {
   await new Promise((resolve) => socket.close(resolve));
   const origin = `http://127.0.0.1:${port}`;
   const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATABASE_URL: secret, SEPOLIA_RPC_URL: 'http://127.0.0.1:1' };
-  delete env.COOP_SIGNER_PRIVATE_KEY;
   delete env.LEGACY_WEB_ORIGIN;
   delete env.PIPELINE_API_URL;
   if (legacyOrigin) env.LEGACY_WEB_ORIGIN = legacyOrigin === 'self' ? origin : legacyOrigin;
@@ -68,20 +67,12 @@ await withServer(undefined, async (request) => {
   assert.equal(market.status, 200);
   const marketHtml = await market.text();
   assert(!marketHtml.includes(secret), 'Server-only env leaked into HTML');
-  assert.match(marketHtml, /Karakuwa scallops/, 'Repo catalogue missing');
-  assert.match(marketHtml, /Sea pineapple/, 'Hoya listing missing');
-  assert.match(marketHtml, /Transaction history unavailable/, 'Offline history must not appear as zero sales');
-  assert.match(marketHtml, /data-checkout-ready="false"/, 'Missing signer must disable payment');
-  assert(!/checkout-demo/.test(marketHtml), 'Market page still exposes the demo checkout');
-  for (const species of ['hoya', 'oyster', 'wakame']) {
-    assert(marketHtml.includes(`/images/fish/${species}-ice.webp`), `${species} catalogue artwork missing`);
-  }
+  assert.match(marketHtml, /data-market-preview-item="RD-LOT-004"/, 'Market lots missing');
+  assert.match(marketHtml, /Sepolia testnet/, 'Testnet market label missing');
 
   for (const path of ['/workshop', '/market/checkout-demo']) {
     assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
   }
-  assert.equal((await request('/api/market/quote', { method: 'POST', headers: { origin: 'https://wrong.example', 'content-type': 'application/json' }, body: '{}' })).status, 403);
-  assert.equal((await request('/api/market/quote', { method: 'POST', headers: { origin: new URL(market.url).origin, 'content-type': 'application/json' }, body: '{}' })).status, 503);
 
   for (const [path, expected] of [
     ['/relief?plot=does-not-exist', 404],

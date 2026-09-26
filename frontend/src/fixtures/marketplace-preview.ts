@@ -1,3 +1,4 @@
+import { LISTINGS } from '@repo/shared';
 import { previewLots, type PreviewLot } from './preview-lots';
 import type { ContributionSplitProps } from '../components/molecules/relief/props';
 
@@ -11,12 +12,15 @@ export interface MarketplacePreviewItem {
   nameJa: string;
   englishName: string;
   availability: PreviewAvailability;
+  unit?: string;
 }
 
 const speciesNames = new Map([
   ['katsuo', { nameJa: 'カツオ', englishName: 'Skipjack tuna' }],
   ['sanma', { nameJa: 'サンマ', englishName: 'Pacific saury' }],
   ['saba', { nameJa: 'サバ', englishName: 'Chub mackerel' }],
+  ['hoya', { nameJa: 'ホヤ', englishName: 'Sea pineapple (hoya)' }],
+  ['oyster', { nameJa: 'カキ', englishName: 'Oyster' }],
   ['hotate', { nameJa: 'ホタテ', englishName: 'Scallop' }],
   ['mebachi', { nameJa: 'メバチマグロ', englishName: 'Bigeye tuna' }],
   ['awabi', { nameJa: 'アワビ', englishName: 'Abalone' }],
@@ -39,6 +43,11 @@ export function createMarketplacePreviewItems(lots: readonly PreviewLot[]): Mark
 }
 
 export const marketplacePreviewItems = createMarketplacePreviewItems(previewLots);
+export const marketplaceItems: MarketplacePreviewItem[] = LISTINGS.map(listing => ({
+  lot: { id: listing.slug.toUpperCase(), species: listing.species, priceJpy: listing.priceYen },
+  species: listing.species, ...speciesNames.get(listing.species)!,
+  availability: 'unknown', unit: listing.unit,
+}));
 
 export const marketplaceCopy = {
   en: {
@@ -120,5 +129,29 @@ export const checkoutPreviews: Record<CheckoutPreviewState, CheckoutPresentation
     message: 'A current quote cannot be loaded. The sample price is not an offer and cannot be approved.',
     actionLabel: 'Checkout unavailable',
     split: { ...split, state: 'unavailable', explanation: 'No authoritative quote or transfer status is available.' },
+  },
+};
+
+// Live storefront copy: the same catalogue, sold through SaleRouter with 5% to the relief fund.
+export const marketplaceLiveCopy = {
+  en: {
+    ...marketplaceCopy.en,
+    searchHint: 'Scallop, hoya or oyster',
+    preview: 'Sepolia testnet · JPYC · 5% to the relief fund',
+    count: 'items', empty: 'No fish match your filters.',
+    loading: 'Loading lots…', unavailable: 'Lots unavailable.', retry: 'Show lots',
+    details: 'Review purchase', noReceipt: '',
+    previewBadge: '', sampleLanding: '', view: 'Review purchase',
+    sharedCopy: 'Generated seafood illustrations. Availability is checked at checkout.',
+  },
+  ja: {
+    ...marketplaceCopy.ja,
+    searchHint: 'ホタテ、ホヤ、カキ',
+    preview: 'Sepolia テストネット · JPYC · 売上の5%を救済基金へ',
+    count: '件の商品', empty: '条件に一致する商品がありません。',
+    loading: 'ロットを読み込み中…', unavailable: 'ロットを読み込めません。', retry: 'ロットを表示',
+    details: '購入内容を確認', noReceipt: '',
+    previewBadge: '', sampleLanding: '', view: '購入内容を確認',
+    sharedCopy: '画像は生成イラストです。在庫は購入時に確認します。',
   },
 };

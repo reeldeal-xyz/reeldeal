@@ -4,30 +4,34 @@ import Button from '../atoms/Button.astro';
 import type { PreviewLot } from '../../fixtures/preview-lots';
 import { fishIllustration } from '../../lib/fish-illustration';
 
-const { lot, first = false, href = '#offer', index = 0, labels = {} } = Astro.props as {
-  lot: PreviewLot; first?: boolean; href?: string; index?: number;
-  labels?: { species?: string; preview?: string; sample?: string; view?: string; imageAlt?: string };
+const { lot, first = false, href = '#offer', index = 0, labels = {}, storefront = false } = Astro.props as {
+  lot: PreviewLot; first?: boolean; href?: string; index?: number; storefront?: boolean;
+  labels?: { species?: string; speciesEn?: string; speciesJa?: string; unit?: string; preview?: string; sample?: string; view?: string; imageAlt?: string };
 };
 const tones = ['lime', 'pink', 'yellow', 'blue'];
 const illustration = fishIllustration(lot.species);
 ---
 
-<article class={`market-card market-card--${tones[index % tones.length]} market-card--preview`} aria-labelledby={`market-${lot.id}`}>
+<article class:list={['market-card', `market-card--${tones[index % tones.length]}`, storefront ? 'market-card--storefront' : 'market-card--preview']} aria-labelledby={`market-${lot.id}`}>
   <div class="market-card__media">
     <img src={illustration.src} width="480" height="320"
       alt={labels.imageAlt ?? illustration.alt} loading={first ? 'eager' : 'lazy'}
       data-generated-illustration={illustration.src.startsWith('/images/fish/') || undefined} />
-    <div class="market-card__image-copy">
+    {!storefront && <div class="market-card__image-copy">
       <Badge label={labels.preview ?? 'Preview'} tone="yellow" class="market-card__status" />
       <div class="market-card__image-facts">
         <h2 id={`market-${lot.id}`}>{labels.species ?? lot.species}</h2>
-        <p><span>{lot.weightG.toLocaleString('ja-JP')} g</span><span class="market-card__fact-divider"> · </span><span>{lot.lengthMm} mm</span></p>
+        <p><span>{lot.weightG?.toLocaleString('ja-JP')} g</span><span class="market-card__fact-divider"> · </span><span>{lot.lengthMm} mm</span></p>
         <small>{labels.sample ?? 'Sample landing'}</small>
       </div>
-    </div>
+    </div>}
   </div>
+  {storefront && <div class="market-card__description">
+    <h2 id={`market-${lot.id}`} data-preview-en={labels.speciesEn} data-preview-ja={labels.speciesJa}>{labels.species ?? lot.species}</h2>
+    <p>{labels.unit ?? `${lot.weightG?.toLocaleString('ja-JP')} g`}</p>
+  </div>}
   <div class="market-card__foot">
-    <strong>¥{lot.priceJpy.toLocaleString('ja-JP')}</strong>
-    <Button href={href} variant="secondary" tone="ink" class="market-card__action">{labels.view ?? 'View'}</Button>
+    <strong>{!storefront && '¥'}{lot.priceJpy.toLocaleString('ja-JP')}{storefront && <small> JPYC</small>}</strong>
+    {!storefront && <Button href={href} variant="secondary" tone="ink" class="market-card__action">{labels.view ?? 'View'}</Button>}
   </div>
 </article>

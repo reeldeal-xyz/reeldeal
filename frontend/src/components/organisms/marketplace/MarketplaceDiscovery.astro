@@ -2,8 +2,11 @@
 import MarketplaceBrowser from '../../react/MarketplaceBrowser';
 import MarketCard from '../../molecules/MarketCard.astro';
 import Amount from '../../atoms/Amount.astro';
-import { marketplaceCopy, marketplacePreviewItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
+import CheckoutForm from '../../solid/CheckoutForm.tsx';
+import { getListing, splitSale } from '@repo/shared';
+import { marketplaceCopy, marketplaceLiveCopy, marketplacePreviewItems, marketplaceItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
 import { filterPreviewItems } from './filter';
+import { speciesColor } from '../../../lib/plot-layer';
 
 interface Props {
   initialLocale?: MarketplaceLocale;
@@ -11,26 +14,39 @@ interface Props {
   initialSpecies?: PreviewSpecies | 'all';
   initialAvailability?: PreviewAvailability | 'all';
   initialState?: 'ready' | 'loading' | 'unavailable';
+  live?: boolean;
 }
-const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready' } = Astro.props;
-const visible = new Set(filterPreviewItems(marketplacePreviewItems, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
-const t = marketplaceCopy[initialLocale];
+const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready', live = false } = Astro.props;
+const copy = live ? marketplaceLiveCopy : marketplaceCopy;
+const items = live ? marketplaceItems : marketplacePreviewItems;
+const visible = new Set(filterPreviewItems(items, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
+const t = copy[initialLocale];
 ---
 
-<div class="marketplace-canvas">
-<MarketplaceBrowser items={marketplacePreviewItems} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
+<div class:list={['marketplace-canvas', { 'marketplace-canvas--storefront': live }]}>
+<MarketplaceBrowser live={live} items={items} copy={copy} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
   <div class="market-grid marketplace-preview__grid">
-    {marketplacePreviewItems.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
-      <p class="marketplace-preview__availability" data-preview-en={marketplaceCopy.en[item.availability]} data-preview-ja={marketplaceCopy.ja[item.availability]}>{t[item.availability]}</p>
-      <MarketCard lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: item.nameJa === item.lot.species ? item.lot.species : `${item.nameJa} / ${item.lot.species}`, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
+    {items.map((item, index) => <div class="marketplace-preview__item" style={live ? `--species-color: ${speciesColor([item.species])}` : undefined} data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
+      {!live && <p class="marketplace-preview__availability" data-preview-en={copy.en[item.availability]} data-preview-ja={copy.ja[item.availability]}>{t[item.availability]}</p>}
+      <MarketCard storefront={live} lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: live ? (initialLocale === 'ja' ? item.nameJa : item.englishName) : `${item.nameJa} / ${item.lot.species}`, speciesEn: item.englishName, speciesJa: item.nameJa, unit: item.unit, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
       <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
-        <summary data-preview-en={marketplaceCopy.en.details} data-preview-ja={marketplaceCopy.ja.details}>{t.details}</summary>
-        <dl>
-          <div><dt data-preview-en={marketplaceCopy.en.weight} data-preview-ja={marketplaceCopy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG.toLocaleString('ja-JP')} g</dd></div>
-          <div><dt data-preview-en={marketplaceCopy.en.length} data-preview-ja={marketplaceCopy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
+        <summary data-preview-en={copy.en.details} data-preview-ja={copy.ja.details}>{t.details}</summary>
+        {!live && <dl>
+          <div><dt data-preview-en={copy.en.weight} data-preview-ja={copy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG?.toLocaleString('ja-JP')} g</dd></div>
+          <div><dt data-preview-en={copy.en.length} data-preview-ja={copy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
           <div><dt>JPY</dt><dd><Amount value={String(item.lot.priceJpy)} currency="JPY" /></dd></div>
-        </dl>
-        <p data-preview-en={marketplaceCopy.en.noReceipt} data-preview-ja={marketplaceCopy.ja.noReceipt}>{t.noReceipt}</p>
+        </dl>}
+        {!live && <p data-preview-en={copy.en.noReceipt} data-preview-ja={copy.ja.noReceipt}>{t.noReceipt}</p>}
+        {live && (() => {
+          const listing = getListing(item.lot.id.toLowerCase())!;
+          const split = splitSale(BigInt(listing.priceYen) * 10n ** 18n);
+          const amount = (value: bigint) => (value / 10n ** 18n).toLocaleString('ja-JP');
+          return <dl class="marketplace-preview__split">
+            <div><dt data-preview-en="Seller" data-preview-ja="販売者">{initialLocale === 'ja' ? '販売者' : 'Seller'}</dt><dd>{amount(split.seller)} <small>JPYC</small></dd></div>
+            <div><dt data-preview-en="Relief fund · 5%" data-preview-ja="救済基金 · 5%">{initialLocale === 'ja' ? '救済基金 · 5%' : 'Relief fund · 5%'}</dt><dd>{amount(split.relief)} <small>JPYC</small></dd></div>
+          </dl>;
+        })()}
+        {live && <CheckoutForm listing={{ slug: item.lot.id.toLowerCase(), priceJpy: item.lot.priceJpy }} locale={initialLocale} client:visible />}
       </details>
     </div>)}
   </div>
@@ -65,4 +81,34 @@ const t = marketplaceCopy[initialLocale];
   .marketplace-preview__sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (min-width: 768px) { .marketplace-preview__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 359px) { .marketplace-preview__selects { grid-template-columns: 1fr; } }
+
+  .marketplace-canvas--storefront { min-height: 0; }
+  .marketplace-canvas--storefront .marketplace-preview { max-width: 960px; width: calc(100% - 32px); padding: 24px 0; gap: 20px; }
+  .marketplace-canvas--storefront .marketplace-preview__toolbar { align-items: center; }
+  .marketplace-canvas--storefront .marketplace-preview__toolbar p { margin: 0; color: var(--color-ink-soft); font-size: .875rem; }
+  .marketplace-canvas--storefront .marketplace-preview__filters { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+  .marketplace-canvas--storefront .marketplace-preview__filters .field { display: grid; grid-template-rows: auto 44px; gap: 8px; margin: 0; }
+  .marketplace-canvas--storefront .marketplace-preview__selects { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-canvas--storefront select.input { height: 44px; appearance: none; padding-right: 30px; background: linear-gradient(45deg, transparent 50%, currentColor 50%) right 15px center / 5px 5px no-repeat, linear-gradient(135deg, currentColor 50%, transparent 50%) right 10px center / 5px 5px no-repeat, var(--color-surface); }
+  .marketplace-canvas--storefront .marketplace-preview__grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 24px; }
+  .marketplace-canvas--storefront .marketplace-preview__item { gap: 0; grid-column: auto; border: 2px solid var(--color-ink); border-top: 5px solid var(--species-color); border-radius: 14px; background: var(--color-surface); overflow: hidden; }
+  .marketplace-canvas--storefront .market-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 16px; gap: 16px; grid-template-rows: auto; }
+  .market-card--storefront .market-card__media { aspect-ratio: 3 / 2; max-height: 200px; min-height: 0; border: 0; border-radius: 8px; }
+  .market-card--storefront .market-card__media::after { display: none; }
+  .market-card--storefront .market-card__description h2 { font-size: 1.375rem; line-height: 1.25; letter-spacing: -.02em; }
+  .market-card--storefront .market-card__description p { margin: 4px 0 0; color: var(--color-ink-soft); font-size: .875rem; }
+  .market-card--storefront .market-card__foot strong { font-size: 1.5rem; }
+  .market-card--storefront .market-card__foot small { font: 700 .875rem var(--font-body); }
+  .marketplace-canvas--storefront .marketplace-preview__detail { margin: 0 16px 16px; border: 0; border-radius: 0; }
+  .marketplace-canvas--storefront .marketplace-preview__detail summary { padding: 12px 16px; border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-accent); text-align: center; list-style: none; }
+  .marketplace-canvas--storefront .marketplace-preview__detail summary::-webkit-details-marker { display: none; }
+  .marketplace-canvas--storefront .marketplace-preview__detail summary::after { content: ' +'; }
+  .marketplace-canvas--storefront .marketplace-preview__detail[open] summary::after { content: ' −'; }
+  .marketplace-canvas--storefront .marketplace-preview__detail dl { padding: 16px 0; gap: 8px; font-size: .875rem; }
+  .marketplace-canvas--storefront .marketplace-preview__detail p { padding: 0; }
+  .marketplace-canvas--storefront .checkout-panel { padding: 0; max-width: none; border: 0; box-shadow: none; background: transparent; gap: 12px; }
+  .marketplace-canvas--storefront .checkout-panel__error { padding: 12px; }
+  @media (max-width: 480px) {
+    .marketplace-canvas--storefront .marketplace-preview__filters { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  }
 </style>
