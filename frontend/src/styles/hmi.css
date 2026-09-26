@@ -14,14 +14,14 @@
   position: fixed;
   top: max(12px, env(safe-area-inset-top));
   left: 12px;
-  width: min(460px, calc(100vw - 24px));
+  width: min(760px, calc(100vw - 24px));
   margin: 0;
   z-index: 1200;
   box-shadow: 0 2px 8px rgb(16 42 48 / .12);
 }
 .app-frame:has(.hmi-page) .site-footer { display: none; }
-.app-frame:has(.hmi-page) .site-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.app-frame:has(.hmi-page) .site-nav a { min-height: 44px; }
+.app-frame:has(.hmi-page) .site-nav { grid-template-columns: repeat(6, auto); }
+.app-frame:has(.hmi-page) .site-nav a { min-height: 44px; padding-inline: 14px; white-space: nowrap; }
 .hmi-page { --sea-ink: #123a3e; --sea-paper: #faf8ee; position: fixed; inset: 0; isolation: isolate; color: var(--sea-ink); font: 14px/1.4 var(--font-body); }
 .hmi-page button { font: inherit; cursor: pointer; }
 .hmi-page button:disabled { cursor: default; opacity: .45; }
