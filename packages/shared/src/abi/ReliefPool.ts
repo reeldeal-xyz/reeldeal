@@ -996,6 +996,11 @@ export const ReliefPoolAbi = [
             "internalType": "uint32"
           },
           {
+            "name": "tempC",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
             "name": "dataHash",
             "type": "bytes32",
             "internalType": "bytes32"

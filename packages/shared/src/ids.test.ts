@@ -11,18 +11,18 @@ describe('idOf', () => {
 
 describe('eventIdOf', () => {
   test('is stable for the same inputs', () => {
-    const a = eventIdOf('karakuwa-east', 'scallop', 'HEAT25', 1, '2026');
-    const b = eventIdOf('karakuwa-east', 'scallop', 'HEAT25', 1, '2026');
+    const a = eventIdOf('karakuwa-east', 'scallop', 'HEAT', 1, '2026');
+    const b = eventIdOf('karakuwa-east', 'scallop', 'HEAT', 1, '2026');
     expect(a).toBe(b);
   });
 
-  test('changes when any field changes', () => {
-    const base = eventIdOf('karakuwa-east', 'scallop', 'HEAT25', 1, '2026');
-    expect(eventIdOf('kesennuma-bay', 'scallop', 'HEAT25', 1, '2026')).not.toBe(base);
-    expect(eventIdOf('karakuwa-east', 'hoya', 'HEAT25', 1, '2026')).not.toBe(base);
-    expect(eventIdOf('karakuwa-east', 'scallop', 'HEAT26', 1, '2026')).not.toBe(base);
-    expect(eventIdOf('karakuwa-east', 'scallop', 'HEAT25', 2, '2026')).not.toBe(base);
-    expect(eventIdOf('karakuwa-east', 'scallop', 'HEAT25', 1, '2027')).not.toBe(base);
+  test('changes when any field changes (note: the HEAT temperature lives in Trigger.tempC, not the peril id, so a tempC-only change is NOT expected to change eventId)', () => {
+    const base = eventIdOf('karakuwa-east', 'scallop', 'HEAT', 1, '2026');
+    expect(eventIdOf('kesennuma-bay', 'scallop', 'HEAT', 1, '2026')).not.toBe(base);
+    expect(eventIdOf('karakuwa-east', 'hoya', 'HEAT', 1, '2026')).not.toBe(base);
+    expect(eventIdOf('karakuwa-east', 'scallop', 'BANWEEKS', 1, '2026')).not.toBe(base);
+    expect(eventIdOf('karakuwa-east', 'scallop', 'HEAT', 2, '2026')).not.toBe(base);
+    expect(eventIdOf('karakuwa-east', 'scallop', 'HEAT', 1, '2027')).not.toBe(base);
   });
 });
 
@@ -31,11 +31,11 @@ describe('triggerEventId', () => {
     const trigger: Pick<Trigger, 'zoneId' | 'speciesId' | 'perilId' | 'tier' | 'seasonLabel'> = {
       zoneId: idOf('karakuwa-east'),
       speciesId: idOf('scallop'),
-      perilId: idOf('HEAT26'),
+      perilId: idOf('HEAT'),
       tier: 2,
       seasonLabel: '2026',
     };
-    expect(triggerEventId(trigger)).toBe(eventIdOf('karakuwa-east', 'scallop', 'HEAT26', 2, '2026'));
+    expect(triggerEventId(trigger)).toBe(eventIdOf('karakuwa-east', 'scallop', 'HEAT', 2, '2026'));
   });
 
   test('works directly off a fetched/decoded Trigger without needing the original labels', () => {

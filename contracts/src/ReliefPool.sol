@@ -111,7 +111,7 @@ contract ReliefPool is IReliefPool, AccessControl, EIP712, ReentrancyGuard {
     ISlotResolver public immutable slotResolver;
 
     bytes32 private constant TRIGGER_TYPEHASH = keccak256(
-        "Trigger(bytes32 zoneId,bytes32 speciesId,bytes32 perilId,uint8 tier,string seasonLabel,uint64 windowStart,uint64 windowEnd,uint64 firedAt,uint32 index,uint32 threshold,bytes32 dataHash,uint64 deadline)"
+        "Trigger(bytes32 zoneId,bytes32 speciesId,bytes32 perilId,uint8 tier,string seasonLabel,uint64 windowStart,uint64 windowEnd,uint64 firedAt,uint32 index,uint32 threshold,uint8 tempC,bytes32 dataHash,uint64 deadline)"
     );
 
     // ---------------------------------------------------------------------
@@ -175,7 +175,7 @@ contract ReliefPool is IReliefPool, AccessControl, EIP712, ReentrancyGuard {
         IPlotResolver plotResolver_,
         ISlotResolver slotResolver_,
         address admin_
-    ) EIP712("ReliefPool", "1") {
+    ) EIP712("ReliefPool", "2") {
         if (admin_ == address(0)) revert ZeroAddress();
         jpyc = jpyc_;
         humans = humans_;
@@ -288,7 +288,7 @@ contract ReliefPool is IReliefPool, AccessControl, EIP712, ReentrancyGuard {
         }
     }
 
-    /// @notice EIP-712 digest for `t` under this pool's domain {name: "ReliefPool", version: "1", chainId:
+    /// @notice EIP-712 digest for `t` under this pool's domain {name: "ReliefPool", version: "2", chainId:
     ///         block.chainid, verifyingContract: address(this)}; off-chain signers (pipeline + keeper) sign this
     ///         exact digest to produce the `sigs` passed to `attest`.
     function triggerDigest(Trigger calldata t) public view returns (bytes32) {
@@ -309,6 +309,7 @@ contract ReliefPool is IReliefPool, AccessControl, EIP712, ReentrancyGuard {
                 t.firedAt,
                 t.index,
                 t.threshold,
+                t.tempC,
                 t.dataHash,
                 t.deadline
             )

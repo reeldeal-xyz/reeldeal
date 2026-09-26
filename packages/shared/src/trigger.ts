@@ -39,7 +39,7 @@ export const TRIGGER_EIP712_TYPES = {
 } as const;
 
 export const eip712Domain = (verifyingContract: Address) =>
-  ({ name: 'ReliefPool', version: '1', chainId: 11155111, verifyingContract }) as const;
+  ({ name: 'ReliefPool', version: '2', chainId: 11155111, verifyingContract }) as const;
 
 /** JSON form of a Trigger (bigints and hex as strings), for the keeper and /verify pages. */
 export const TriggerJson = z.object({

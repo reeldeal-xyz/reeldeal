@@ -34,7 +34,8 @@ contract ReliefPoolSettleTest is Test {
 
     bytes32 internal zoneId = keccak256(bytes("karakuwa-east"));
     bytes32 internal speciesId = keccak256(bytes("scallop"));
-    bytes32 internal perilId = keccak256(bytes("HEAT25"));
+    bytes32 internal perilId = keccak256(bytes("HEAT"));
+    uint8 internal constant TEMP_C = 25; // RULES: scallop tier 1
     string internal seasonLabel = "2026";
 
     address internal farmerA = makeAddr("farmerA");
@@ -91,6 +92,7 @@ contract ReliefPoolSettleTest is Test {
         t.firedAt = uint64(block.timestamp - 2);
         t.index = index_;
         t.threshold = 14;
+        t.tempC = TEMP_C;
         t.dataHash = keccak256("data");
         t.deadline = deadline_;
     }
@@ -457,7 +459,7 @@ contract ReliefPoolSettleTest is Test {
         _bindLevel1(farmerA, nullifierA);
         vm.warp(block.timestamp + 90 days + 1); // past claimWindow
 
-        (,,,,,, , uint64 claimDeadline) = pool.attestations(eventId);
+        (,,,,,,, uint64 claimDeadline) = pool.attestations(eventId);
         vm.expectRevert(
             abi.encodeWithSelector(ReliefPool.ClaimWindowElapsed.selector, claimDeadline, uint64(block.timestamp))
         );
@@ -500,7 +502,7 @@ contract ReliefPoolSettleTest is Test {
         bytes32 eventId = _attest(1);
         pool.settle(eventId, _plots("p1")); // NO_FARMER hold
 
-        (,,,,,, , uint64 claimDeadline) = pool.attestations(eventId);
+        (,,,,,,, uint64 claimDeadline) = pool.attestations(eventId);
         vm.expectRevert(
             abi.encodeWithSelector(ReliefPool.ClaimWindowActive.selector, claimDeadline, uint64(block.timestamp))
         );

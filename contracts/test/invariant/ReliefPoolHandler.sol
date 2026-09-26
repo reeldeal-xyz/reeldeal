@@ -28,7 +28,7 @@ contract ReliefPoolHandler is Test {
 
     bytes32 internal immutable zoneId = keccak256(bytes("karakuwa-east"));
     bytes32 internal immutable speciesId = keccak256(bytes("scallop"));
-    bytes32 internal immutable perilId = keccak256(bytes("HEAT25"));
+    bytes32 internal immutable perilId = keccak256(bytes("HEAT"));
 
     // Fixed plot universe: p0-p3 -> farmerA (level 1, cap 3, so p3 always CAP-holds within an event);
     // p4 -> farmerB (level 2, cap 12); p5 -> enrolled under a different zone (always ZONE_MISMATCH);
@@ -147,6 +147,7 @@ contract ReliefPoolHandler is Test {
         t.firedAt = t.windowEnd;
         t.index = 1;
         t.threshold = 1;
+        t.tempC = 25;
         t.dataHash = keccak256(abi.encodePacked(season));
         t.deadline = uint64(block.timestamp) + 365 days;
 

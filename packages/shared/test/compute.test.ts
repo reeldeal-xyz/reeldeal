@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { expect, test } from 'bun:test';
 import {
-  computeIndices,
   computeTriggers,
   evaluateRules,
   parseErddapCsv,
@@ -10,7 +9,7 @@ import {
   triggerToJson,
   type SeriesDay,
 } from '../src/compute';
-import { REFERENCE_FIRES } from '../src/rules';
+import { HEAT_WINDOW, REFERENCE_FIRES } from '../src/rules';
 
 test('sha256Hex matches an independent implementation (node:crypto)', async () => {
   for (const input of ['', 'abc', 'the quick brown fox', '2023-08-11T09:00:00Z,26.4\n']) {
@@ -35,70 +34,73 @@ test('parseErddapCsv reads the jplMURSST41 shape and treats blank/NaN as null', 
     '2023-07-04T09:00:00Z,26.401',
   ].join('\n');
   expect(parseErddapCsv(csv)).toEqual([
-    { date: '2023-07-01', sst: 19.8 },
-    { date: '2023-07-02', sst: null },
-    { date: '2023-07-03', sst: null },
-    { date: '2023-07-04', sst: 26.401 },
+    { date: '2023-07-01', value: 19.8 },
+    { date: '2023-07-02', value: null },
+    { date: '2023-07-03', value: null },
+    { date: '2023-07-04', value: 26.401 },
   ]);
 });
 
-test('computeIndices accumulates HEAT24/25/26 within the window and freezes outside it', () => {
+test('evaluateRules fires the first day a HEAT rule (tempC + window) reaches its threshold, not later ones', () => {
   const days: SeriesDay[] = [
-    { date: '2023-06-30', sst: 30 }, // outside window (before 07-01): must not count
-    { date: '2023-07-01', sst: 23.9 }, // below all thresholds
-    { date: '2023-07-02', sst: 24.5 }, // heat24 only
-    { date: '2023-07-03', sst: 25.2 }, // heat24 + heat25
-    { date: '2023-07-04', sst: 26.7 }, // heat24 + heat25 + heat26
-    { date: '2023-07-05', sst: null }, // missing reading: carries forward
-    { date: '2023-10-01', sst: 30 }, // outside window (after 09-30): must not count
+    { date: '2023-08-20', value: 25.5 },
+    { date: '2023-08-21', value: 25.5 },
+    { date: '2023-08-22', value: 25.5 }, // cumulative count hits 3 here
+    { date: '2023-08-23', value: 25.5 },
   ];
-  expect(computeIndices(days)).toEqual([
-    { date: '2023-06-30', heat24: 0, heat25: 0, heat26: 0, banWeeks: {} },
-    { date: '2023-07-01', heat24: 0, heat25: 0, heat26: 0, banWeeks: {} },
-    { date: '2023-07-02', heat24: 1, heat25: 0, heat26: 0, banWeeks: {} },
-    { date: '2023-07-03', heat24: 2, heat25: 1, heat26: 0, banWeeks: {} },
-    { date: '2023-07-04', heat24: 3, heat25: 2, heat26: 1, banWeeks: {} },
-    { date: '2023-07-05', heat24: 3, heat25: 2, heat26: 1, banWeeks: {} },
-    { date: '2023-10-01', heat24: 3, heat25: 2, heat26: 1, banWeeks: {} },
-  ]);
-});
-
-test('evaluateRules fires the first day a threshold is reached, not later ones', () => {
-  const days = computeIndices([
-    { date: '2023-08-20', sst: 25.5 },
-    { date: '2023-08-21', sst: 25.5 },
-    { date: '2023-08-22', sst: 25.5 }, // heat25 hits 3 here
-    { date: '2023-08-23', sst: 25.5 },
-  ]);
-  const rule = { species: 'scallop', tier: 1, peril: 'HEAT25', threshold: 3 } as const;
+  const rule = { species: 'scallop', tier: 1, peril: 'HEAT', tempC: 25, threshold: 3, window: HEAT_WINDOW } as const;
   const fired = evaluateRules(days, [rule]);
   expect(fired).toEqual([{ rule, label: 'scallop:1', firedOn: '2023-08-22', index: 3 }]);
 });
 
-test('triggerToJson/triggerFromJson round-trip bigints as decimal strings', () => {
-  const days = computeIndices([{ date: '2023-08-11', sst: 26 }]);
-  const [fired] = evaluateRules(days, [{ species: 'scallop', tier: 2, peril: 'HEAT26', threshold: 1 }]);
+test('evaluateRules never fires a BANWEEKS rule from an SST-only series', () => {
+  const days: SeriesDay[] = [{ date: '2023-08-11', value: 30 }];
+  const fired = evaluateRules(days, [{ species: 'oyster', tier: 1, peril: 'BANWEEKS', threshold: 4 }]);
+  expect(fired).toEqual([]);
+});
+
+test('triggerToJson/triggerFromJson round-trip bigints as decimal strings, including tempC', () => {
+  const days: SeriesDay[] = [{ date: '2023-08-11', value: 26 }];
+  const rule = { species: 'scallop', tier: 2, peril: 'HEAT', tempC: 26, threshold: 1, window: HEAT_WINDOW } as const;
+  const [fired] = evaluateRules(days, [rule]);
   const triggers = computeTriggers({
     zone: 'karakuwa-east',
-    days: [{ date: '2023-08-11', sst: 26 }],
+    days,
     dataHash: '0x00',
     deadline: 1700000000n,
-    rules: [{ species: 'scallop', tier: 2, peril: 'HEAT26', threshold: 1 }],
+    rules: [rule],
   });
   expect(fired).toBeDefined();
   expect(triggers).toHaveLength(1);
   const json = triggers[0]!.trigger;
   expect(typeof json.windowStart).toBe('string');
+  expect(json.tempC).toBe(26);
   const roundTripped = triggerToJson(triggerFromJson(json));
   expect(roundTripped).toEqual(json);
+});
+
+test('buildTrigger sets tempC to 0 for a peril without a temperature', () => {
+  const days: SeriesDay[] = [{ date: '2023-08-11', value: 26 }];
+  // A HEAT rule always carries tempC in RULES; this exercises the buildTrigger fallback directly for a
+  // hypothetical rule that omits it (BANWEEKS rules never reach buildTrigger via evaluateRules today).
+  const triggers = computeTriggers({
+    zone: 'karakuwa-east',
+    days,
+    dataHash: '0x00',
+    deadline: 1700000000n,
+    rules: [{ species: 'scallop', tier: 2, peril: 'HEAT', tempC: 26, threshold: 1, window: HEAT_WINDOW }],
+  });
+  expect(triggers[0]!.trigger.tempC).toBe(26);
 });
 
 // ---------------------------------------------------------------------------------------------------
 // Regression: reproduce REFERENCE_FIRES exactly from a synthetic 92-day SST series at the reference
 // point. The real-data check is test/reference-fires.test.ts, against the pipeline's JAXA snapshot. The series below
 // is constructed (not measured), but it is constructed *blind to the compute functions* — by placing
-// count/last-day targets for each HEAT category and letting `computeIndices`/`evaluateRules` do the
-// actual threshold evaluation — so this is a real exercise of the algorithm, not a tautology.
+// count/last-day targets for each HEAT temperature and letting `evaluateRules` (via rules.ts's
+// `heatDays`/`heatFiredOn`) do the actual threshold evaluation — so this is a real exercise of the
+// algorithm, not a tautology. These are the NASA MUR-derived targets; do not replace with JAXA numbers
+// until the pipeline's JAXA SST regression (#77/#82) is re-derived and re-agreed (docs/INTERFACE.md).
 // ---------------------------------------------------------------------------------------------------
 
 const WINDOW_LEN = 92; // Jul 1 .. Sep 30 inclusive
@@ -154,6 +156,8 @@ interface CategoryPlan {
   last: number | null;
 }
 
+// A-days count toward tempC 24/25/26 (>=26), B-days toward 24/25 (25-26), C-days toward 24 only
+// (24-25) — so counts nest (>=26 <= >=25 <= >=24) exactly like the real cumulative definition.
 function buildSeason(year: number, plan: { A: CategoryPlan; B: CategoryPlan; C: CategoryPlan }): SeriesDay[] {
   const aDays = new Set(placeCategoryDays(plan.A.count, plan.A.last, new Set()));
   const bDays = new Set(placeCategoryDays(plan.B.count, plan.B.last, aDays));
@@ -161,15 +165,13 @@ function buildSeason(year: number, plan: { A: CategoryPlan; B: CategoryPlan; C: 
   const days: SeriesDay[] = [];
   for (let i = 1; i <= WINDOW_LEN; i++) {
     const category: Category = aDays.has(i) ? 'A' : bDays.has(i) ? 'B' : cDays.has(i) ? 'C' : 'D';
-    days.push({ date: dateForWindowDay(year, i), sst: tempFor(category, i) });
+    days.push({ date: dateForWindowDay(year, i), value: tempFor(category, i) });
   }
   return days;
 }
 
 // Day-index (1 = Jul 1) for each reference fire date, and the category-count plan that produces it:
-// scallop:2 needs HEAT26>=12, scallop:1 needs HEAT25>=14, hoya:1 needs HEAT24>=30. Every A-day counts
-// toward HEAT24/25/26, every B-day toward HEAT24/25, every C-day toward HEAT24 only — so counts nest
-// (heat26 <= heat25 <= heat24) exactly like the real cumulative definition.
+// scallop:2 needs >=26C on 12 days, scallop:1 needs >=25C on 14 days, hoya:1 needs >=24C on 30 days.
 const SEASON_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: CategoryPlan }> = {
   '2022': { A: { count: 0, last: null }, B: { count: 2, last: null }, C: { count: 8, last: null } },
   // 2023: scallop:1 (HEAT25) reaches 14 on Aug 13, the day before scallop:2 (HEAT26) reaches 12 on Aug 14.
@@ -181,8 +183,7 @@ const SEASON_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: Catego
 for (const [season, plan] of Object.entries(SEASON_PLANS)) {
   test(`reproduces REFERENCE_FIRES for ${season} at the reference point`, () => {
     const days = buildSeason(Number(season), plan);
-    const indices = computeIndices(days);
-    const fired = evaluateRules(indices);
+    const fired = evaluateRules(days);
     const firedByLabel = Object.fromEntries(fired.map((f) => [f.label, f.firedOn]));
     const expected = REFERENCE_FIRES[season as keyof typeof REFERENCE_FIRES];
 
