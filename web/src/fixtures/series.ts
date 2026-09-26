@@ -16,6 +16,7 @@ import {
   type Zone,
 } from '@repo/shared';
 import type { Hex } from 'viem';
+import { BANWEEKS_SEASON, fixtureBanweeksTriggers } from './banweeks';
 
 const WINDOW_LEN = 92; // Jul 1 .. Sep 30 inclusive
 
@@ -146,6 +147,10 @@ export function fixtureIndices(zone: Zone, season: string): IndicesFile {
 }
 
 export async function fixtureTriggers(zone: Zone, season: string): Promise<TriggersFile> {
+  // Season 2026 is the current (non-replay) season and its trigger is a BANWEEKS toxin-ban event (#28),
+  // not an SST HEAT rule — the plans above have no HEAT data for it. Delegate to the real, pinned fixture.
+  if (season === BANWEEKS_SEASON) return fixtureBanweeksTriggers(zone);
+
   const days = seriesDaysFor(zone, season);
   const csv = fixtureCsvText(zone, season);
   const dataHash = `0x${await sha256Hex(csv)}` as Hex;

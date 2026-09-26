@@ -1,0 +1,133 @@
+.card {
+  background: var(--ocean-850);
+  border: 1px solid var(--ocean-700);
+  border-radius: 14px;
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.4rem;
+  border-radius: 14px;
+  margin-bottom: 1.1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+}
+
+.bannerMatch {
+  background: color-mix(in srgb, var(--success-500) 14%, var(--ocean-900));
+  border: 1px solid color-mix(in srgb, var(--success-500) 50%, transparent);
+  color: var(--success-500);
+}
+
+.bannerMismatch {
+  background: color-mix(in srgb, var(--danger-500) 14%, var(--ocean-900));
+  border: 1px solid color-mix(in srgb, var(--danger-500) 50%, transparent);
+  color: var(--danger-500);
+}
+
+.bannerPending {
+  background: var(--ocean-850);
+  border: 1px solid var(--ocean-700);
+  color: var(--tide-500);
+}
+
+.bannerIcon {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem 1rem;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-top: 1px solid var(--ocean-700);
+}
+
+.row:first-child {
+  border-top: none;
+}
+
+.rowLabel {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--tide-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rowValue {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--foam-100);
+  word-break: break-all;
+  text-align: right;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+
+.pillMatch {
+  background: color-mix(in srgb, var(--success-500) 18%, transparent);
+  color: var(--success-500);
+}
+
+.pillMismatch {
+  background: color-mix(in srgb, var(--danger-500) 18%, transparent);
+  color: var(--danger-500);
+}
+
+.pillPending {
+  background: var(--ocean-700);
+  color: var(--tide-500);
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--foam-100);
+  margin: 0 0 0.9rem;
+}
+
+.footnote {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--tide-500);
+  line-height: 1.6;
+  margin: 0.75rem 0 0;
+}
+
+.buoyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.buoyTable th,
+.buoyTable td {
+  text-align: right;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--ocean-700);
+  color: var(--foam-300);
+}
+
+.buoyTable th:first-child,
+.buoyTable td:first-child {
+  text-align: left;
+  color: var(--tide-500);
+}

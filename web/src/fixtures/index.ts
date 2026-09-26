@@ -5,3 +5,4 @@
 export * from './series';
 export * from './buoy';
 export * from './geo';
+export * from './banweeks';

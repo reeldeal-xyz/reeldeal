@@ -1,41 +1,59 @@
-// Placeholder zone polygons and synthetic plot points for the map (#18). Zone geometry is hand-traced
-// and APPROXIMATE — issue #22 (Jay) replaces it with real fishery-map GeoJSON. Plot points are entirely
-// SYNTHETIC (no real plot locations); both facts are surfaced in the UI, never silently implied as real.
+// Zone polygons and synthetic plot points for the map (#18).
+//
+// Zone geometry is copied from the real, hand-traced GeoJSON issue #22 landed at
+// pipeline/data/zones/{karakuwa-east,kesennuma-bay}.geojson (source: 宮城海区漁場計画 令和5年一斉更新, a
+// 2023 Miyagi-prefecture fishery map; see that directory's sources.json for full citations and the
+// geocoding method). It is still APPROXIMATE by the source's own admission — "not surveyed; do not use
+// for navigation or legal boundary purposes" — which this module carries through as `properties.accuracy`
+// on every feature, verbatim. Copied rather than imported across the workspace so the web app has no
+// runtime dependency on pipeline/data/ (see docs/INTERFACE.md: "the web app may also import the files
+// directly for the static demo"); keep in sync with the pipeline files by hand if #22's data changes.
+//
+// Plot points are entirely SYNTHETIC (no real plot registry exists yet — season slots are minted on
+// ENSv2, #7/#8); that fact is surfaced in the UI, never silently implied as real.
 import type { Species, Zone } from '@repo/shared';
 
 export interface ZoneFeature {
   zone: Zone;
   label: string;
+  accuracy: string;
   /** [lon, lat][] closed ring. */
   ring: [number, number][];
 }
 
-// Rough shapes around the Karakuwa peninsula / Kesennuma Bay, Miyagi. Coordinates are illustrative only.
 export const ZONE_FEATURES: ZoneFeature[] = [
   {
     zone: 'karakuwa-east',
-    label: 'Karakuwa East',
+    label: '唐桑半島東部 (Karakuwa Peninsula East)',
+    accuracy:
+      'Approximate — traced from the 2023 Miyagi fishery map (pref.miyagi.jp/documents/37871/kukakun.pdf, page 1); not surveyed.',
     ring: [
-      [141.615, 38.884],
-      [141.648, 38.888],
-      [141.671, 38.869],
-      [141.658, 38.847],
-      [141.628, 38.843],
-      [141.609, 38.862],
-      [141.615, 38.884],
+      [141.6332, 38.965],
+      [141.6317, 38.9302],
+      [141.655, 38.91],
+      [141.6648, 38.8961],
+      [141.6715, 38.8611],
+      [141.705, 38.858],
+      [141.7, 38.905],
+      [141.672, 38.932],
+      [141.665, 38.968],
+      [141.6332, 38.965],
     ],
   },
   {
     zone: 'kesennuma-bay',
-    label: 'Kesennuma Bay',
+    label: '気仙沼湾 (Kesennuma Bay)',
+    accuracy:
+      'Approximate — traced from the 2023 Miyagi fishery map (pref.miyagi.jp/documents/37871/kukakun.pdf, pages 2-3); not surveyed; simplified to one ring (does not carve out Oshima island).',
     ring: [
-      [141.552, 38.911],
-      [141.588, 38.916],
-      [141.607, 38.898],
-      [141.598, 38.878],
-      [141.566, 38.872],
-      [141.545, 38.888],
-      [141.552, 38.911],
+      [141.66, 38.861],
+      [141.6428, 38.8934],
+      [141.6232, 38.9046],
+      [141.5794, 38.9008],
+      [141.59, 38.855],
+      [141.6034, 38.8284],
+      [141.645, 38.838],
+      [141.66, 38.861],
     ],
   },
 ];
@@ -44,7 +62,7 @@ export const ZONE_FEATURES: ZoneFeature[] = [
 // extra type dependency on whatever maplibre-gl happens to hoist.
 export interface ZonePolygonFeature {
   type: 'Feature';
-  properties: { zone: Zone; label: string; approximate: true };
+  properties: { zone: Zone; label: string; accuracy: string };
   geometry: { type: 'Polygon'; coordinates: [number, number][][] };
 }
 export interface ZoneFeatureCollection {
@@ -57,7 +75,7 @@ export function zoneFeaturesGeoJson(): ZoneFeatureCollection {
     type: 'FeatureCollection',
     features: ZONE_FEATURES.map((z) => ({
       type: 'Feature',
-      properties: { zone: z.zone, label: z.label, approximate: true },
+      properties: { zone: z.zone, label: z.label, accuracy: z.accuracy },
       geometry: { type: 'Polygon', coordinates: [z.ring] },
     })),
   };
