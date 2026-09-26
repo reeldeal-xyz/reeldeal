@@ -69,6 +69,16 @@ passed `CancelIdentityCheck` and `ClaimRequestStaysHeld`, and confirmed that
 `VerifiedHeldExpiredSlot` shows its explanation with no claim action. Broader
 390/1440px inspection and the remaining states still need browser acceptance.
 
+After merging main at `f5d2b11bf131db0497a8dfbc31f1283ac457416c` (including
+#94's marketplace preview), frontend checks pass for 60 files and the standard
+frontend suite passes 15 tests / 78 assertions. Contract tests pass 113 tests;
+Dotdog tests pass 2 tests / 32 assertions. The whole-repository typecheck still
+has the ambient `web/` minimatch limitation described above. Reviewed the
+combined marketplace and farmer source against the Application/Documentation
+specs and ADR 0002: their descriptions remain accurate, so only the reviewed
+hashes are refreshed. These totals include the marketplace and shared display
+tests; they do not establish production acceptance for #67.
+
 The component inlines its own prefixed CSS so it also survives static Astro
 Storybook rendering. It uses existing eggshell surfaces and tokens; no shared
 styles or molecules are changed.
