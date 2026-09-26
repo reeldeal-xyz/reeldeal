@@ -14,3 +14,4 @@ contracts/broadcast/*/31337/
 .claude/skills/
 .claude/handoff/
 *.tsbuildinfo
+.claude/worktrees/
