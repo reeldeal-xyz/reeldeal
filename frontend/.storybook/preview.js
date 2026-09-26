@@ -1,5 +1,7 @@
 import '../src/styles/global.css';
 import '../src/styles/market.css';
+import '../src/styles/hmi.css';
+import 'leaflet/dist/leaflet.css';
 import '../src/components/molecules/relief/relief.css';
 import './preview.css';
 

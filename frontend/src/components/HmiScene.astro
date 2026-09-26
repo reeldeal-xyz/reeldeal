@@ -1,0 +1,136 @@
+---
+
+
+import SpeciesIcon from './SpeciesIcon.astro';
+import 'leaflet/dist/leaflet.css';
+import '../styles/hmi.css';
+
+import { heatCoverage, heatDays } from '@repo/shared';
+import type { HeatRiskResult } from '../lib/heat-risk.server';
+import type { HmiData } from '../lib/hmi.server';
+import type { SpeciesResult } from '../lib/species.server';
+
+interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH' }
+const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint } = Astro.props;
+const plots = hmi.status === 'available' ? hmi.plots : [];
+const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
+
+const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
+const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
+const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
+
+const data = risk?.data ?? null;
+const series = data?.indices.filter((item) => item.index === metric) ?? [];
+const values = series.flatMap((item) => item.value === null ? [] : [item.value]);
+const min = values.length ? Math.min(...values) : 0;
+const max = values.length ? Math.max(...values) : 1;
+const chartSegments: string[] = [];
+let chartSegment: string[] = [];
+series.forEach((item, index) => {
+  if (item.value === null) {
+    if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
+    chartSegment = [];
+    return;
+  }
+  chartSegment.push(`${(index / Math.max(series.length - 1, 1) * 760 + 20).toFixed(1)},${(180 - ((item.value - min) / Math.max(max - min, 0.1)) * 140).toFixed(1)}`);
+});
+if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
+const coverage = data ? heatCoverage(data) : null;
+const provenance = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()].slice(0, 4);
+const speciesData = speciesInfo?.data ?? null;
+const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
+const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
+const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
+  ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
+const speciesText = !species || speciesInfo?.status === 'available' ? ''
+  : speciesInfo?.status === 'not-configured' ? 'Species reference data is not configured for this deployment.'
+  : speciesInfo?.status === 'not-found' ? `No species reference for ${species}.`
+  : speciesInfo?.status === 'invalid-payload' ? 'Species reference failed validation.'
+  : 'Species reference data is unavailable.';
+const statusText = hmi.status === 'not-configured' ? 'Pipeline is not configured for this deployment.'
+  : hmi.status === 'unavailable' ? 'Live plot and zone data are unavailable.'
+  : hmi.status === 'invalid-payload' ? 'Pipeline map data failed validation.' : '';
+const riskText = !plot ? '' : risk?.status === 'not-configured' ? 'Heat data is not configured for this deployment.'
+  : risk?.status === 'unimplemented' ? 'Heat analysis is not implemented by the connected pipeline.'
+  : risk?.status === 'not-found' ? `No heat data for ${plot.plotCode} in ${season}.`
+  : risk?.status === 'stale' ? 'Heat data does not reach the selected season’s required observation date.'
+  : risk?.status === 'partial' ? 'Heat observations have missing or null days.'
+  : risk?.status === 'invalid-payload' ? 'Heat response failed validation.'
+  : risk?.status === 'timeout' || risk?.status === 'unavailable' ? 'Heat service is unavailable.' : '';
+const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a surveyed farm'
+  : plot?.source === 'msil' ? 'MSIL plot geometry' : plot ? 'Uploaded plot geometry' : '';
+const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
+  : hmi.status === 'not-configured' ? 'Pipeline not configured' : 'Pipeline unavailable';
+const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
+const speciesNames: Record<string, string> = { scallop: 'Scallop', oyster: 'Oyster', hoya: 'Sea pineapple' };
+---
+
+  <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''}>
+    <div id="hmi-map" aria-label="Interactive map of the Miyagi coast" tabindex="0"></div>
+    <div class="coast-label"><h1>Miyagi coast</h1><span><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? 'Satellite & ocean observations' : pipelineStatus}</span></div>
+    <p class="map-message" data-map-message role="status" hidden={!statusText}>{statusText}</p>
+    <div class="map-tools" aria-label="Map panels">
+      <button type="button" class="map-tool" data-shelf="layers" aria-expanded="false" aria-controls="layers-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5M3 16l9 5 9-5" /></svg><span>Layers</span></button>
+      <button type="button" class="map-tool" data-shelf="thresholds" aria-expanded="false" aria-controls="thresholds-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14V5a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0Z M12 10v7 M18 6h3m-3 4h2" /></svg><span>Thresholds</span></button>
+      <button type="button" class="map-tool" data-shelf="forecast" aria-expanded="false" aria-controls="forecast-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17a4 4 0 0 1-1-8 6 6 0 0 1 11-2 5 5 0 1 1 1 10H6 M8 20l-1 2m6-2-1 2m6-2-1 2" /></svg><span>Forecast</span></button>
+    </div>
+
+    <section id="layers-shelf" class="map-shelf side-shelf" aria-labelledby="layers-heading" inert>
+      <header><h2 id="layers-heading">Map layers</h2><button type="button" data-close-shelf aria-label="Close layers">×</button></header>
+      <fieldset class="layer-choices"><legend class="sr-only">Map imagery</legend>
+        <label><input type="radio" name="map-layer" value="satellite" checked /><span>Satellite<small>Coast & plot markers</small></span></label>
+        <label><input type="radio" name="map-layer" value="sst" /><span>Temperature<small>Sea surface · °C</small></span></label>
+        <label><input type="radio" name="map-layer" value="anom" /><span>Temperature anomaly<small>Difference from average</small></span></label>
+        <label><input type="radio" name="map-layer" value="chl" /><span>Chlorophyll<small>Ocean colour</small></span></label>
+      </fieldset>
+      <p class="shelf-note" data-layer-date>Satellite imagery · Esri</p>
+      <p class="shelf-note">Chlorophyll shows ocean colour; it does not confirm a harmful algal bloom.</p>
+    </section>
+
+    <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
+      <header><h2 id="thresholds-heading">Species thresholds</h2><button type="button" data-close-shelf aria-label="Close thresholds">×</button></header>
+      <div data-response-panel="thresholds">
+        <p class="shelf-kicker">{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : speciesNames[species] ?? species} · {season}</p>
+        {speciesData && <p class="shelf-note">{speciesData.taxon}</p>}
+        {speciesText ? <p class="shelf-note">{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>{rule.tempC}°C</strong><span>Tier {rule.tier} · {rule.window?.start} – {rule.window?.end}</span></div><b>{count}<small> / {rule.threshold} days</small></b></div>) : <p class="shelf-note">No heat threshold is registered for this species.</p>}
+        <p class="shelf-note">Days above the temperature threshold. Relief eligibility is determined separately.</p>
+        {speciesData && <p class="shelf-note">Rules {speciesData.rules_version} · profiles {speciesData.profile_version}</p>}
+        {speciesData && !!speciesData.evidence.length && <details class="data-sources"><summary>Response evidence</summary>{speciesData.evidence.map((study) => <p><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.status === 'measured' ? `${study.points.length} measured points` : 'No supported response data'}{study.note && ` · ${study.note}`}</p>)}</details>}
+      </div>
+    </section>
+
+    <section id="forecast-shelf" class="map-shelf bottom-shelf" aria-labelledby="forecast-heading" inert>
+      <header><h2 id="forecast-heading">Forecast</h2><button type="button" data-close-shelf aria-label="Close forecast">×</button></header>
+      <p class="shelf-kicker">Miyagi coast</p><p class="shelf-note">A forecast feed is not connected yet. The map and charts show observed conditions.</p>
+    </section>
+
+    <section id="observations-shelf" class="map-shelf bottom-shelf" aria-labelledby="observations-heading" inert>
+      <header><h2 id="observations-heading">Ocean observations</h2><button type="button" data-close-shelf aria-label="Close observations">×</button></header>
+      <div data-response-panel="observations">
+        <div class="observation-heading"><div><p class="shelf-kicker">{speciesNames[species] ?? species} · {season}</p><h3>{metric === 'SST_ANOM' ? 'Temperature anomaly' : metric === 'SST_MONTH' ? 'Monthly temperature' : 'Sea temperature'}</h3></div><span>°C</span></div>
+        {data && values.length > 1 ? <svg class="chart" viewBox="0 0 800 210" role="img" aria-label={`${metric} observed time series for ${plot?.plotCode}`}><path class="chart-grid" d="M20 40H780M20 110H780M20 180H780"/>{chartSegments.map((points) => <polyline points={points} />)}<text x="20" y="202">{series[0]?.asOf}</text><text x="690" y="202">{series.at(-1)?.asOf}</text></svg> : <p class="shelf-note">{riskText || 'No observations available for this selection.'}</p>}
+        {coverage && <p class="shelf-note">{coverage.observedDays} observed days · {coverage.nullDays + coverage.omittedDays} missing</p>}
+        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}</p>}
+        {!!provenance.length && <details class="data-sources"><summary>Data sources</summary><p>{provenance.map((source) => `${source.product} · ${source.sha256.slice(0, 12)}`).join(' / ')}</p></details>}
+      </div>
+    </section>
+
+    <button type="button" class="observations-toggle" data-shelf="observations" aria-expanded="false" aria-controls="observations-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18V5m0 13h18M6 14l4-5 4 3 6-8" /></svg>Observations<span>↑</span></button>
+    <div class="map-zoom" aria-label="Map zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" aria-label="Zoom out">−</button></div>
+    <form class="coast-dock" method="get" aria-label="Ocean view controls">
+      <input type="hidden" name="plot" value={plot?.plotCode ?? ''} />
+      <input type="hidden" name="metric" value={metric} />
+      <input type="hidden" name="season" value={season} />
+      <fieldset class="species-picker"><legend class="sr-only">Species</legend>
+        {supportedSpecies.map((item) => <label title={speciesNames[item] ?? item}><input type="radio" name="species" value={item} checked={item === species} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
+        {!supportedSpecies.length && <p class="shelf-note">No species data</p>}
+      </fieldset>
+      <div class="season-picker" aria-label="Observation season"><span>Season</span><div><button type="button" data-season-step="-1" aria-label="Previous season" disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label="Next season" disabled={Number(season) >= 2025}>›</button></div></div>
+      <p class="dock-status sr-only" data-view-status role="status"></p>
+      <noscript><button type="submit">Show selection</button></noscript>
+    </form>
+  </div>
+
+<script>
+  import '../lib/hmi-map.client';
+</script>

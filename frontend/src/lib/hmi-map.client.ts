@@ -1,0 +1,149 @@
+import L from 'leaflet';
+
+type Plot = { plotCode: string; centroid: [number, number]; geometry: GeoJSON.Geometry; species: string[]; source: string };
+type Zone = { geometry: GeoJSON.Geometry | null; name: string; nameJa?: string | null };
+
+export function initHmiMap(root: ParentNode = document) {
+const scene = root.querySelector<HTMLElement>('.hmi-page');
+const mapElement = scene?.querySelector<HTMLElement>('#hmi-map');
+if (scene && mapElement && !scene.dataset.mapReady) {
+  scene.dataset.mapReady = 'true';
+  const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[],"zones":[]}') as { plots: Plot[]; zones: Zone[] };
+  const dock = scene.querySelector<HTMLFormElement>('.coast-dock')!;
+  const status = scene.querySelector<HTMLElement>('[data-view-status]')!;
+  const seasonInput = dock.elements.namedItem('season') as HTMLInputElement;
+  const plotInput = dock.elements.namedItem('plot') as HTMLInputElement;
+  const selectedSpecies = () => (dock.querySelector<HTMLInputElement>('input[name="species"]:checked')?.value ?? '');
+  const map = L.map(mapElement, { minZoom: 5, maxZoom: 16, zoomControl: false, scrollWheelZoom: false }).setView([38.84, 141.61], 10);
+  map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 18,
+    attribution: '&copy; Esri, Maxar, Earthstar Geographics, GIS User Community',
+  }).addTo(map);
+  let activeOverlay: L.TileLayer.WMS | undefined;
+  const layers: Record<string, { name: string; label: string }> = {
+    sst: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature', label: 'Sea surface temperature' },
+    anom: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', label: 'Temperature anomaly' },
+    chl: { name: 'OCI_PACE_Chlorophyll_a', label: 'Chlorophyll' },
+  };
+  const layerNote = scene.querySelector<HTMLElement>('[data-layer-date]')!;
+  const mapMessage = scene.querySelector<HTMLElement>('[data-map-message]')!;
+  const markerByCode = new Map<string, { marker: L.CircleMarker; plot: Plot }>();
+  for (const zone of features.zones) {
+    if (zone.geometry) L.geoJSON(zone.geometry, { style: { color: '#f7f5df', weight: 1.5, fillColor: '#f7f5df', fillOpacity: 0.05 } }).addTo(map);
+  }
+  for (const plot of features.plots) {
+    const marker = L.circleMarker([plot.centroid[1], plot.centroid[0]], {
+      radius: 4, weight: 1, color: '#fff', fillColor: '#f7a32f', fillOpacity: 1,
+    });
+    marker.bindTooltip(plot.plotCode);
+    marker.on('click', () => {
+      plotInput.value = plot.plotCode;
+      const species = plot.species[0];
+      const option = dock.querySelector<HTMLInputElement>(`input[name="species"][value="${species}"]`);
+      if (option) option.checked = true;
+      void updateView();
+    });
+    markerByCode.set(plot.plotCode, { marker, plot });
+  }
+  const points = features.plots.map((plot) => [plot.centroid[1], plot.centroid[0]] as [number, number]);
+  if (points.length) map.fitBounds(points, { padding: [70, 70], maxZoom: 12 });
+  const selectedMarker = () => {
+    markerByCode.forEach(({ marker, plot }, code) => {
+      const visible = code === plotInput.value && plot.species.includes(selectedSpecies());
+      if (visible && !map.hasLayer(marker)) marker.addTo(map);
+      if (!visible && map.hasLayer(marker)) map.removeLayer(marker);
+      marker.setStyle({ radius: code === plotInput.value ? 7 : 4, weight: code === plotInput.value ? 2 : 1 });
+    });
+  };
+  selectedMarker();
+
+  function openShelf(name: string | null) {
+    scene!.querySelectorAll<HTMLElement>('.map-shelf').forEach((shelf) => {
+      const open = shelf.id === `${name}-shelf`;
+      shelf.toggleAttribute('data-open', open);
+      shelf.inert = !open;
+    });
+    scene!.querySelectorAll<HTMLButtonElement>('[data-shelf]').forEach((button) => {
+      button.setAttribute('aria-expanded', String(button.dataset.shelf === name));
+    });
+  }
+  scene.querySelectorAll<HTMLButtonElement>('[data-shelf]').forEach((button) => button.addEventListener('click', () => {
+    openShelf(button.getAttribute('aria-expanded') === 'true' ? null : button.dataset.shelf ?? null);
+  }));
+  scene.querySelectorAll<HTMLButtonElement>('[data-close-shelf]').forEach((button) => button.addEventListener('click', () => openShelf(null)));
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') openShelf(null); });
+
+  scene.querySelectorAll<HTMLInputElement>('input[name="map-layer"]').forEach((input) => input.addEventListener('change', () => {
+    if (!input.checked) return;
+    if (activeOverlay) map.removeLayer(activeOverlay);
+    const layer = layers[input.value];
+    mapMessage.hidden = true;
+    if (!layer) { layerNote.textContent = 'Satellite imagery · Esri'; return; }
+    const time = `${seasonInput.value}-10-31`;
+    const overlay = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+      layers: layer.name, format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', time,
+      attribution: '&copy; NASA GIBS',
+    } as L.WMSOptions);
+    overlay.on('tileerror', () => { mapMessage.textContent = `${layer.label} imagery is unavailable for ${time}.`; mapMessage.hidden = false; });
+    activeOverlay = overlay.addTo(map);
+    layerNote.textContent = `${layer.label} · ${time} · NASA GIBS`;
+  }));
+  scene.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
+    if (button.dataset.zoom === 'in') map.zoomIn(); else map.zoomOut();
+  }));
+  scene.querySelectorAll<HTMLButtonElement>('[data-season-step]').forEach((button) => button.addEventListener('click', () => {
+    const year = Number(seasonInput.value) + Number(button.dataset.seasonStep);
+    if (year < 2022 || year > 2025) return;
+    seasonInput.value = String(year);
+    scene.querySelector<HTMLOutputElement>('[data-season-label]')!.value = String(year);
+    scene.querySelectorAll<HTMLButtonElement>('[data-season-step]').forEach((step) => {
+      step.disabled = step.dataset.seasonStep === '-1' ? year <= 2022 : year >= 2025;
+    });
+    void updateView();
+  }));
+  dock.querySelectorAll<HTMLInputElement>('input[name="species"]').forEach((input) => input.addEventListener('change', () => { if (input.checked) { selectedMarker(); void updateView(); } }));
+  dock.addEventListener('submit', (event) => { event.preventDefault(); void updateView(); });
+  let pending: AbortController | undefined;
+  async function updateView() {
+    const endpoint = scene!.dataset.endpoint;
+    if (!endpoint) {
+      status.textContent = `${selectedSpecies()} · ${seasonInput.value}`;
+      return;
+    }
+    pending?.abort();
+    pending = new AbortController();
+    dock.setAttribute('aria-busy', 'true');
+    status.textContent = 'Loading observations…';
+    const url = new URL(endpoint, location.href);
+    new FormData(dock).forEach((value, name) => url.searchParams.set(name, String(value)));
+    try {
+      const response = await fetch(url, { signal: pending.signal, headers: { accept: 'text/html' } });
+      if (!response.ok) throw Error('View unavailable');
+      const next = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector<HTMLElement>('.hmi-page');
+      if (!next) throw Error('View unavailable');
+      for (const panel of ['thresholds', 'observations']) {
+        const target = scene!.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
+        const source = next.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
+        if (target && source) target.innerHTML = source.innerHTML;
+      }
+      plotInput.value = next.dataset.plot ?? plotInput.value;
+      url.searchParams.set('plot', plotInput.value);
+      selectedMarker();
+      history.pushState(null, '', url);
+      status.textContent = `${selectedSpecies()} · ${seasonInput.value} loaded`;
+      const selectedLayer = scene!.querySelector<HTMLInputElement>('input[name="map-layer"]:checked');
+      if (selectedLayer && selectedLayer.value !== 'satellite') selectedLayer.dispatchEvent(new Event('change'));
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') {
+        status.textContent = 'Could not update observations. Try again.';
+        mapMessage.textContent = 'Observations could not be updated.';
+        mapMessage.hidden = false;
+      }
+    } finally { dock.removeAttribute('aria-busy'); }
+  }
+}
+
+}
+
+initHmiMap();

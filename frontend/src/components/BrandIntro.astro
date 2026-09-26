@@ -1,0 +1,71 @@
+---
+import reeldealLogo from '../../../docs/assets/reeldeal-logo.svg?url';
+---
+
+<div class="brand-intro" data-brand-intro-screen aria-hidden="true">
+  <svg class="brand-intro__logo" viewBox="154 150 946 946" width="946" height="946" focusable="false">
+    <image href={reeldealLogo} width="1254" height="1254" />
+  </svg>
+</div>
+
+<script is:inline>
+  (() => {
+    const intro = document.querySelector('[data-brand-intro-screen]');
+    if (!document.documentElement.hasAttribute('data-brand-intro')) {
+      intro?.remove();
+      return;
+    }
+
+    let hold;
+    const dismiss = () => {
+      clearTimeout(hold);
+      clearTimeout(fallback);
+      window.removeEventListener('load', ready);
+      window.removeEventListener('keydown', dismiss);
+      window.removeEventListener('pagehide', dismiss);
+      intro.removeEventListener('pointerdown', dismiss);
+      document.documentElement.removeAttribute('data-brand-intro');
+      setTimeout(() => intro.remove(), 650);
+    };
+    const ready = () => { hold = setTimeout(dismiss, 1000); };
+    // A slow or failed resource must never leave the app behind an overlay.
+    const fallback = setTimeout(dismiss, 4000);
+    if (document.readyState === 'complete') ready();
+    else window.addEventListener('load', ready, { once: true });
+    window.addEventListener('keydown', dismiss, { once: true });
+    window.addEventListener('pagehide', dismiss, { once: true });
+    intro.addEventListener('pointerdown', dismiss, { once: true });
+  })();
+</script>
+
+<style>
+  .brand-intro {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: grid;
+    place-items: center;
+    background: var(--color-surface);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 600ms cubic-bezier(0.22, 0.61, 0.36, 1), visibility 0s 600ms;
+  }
+
+  :global(html[data-brand-intro]) .brand-intro {
+    opacity: 1;
+    visibility: visible;
+    transition: none;
+  }
+
+  .brand-intro__logo {
+    display: block;
+    width: min(78vw, 78svh, 680px);
+    height: auto;
+    overflow: hidden;
+    border-radius: 18%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brand-intro { transition: none; }
+  }
+</style>

@@ -1,0 +1,18 @@
+---
+interface Props { species: string }
+const { species } = Astro.props;
+---
+<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="#123a3e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  {species === 'scallop' ? <>
+    <path d="M19 39 7 24C2 16 8 8 14 10c2-7 9-8 12-3 6-5 12-1 12 5 8 0 10 8 4 14L29 39Z" fill="#ffca91" />
+    <path d="m20 35-9-17m12 17-4-22m7 22 3-23m0 24 8-17" />
+    <path d="M18 37h13v5H18z" fill="#f29e69" />
+  </> : species === 'oyster' ? <>
+    <path d="M28 4c7-1 13 7 10 14 8 6 3 14-3 15-1 8-10 13-17 8-8 1-15-7-11-14-4-8 3-16 10-15 1-5 6-9 11-8Z" fill="#b9d8bf" />
+    <path d="M29 11c6 2 5 8 3 12 3 5-1 12-7 13-7 4-13-2-10-9-2-5 3-10 7-10 1-4 4-7 7-6Z" fill="#fff4d9" />
+    <path d="M26 23c6-2 9 7 3 10-7 2-9-7-3-10Z" fill="#e6b888" /><path d="m12 20-4 3m29 5 5 1M20 39l-1 4" />
+  </> : species === 'hoya' ? <>
+    <path d="m18 13-2-8 6-2 3 10 4-8 6 3-3 9c13 8 9 23-5 26C10 43 3 29 12 20Z" fill="#ed916b" />
+    <path d="m17 21-3 4m12-7 1 5m7 4-4 3m-9-4-2 4m5 6 3 2m-13-4 2 3" /><path d="m17 7 5-2m8 3 4 2" />
+  </> : <><path d="M6 24c8-17 22-17 31-4l8-6v20l-8-6C26 42 12 37 6 24Z" fill="#73c7dc" /><circle cx="15" cy="22" r="1.5" fill="#123a3e" /></>}
+</svg>

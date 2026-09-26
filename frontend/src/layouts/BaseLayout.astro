@@ -1,6 +1,8 @@
 ---
 import '../styles/global.css';
 import '../styles/market.css';
+import reeldealLogo from '../../../docs/assets/reeldeal-logo.svg?url';
+import BrandIntro from '../components/BrandIntro.astro';
 interface Props { title: string; description?: string; section?: string }
 const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'workshop' } = Astro.props;
 ---
@@ -11,15 +13,32 @@ const { title, description = 'ReelDeal supports coastal communities through loca
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     <title>{title} · ReelDeal</title>
+    <link rel="preload" as="image" href={reeldealLogo} />
+    <script is:inline>
+      (() => {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        try {
+          if (sessionStorage.getItem('reeldeal:intro-seen')) return;
+          sessionStorage.setItem('reeldeal:intro-seen', '1');
+        } catch { /* The intro still works when browser storage is unavailable. */ }
+        document.documentElement.setAttribute('data-brand-intro', '');
+      })();
+    </script>
   </head>
   <body>
+    <BrandIntro />
     <div class="app-frame">
       <a class="skip-link" href="#main">Skip to content</a>
       <header class="site-header"><div class="shell site-header__inner">
-        <a class="brand" href="/">ReelDeal</a>
+        <a class="brand" href="/" aria-label="ReelDeal home">
+          <!-- Display the artwork without the source image's outer white margin. -->
+          <svg class="brand__logo" viewBox="154 150 946 946" width="48" height="48" aria-hidden="true" focusable="false">
+            <image href={reeldealLogo} width="1254" height="1254" />
+          </svg>
+        </a>
         <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label="Main navigation">
-          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Market preview</a>
-          <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>HMI</a>
+          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Fish market</a>
+          <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>Coastal map</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
