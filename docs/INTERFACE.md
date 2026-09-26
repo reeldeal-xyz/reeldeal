@@ -3,6 +3,12 @@
 Frozen at kickoff. Change it only by PR touching `packages/shared/src/feed.ts` + this file, reviewed by both owners.
 Types and zod schemas live in `@repo/shared` (`packages/shared/src`). Everything below is validated with those schemas.
 
+Status after #84: the file, HTTP feed and pipeline-signing sections below retain
+the legacy contract used by shared schemas and the keeper. The current
+Python/FastAPI scaffold does not serve these feeds or sign Triggers. The new
+risk-index handoff remains pending under #55/#64/#79; this note changes no schema
+or on-chain contract.
+
 ## Identifiers
 
 | Kind | Labels | On-chain |

@@ -9,15 +9,19 @@ and pipeline [PR #84](https://github.com/reeldeal-xyz/reeldeal/pull/84) at `8d3e
 The spec/drift workflow is in [PR #87](https://github.com/reeldeal-xyz/reeldeal/pull/87).
 Open PR evidence is identified separately from main.
 
+The pipeline context in records 0003 and 0007 was refreshed against main
+[`3ffccec`](https://github.com/reeldeal-xyz/reeldeal/commit/3ffccec2f2db8c6a6d93d68f0a608378539d742e)
+after #84 merged. This records source changes, not a verified deployment.
+
 | Record | Decision status | Implementation at review |
 |---|---|---|
 | [0001: Observed code and design intent](0001-observed-code-and-design-intent.md) | Accepted | Repo map merged; spec/drift checks in #87 |
 | [0002: Astro and app-core](0002-astro-and-app-core.md) | Accepted direction | Foundation merged in #88; production migration pending |
-| [0003: Risk API and keeper boundary](0003-risk-api-and-keeper.md) | Proposed | Current signed-feed boundary still in main |
+| [0003: Risk API and keeper boundary](0003-risk-api-and-keeper.md) | Proposed | FastAPI scaffold merged; keeper still expects legacy signed feeds |
 | [0004: PostgreSQL schema ownership](0004-postgres-schema-ownership.md) | Proposed | Shared database handoff pending |
 | [0005: Trigger and settlement compatibility](0005-trigger-and-settlement.md) | Accepted | Existing signed format implemented; proposed change unresolved |
 | [0006: Evidence, freshness, and replay](0006-evidence-freshness-and-replay.md) | Proposed | Pinned inputs exist; operational enforcement pending |
-| [0007: CI/CD and release evidence](0007-ci-cd-and-release-evidence.md) | Proposed | Pipeline workflow in #84; integrated release pending |
+| [0007: CI/CD and release evidence](0007-ci-cd-and-release-evidence.md) | Proposed | Pipeline workflow merged in #84; integrated release pending |
 
 Accepted records describe existing constraints or an explicitly selected direction.
 Proposed records require the linked owners' agreement or unresolved handoff.

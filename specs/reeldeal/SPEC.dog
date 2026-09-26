@@ -14,7 +14,7 @@ implementation and deployment evidence.
 - `Contracts`: ReliefPool, HumanRegistry, ENS adapters/interfaces, Foundry tests,
   deployment scripts, and recorded deployments.
 - `Shared`: Trigger/EIP-712 types, feed schemas, rules, computation, ABIs, addresses.
-- `Pipeline`: Python/FastAPI risk API scaffold (routes return 501 until implemented)
+- `Pipeline`: Python/FastAPI risk API scaffold (domain routes remain 501 stubs)
   with EC2 deploy files, and pinned buoy, toxin, and geographic datasets. Dataset age
   is not determined by file modification time.
 - `Application`: existing Next.js UI, API routes, keeper, identity, and LINE integration;

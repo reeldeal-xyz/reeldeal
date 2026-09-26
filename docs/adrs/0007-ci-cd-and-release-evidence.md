@@ -1,17 +1,16 @@
 # 0007: Deploy from main and verify release evidence
 
-Status: Proposed integrated deployment. Pipeline implementation is in open PR #84.
+Status: Proposed integrated deployment. Pipeline scaffold and CD workflow merged in #84.
 
 ## Context
 
-The target runs FastAPI, Astro, PostgreSQL/PostGIS, and Caddy on EC2. At review,
-PR #84 contains pipeline PR tests and main-only deployment; it is not merged.
-The repository has moved from personal `ss251/reeldeal` to organization
-`reeldeal-xyz/reeldeal`, so the old OIDC repository claim must be reviewed.
-At review, GitHub Actions is enabled and repository admin access is available,
-but repository variables `AWS_DEPLOY_ROLE_ARN` and `EC2_INSTANCE_ID` are absent.
-Run `36223299342` passed its test job and skipped deployment. AWS-side role/trust
-and instance access have not been verified by this documentation pass.
+The target runs FastAPI, Astro, PostgreSQL/PostGIS, and Caddy on EC2. PR #84
+merged the pipeline scaffold, PR tests and main-only deployment workflow.
+Deployment instructions use the current `reeldeal-xyz/reeldeal` OIDC claim.
+At the earlier review, repository variables `AWS_DEPLOY_ROLE_ARN` and
+`EC2_INSTANCE_ID` were absent; run `36223299342` passed tests and skipped
+deployment. Those observations are historical. This source review has not
+verified current AWS role/trust, instance access or a successful deployment.
 
 ## Decision
 
@@ -22,8 +21,8 @@ migrations, and application rollout with the named owners in #55/#71/#75.
 
 ## Consequences
 
-The old `ss251/reeldeal` claim in #75/PR #84 deployment documentation needs updating
-before relying on CD after transfer; no AWS change is implied by this ADR.
+The documented OIDC claim is current; AWS trust and instance configuration still
+need verification before relying on CD. No AWS change is implied by this ADR.
 Health must expose the deployed revision and unimplemented/degraded modules.
 Require real observed-data responses, receipt/balance evidence, persisted ledger,
 LINE delivery, and restore/cutover/rollback proof before retiring `web/`.
@@ -35,5 +34,5 @@ Dotdog CI checks repository/spec drift and performs no deployment.
 [#71](https://github.com/reeldeal-xyz/reeldeal/issues/71),
 [#75](https://github.com/reeldeal-xyz/reeldeal/issues/75),
 [reviewed workflow run](https://github.com/reeldeal-xyz/reeldeal/actions/runs/36223299342),
-[pipeline workflow at review](https://github.com/reeldeal-xyz/reeldeal/blob/8d3ef636f336d00f1091336009462a828513a4e1/.github/workflows/deploy-pipeline.yml),
-[deployment instructions at review](https://github.com/reeldeal-xyz/reeldeal/blob/8d3ef636f336d00f1091336009462a828513a4e1/pipeline/DEPLOY.md).
+[current pipeline workflow](../../.github/workflows/deploy-pipeline.yml),
+[current deployment instructions](../../pipeline/DEPLOY.md).
