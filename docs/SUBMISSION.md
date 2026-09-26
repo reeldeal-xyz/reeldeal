@@ -165,7 +165,6 @@ they're technology partners the project uses, not prize tracks it's entered agai
 
 | Sponsor | What we used | Where in code | Proof |
 |---|---|---|---|
-| **World** (World ID, IDKit 4.3) | Server-side verified Selfie Check (level 1, schema `11`) and My Number Card / passport / Orb Proof of Human (level 2, schemas `9310`/`9303`/`1`); `HumanRegistry` caps payout units per nullifier, not per wallet | `web/src/lib/world/schema.ts` (schema↔level map), `web/src/lib/world/credential.ts` (`pickCredential`), `web/src/lib/world/verify-client.ts` (calls `https://developer.world.org/api/v4/verify/{rp_id}`), `contracts/src/HumanRegistry.sol` (`_levelForSchema`, `Upgraded` event) | HumanRegistry [`0xc713…D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8); today's live run paid a level-2-verified farmer at `p1213-001`. **Gap**: `docs/WORLD_DEBRIEF.md` (issue #25's friction-log template) is still blank — the run happened, the debrief write-up didn't |
 | **ENS** (ENSv2 Sepolia) | `umi.eth` parent → `karakuwa.umi.eth` branch → 15 per-plot registries → non-transferable, expiring **"2026" season slots**; `PermissionedResolver` text records (`zone`/`species`/`area`/`unit`); ReliefPool resolves the payout target through ENS at settlement time, not a cached copy | `contracts/src/adapters/EnsPlotResolver.sol`, `EnsSlotResolver.sol`, `contracts/src/interfaces/IEnsV2.sol`, `contracts/script/ens/EnsV2.sol` (write side), `docs/INTERFACE.md`'s ENS layout section | EnsPlotResolver [`0x5Fd0…F89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) (deploy [`0xa372…95c78a`](https://sepolia.etherscan.io/tx/0xa372f082de22b95b763cd9d012ac849177b45b2539ba44ed33498ba58195c78a)), EnsSlotResolver [`0xbf91…c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) (deploy [`0x1511…52c8c`](https://sepolia.etherscan.io/tx/0x1511575cb70e24035b69c5bf6977614927cd16a3fdc020cb4452b897d42c528c)) |
 | **Curvegrid MultiBaas** | Event indexing for `Donated`/`Attested`/`Paid`/`Held`; HMAC-SHA256-signed webhook drives the LINE push in place of a keeper-side event poller; donor-ledger dashboard reads indexed events | `scripts/multibaas-setup.ts` (setup/link script), `web/src/lib/multibaas.ts` (`verifyMultiBaasSignature`), `web/src/app/api/multibaas/webhook/route.ts`, `web/src/app/api/multibaas/events/route.ts`, `docs/MULTIBAAS.md` | Webhook registered against `https://web-production-746aa.up.railway.app/api/multibaas/webhook` (`docs/MULTIBAAS.md` §Setup); doc sources read directly and cited: docs.curvegrid.com/multibaas/{webhooks,event-indexing,manage-contracts} |
 | **JPYC** | The only payout/donation currency, 18 decimals throughout (never assumed 6); EIP-3009/EIP-2612 domain hardcoded from a live signature-recovery check because the proxy reverts on `DOMAIN_SEPARATOR()`/`eip712Domain()` | `packages/shared/src/addresses.ts` (`JPYC`, `JPYC_DECIMALS`, `JPYC_EIP712_DOMAIN` — see its long inline comment for the verification), `contracts/src/ReliefPool.sol` (`SafeERC20`), `web/src/lib/liff/wallet-relay.ts` (gasless send) | JPYC [`0xE7C3…3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29); today's live run paid 10,000 JPYC (`10000e18`) to `p1213-001` |
@@ -327,12 +326,9 @@ say what's real, say what isn't, don't blur the line.
   redirect to the Next.js app until #67/#68 land — Astro is a component workshop with a
   few live endpoints today, not yet the production surface.
 - **Marketplace storefront wiring is pending.** The SaleRouter is deployed and tested (#125); calling it from the Astro checkout is SP-12 (#66).
-- **World ID level-2 debrief is an empty template.** `docs/WORLD_DEBRIEF.md` (issue #25)
-  still has blank fields even though a real level-2 verification ran today — the
-  friction log needs to be filled in from server logs (`scope:"world-id"` in
-  `web/src/lib/world/log.ts`) before submission if judges ask for it.
+- **My Number Card (schema 9310) wasn't run live.** Level 2 was proven with an Orb credential (schema 1, `Upgraded` on Sepolia); see `docs/WORLD_DEBRIEF.md` for the full friction log and the fixes it drove (#101, #113).
 
 **What's next, roughly in order:** finish #67/#68 (Astro takes over the live routes),
 implement HAB/storm pipeline routes for real live monitoring (retiring the pinned-PDF
 replay), wire the deployed SaleRouter into the storefront (#66),
-fill in the World ID debrief (#25).
+and repeat the level-2 upgrade with a My Number Card tester (#25).
