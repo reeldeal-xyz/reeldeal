@@ -1,0 +1,8 @@
+---
+import EventVerification from '../../src/components/organisms/event-verification/EventVerification.astro';
+import { eventVerificationPreviews } from '../../src/fixtures/event-verification-preview';
+
+interface Props { sample: keyof typeof eventVerificationPreviews }
+const { sample } = Astro.props;
+---
+<EventVerification review={eventVerificationPreviews[sample]} />
