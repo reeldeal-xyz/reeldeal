@@ -2,9 +2,10 @@
 
 Plots carry code, geometry, species, operation and sea area only. No owner names or personal data.
 
-Two sources: the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo plots, served even without a
-database), and uploads (`POST /plots`) stored in PostGIS (`uploads.py`). `lookup` and `query_all` merge them; when
-the database is unset or down they fall back to the seed alone.
+Two sources: the reviewed seed in `data/ref/plots.geojson` (served without a database) and the live PostGIS
+inventory in `geo.plots`. When the database is reachable, its rows are authoritative for matching plot codes;
+this is how the HMI receives the fishery-right polygons that replaced the old p1213-* seed discs. When the
+database is unset or down, lookups and listings fall back to the reviewed seed.
 """
 
 import json
@@ -100,27 +101,26 @@ def query(bbox: tuple[float, float, float, float] | None = None, species: str | 
 
 
 def lookup(plot_code: str) -> PlotRecord | None:
-    """A seeded plot, or an uploaded one when the database is reachable."""
+    """Current DB plot when reachable; reviewed seed only as a fallback."""
     from pipeline.core import db
 
-    from . import uploads
+    from . import inventory
 
-    if (p := get(plot_code)) is not None:
-        return p
     try:
-        return uploads.get(plot_code)
+        if p := inventory.get(plot_code):
+            return p
     except db.NoDatabase:
-        return None
+        pass
+    return get(plot_code)
 
 
 def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    """Seeded plots, then uploaded ones when the database is reachable."""
+    """Current DB inventory when reachable; reviewed seed only when the database is unavailable."""
     from pipeline.core import db
 
-    from . import uploads
+    from . import inventory
 
     try:
-        uploaded = uploads.query(bbox, species)
+        return inventory.query(bbox, species)
     except db.NoDatabase:
-        uploaded = []
-    return query(bbox, species) + uploaded
+        return query(bbox, species)
