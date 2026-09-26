@@ -33,11 +33,14 @@ We can understand / forecast / hindcast the occurrence of threshold triggering e
 - `pipeline/` ocean data ingestion, indices, trigger signing, feed server (owner: Jay)
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
+- [`docs/adrs/`](docs/adrs/README.md) Architecture decisions, implementation status, and issue/code evidence.
+- [`docs/REPO-MAP.md`](docs/REPO-MAP.md) Dotdog mapping, spec development, and staleness checks.
 
 ## Setup
 
 ```sh
-git clone --recurse-submodules <repo> && cd eth-global-tokyo
+git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
+cd reeldeal
 cp .env.example .env
 bun install
 bun run contracts:build && bun run contracts:test

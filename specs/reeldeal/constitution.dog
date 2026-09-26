@@ -1,0 +1,9 @@
+# Development rules
+
+- Specify the intended boundary and acceptance before implementation; link the owning ticket.
+- Preserve Trigger fields/order across Solidity, shared types, and `docs/INTERFACE.md`.
+- JPYC uses 18 decimals. Keep private identity data off-chain.
+- Keep observed data, historical snapshots, forecasts, and synthetic scenarios distinct.
+- Use Astro for the planned frontend. Map existing Next.js code as current code.
+- Review affected source/spec areas before acknowledging their hashes; CI never acknowledges them.
+- Generated graphs are local artifacts. Commit authored specs and review hashes only.
