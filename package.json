@@ -8,6 +8,7 @@
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv",
     "abi": "bun scripts/export-abi.ts",
+    "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
     "pipeline": "bun run --filter pipeline start"
   },

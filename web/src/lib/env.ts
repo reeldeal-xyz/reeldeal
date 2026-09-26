@@ -21,4 +21,9 @@ export const env = {
   sessionSecret: () => need('SESSION_SECRET'),
   multibaasWebhookSecret: () => need('MULTIBAAS_WEBHOOK_SECRET'),
   pipelineFeedUrl: () => process.env.PIPELINE_FEED_URL ?? 'http://localhost:8787',
+  // Optional (unlike the rest of this file): the donor-ledger dashboard (GET /api/multibaas/events) must
+  // degrade gracefully before the MultiBaas account is linked to contracts (issue #23, depends on #16),
+  // so these read plain process.env instead of throwing via need().
+  multibaasUrl: () => process.env.MULTIBAAS_URL,
+  multibaasApiKey: () => process.env.MULTIBAAS_API_KEY,
 };
