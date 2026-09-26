@@ -20,6 +20,7 @@
   box-shadow: 0 2px 8px rgb(16 42 48 / .12);
 }
 .app-frame:has(.hmi-page) .site-footer { display: none; }
+.app-frame:has(.hmi-page) .site-nav a { min-height: 44px; }
 .hmi-page { --sea-ink: #123a3e; --sea-paper: #faf8ee; position: fixed; inset: 0; isolation: isolate; color: var(--sea-ink); font: 14px/1.4 var(--font-body); }
 .hmi-page button { font: inherit; cursor: pointer; }
 .hmi-page button:disabled { cursor: default; opacity: .45; }
@@ -35,7 +36,12 @@
 #hmi-map .leaflet-popup-content { font: 700 13px/1.4 var(--font-body); }
 .coast-stack { position: absolute; top: 94px; left: 12px; z-index: 800; display: grid; gap: 8px; width: min(260px, calc(100vw - 100px)); }
 .coast-label { display: grid; gap: 6px; padding: 9px 11px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
-.hmi-page:has(.map-shelf[data-open]) .coast-stack { visibility: hidden; }
+/* Open panels hide only the label; pipeline status, tile/update messages and the HAB legend stay visible. */
+.hmi-page:has(.map-shelf[data-open]) .coast-label { visibility: hidden; }
+.pipeline-status { margin: 0; padding: 9px 11px; border: 1px solid #d9be9f; border-radius: 4px; background: #fff7ec; font-size: 12px; line-height: 1.45; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.hab-chip { padding: 8px 10px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); font-size: 11px; line-height: 1.4; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.hab-chip p { margin: 0; }.hab-chip .hab-ramp { height: 8px; margin-top: 6px; }.hab-chip .hab-ramp-labels { font-size: 10px; }
+.hab-chip-caveat { margin-top: 4px !important; color: #526b6e; }
 .plot-picker select, .metric-picker select, .shelf-select select { width: 100%; min-height: 44px; padding: 6px 8px; border: 1px solid #86aaa8; border-radius: 4px; color: var(--sea-ink); background: #fff; font: 700 13px var(--font-body); }
 .language-switch { display: flex; gap: 6px; }
 .language-switch a { display: inline-flex; flex: 1; align-items: center; justify-content: center; min-height: 44px; border: 1px solid #aec6bf; border-radius: 4px; color: #45666a; background: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
@@ -152,4 +158,6 @@
 @media (max-width: 359px) { .coast-dock { gap: 4px; padding: 5px; }.species-picker label { flex-basis: 48px; }.species-picker svg { width: 27px; height: 27px; }.species-picker label > span { font-size: 9px; }.season-picker { padding-left: 4px; }.season-picker button { width: 26px; }.season-picker output { min-width: 30px; font-size: 12px; }.side-shelf { max-height: 52dvh; } }
 /* Short screens: bottom panels end below the tool column (94px + 4 tools) instead of sliding under it; they scroll. */
 @media (max-height: 699px) { .bottom-shelf { max-height: max(140px, calc(100dvh - 412px - env(safe-area-inset-bottom))); } }
+/* Very short screens: tighten the tool column so it clears the zoom buttons. */
+@media (max-height: 580px) { .map-tools { top: 70px; gap: 4px; }.map-tool { min-height: 44px; }.coast-stack { top: 70px; } }
 @media (prefers-reduced-motion: reduce) { .map-shelf { transition: none; } }

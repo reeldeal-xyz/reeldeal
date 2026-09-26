@@ -9,10 +9,13 @@ interface Props {
   /** Species · season line above the metric title. */
   kicker: string;
   title: string;
-  message: string;
+  /** Status note shown under the chart (e.g. partial data); empty when there is nothing to add. */
+  note: string;
+  /** Shown instead of the chart when there are no observations. */
+  empty: string;
 }
 
-const { data, metric, lang, kicker, title, message } = Astro.props;
+const { data, metric, lang, kicker, title, note, empty } = Astro.props;
 const ja = lang === 'ja';
 const series = data?.indices.filter((item) => item.index === metric) ?? [];
 const chart = observationChart(series, metric);
@@ -70,9 +73,9 @@ const strategies: Record<string, string> = ja
       <div><dt>{labels.samples}</dt><dd>{chart.count}</dd></div>
       <div><dt>{labels.missing}</dt><dd>{missing ?? '—'}</dd></div>
     </dl>
-  </> : <p class="shelf-note">{message}</p>}
+  </> : <p class="shelf-note">{empty}</p>}
 
-  {chart && message && <p class="shelf-note">{message}</p>}
+  {chart && note && <p class="shelf-note">{note}</p>}
   {data && <p class="shelf-note">{labels.window}: <time datetime={data.window.start}>{data.window.start}</time> – <time datetime={data.window.end}>{data.window.end}</time></p>}
 
   {latest?.pixels && <p class="shelf-note">

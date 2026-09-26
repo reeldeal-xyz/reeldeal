@@ -103,7 +103,7 @@ const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && ru
   ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
 const speciesText = !species || speciesInfo?.status === 'available' ? ''
   : speciesInfo?.status === 'not-configured' ? (ja ? '魚種の基準データは未設定です。' : 'Species reference data is not configured for this deployment.')
-  : speciesInfo?.status === 'not-found' ? (ja ? `${species} の魚種基準データがありません。` : `No species reference for ${species}.`)
+  : speciesInfo?.status === 'not-found' ? (ja ? `${speciesNames[species] ?? species}の魚種基準データがありません。` : `No species reference for ${speciesNames[species] ?? species}.`)
   : speciesInfo?.status === 'invalid-payload' ? (ja ? '魚種の基準データを検証できませんでした。' : 'Species reference failed validation.')
   : (ja ? '魚種の基準データに接続できません。' : 'Species reference data is unavailable.');
 const statusText = hmi.status === 'not-configured' ? (ja ? 'データパイプラインが未設定です。' : 'Pipeline is not configured for this deployment.')
@@ -118,6 +118,9 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温�
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
 const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区画ではありません' : 'Synthetic demo geometry · not a surveyed farm')
   : plot?.source === 'msil' ? (ja ? 'MSIL区画形状' : 'MSIL plot geometry') : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
+const operationNames: Record<string, string> = ja
+  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀' }
+  : { longline: 'longline', raft: 'raft', cage: 'cage' };
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
@@ -131,6 +134,10 @@ const habOverlay = habLayer ? JSON.stringify({
   url: `/api/tiles${habLayer.tileUrl}`,
   bounds: [[habLayer.bbox[1], habLayer.bbox[0]], [habLayer.bbox[3], habLayer.bbox[2]]],
   note: `JAXA GCOM-C SGLI · ${habLayer.cadence === 'monthly' ? habLayer.date.slice(0, 7) : habLayer.date}`,
+  period: habLayer.cadence === 'monthly'
+    ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`)
+    : habLayer.date,
+  scale: habLayer.tileScale,
 }) : '';
 const monthName = (value: string) => ja ? `${Number(value)}月`
   : new Date(Date.UTC(2000, Number(value) - 1, 1)).toLocaleString('en', { month: 'long', timeZone: 'UTC' });
@@ -138,10 +145,10 @@ const clientCopy = JSON.stringify({
   draw: copy.draw, cancel: copy.cancel, help: copy.help, extent: copy.extent, sampling: copy.sampling, noData: copy.noData,
   areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
   updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
-  overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl,
+  overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl, habLog: ja ? '（対数）' : '(log)',
 });
 const languageHref = (locale: 'en' | 'ja') => {
-  const params = new URLSearchParams({ lang: locale, season, metric });
+  const params = new URLSearchParams({ lang: locale, season, metric, habMonth });
   if (species) params.set('species', species);
   if (plot) params.set('plot', plot.plotCode);
   return `${endpoint ?? '/hmi'}?${params}`;
@@ -149,7 +156,8 @@ const languageHref = (locale: 'en' | 'ja') => {
 ---
 
   <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''} data-lang={lang} data-copy={clientCopy}>
-    <div id="hmi-map" aria-label={copy.mapLabel} tabindex="0"></div>
+    <div id="hmi-map" role="application" aria-label={copy.mapLabel} aria-describedby="hmi-map-help" tabindex="0"></div>
+    <p id="hmi-map-help" class="sr-only">{ja ? '矢印キーで移動、＋／−で拡大・縮小します。区画は「養殖区画」の選択欄から選べます。' : 'Use the arrow keys to pan and +/− to zoom. Choose a plot with the Farm plot select.'}</p>
     <div class="market-actions">
       <button type="button" class="market-action" data-shelf="market" aria-expanded="false" aria-controls="market-shelf">{copy.market}</button>
       <WalletConnect projectId={walletProjectId} preview={!checkoutEnabled} client:only="react" />
@@ -170,12 +178,19 @@ const languageHref = (locale: 'en' | 'ja') => {
           <a href={languageHref('ja')} data-lang-link="ja" lang="ja" aria-current={lang === 'ja' ? 'page' : undefined}>日本語</a>
         </nav>
       </div>
-      <div class="map-message" data-map-message role="status" hidden={!statusText}>
-        <span data-map-message-text>{statusText}</span>
+      <p class="pipeline-status" role="status" hidden={!statusText}>{statusText}</p>
+      <div class="map-message" data-map-message role="status" hidden>
+        <span data-map-message-text></span>
         <button type="button" data-map-retry hidden>{copy.retry}</button>
       </div>
+      <div class="hab-chip" data-hab-chip hidden>
+        <p><strong>{ja ? 'クロロフィルa（JAXA）' : 'Chlorophyll-a (JAXA)'}</strong> · <span data-hab-chip-period></span></p>
+        <div class="hab-ramp" data-hab-chip-ramp></div>
+        <p class="hab-ramp-labels"><span data-hab-chip-min></span><span data-hab-chip-max></span></p>
+        <p class="hab-chip-caveat">{ja ? '藻類量の指標。貝毒・出荷規制を示すものではありません。' : 'Bloom proxy only; not toxin status or shipment restrictions.'}</p>
+      </div>
     </div>
-    <div class="map-tools" aria-label={copy.panels}>
+    <div class="map-tools" role="group" aria-label={copy.panels}>
       <button type="button" class="map-tool" data-shelf="layers" aria-expanded="false" aria-controls="layers-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5M3 16l9 5 9-5" /></svg><span>{copy.layers}</span></button>
       <button type="button" class="map-tool" data-shelf="thresholds" aria-expanded="false" aria-controls="thresholds-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14V5a2 2 0 0 1 4 0v9a5 5 0 1 1-4 0Z M12 10v7 M18 6h3m-3 4h2" /></svg><span>{copy.thresholds}</span></button>
       <button type="button" class="map-tool" data-shelf="forecast" aria-expanded="false" aria-controls="forecast-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 17a4 4 0 0 1-1-8 6 6 0 0 1 11-2 5 5 0 1 1 1 10H6 M8 20l-1 2m6-2-1 2m6-2-1 2" /></svg><span>{copy.forecast}</span></button>
@@ -189,7 +204,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
         <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
         <label><input type="checkbox" name="map-layer" value="chl" /><span>{copy.chl}</span></label>
-        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
+        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
       <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
         <select name="habMonth" form="hmi-view">
@@ -200,7 +215,7 @@ const languageHref = (locale: 'en' | 'ja') => {
       <p class="shelf-note" data-chlorophyll-note hidden>{copy.chlNote}</p>
       <div data-response-panel="hab">
         <div data-hab-source data-overlay={habOverlay}></div>
-        {habText && <p class="shelf-note">{habText}</p>}
+        <p id="hab-reason" class="shelf-note" aria-live="polite">{habText}</p>
         {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
           <p class="hab-legend-title"><strong>{ja ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong> · {habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
           <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
@@ -274,13 +289,13 @@ const languageHref = (locale: 'en' | 'ja') => {
         </select>
       </label>
       <div data-response-panel="observations">
-        <HmiObservations data={data} metric={metric} lang={lang} kicker={`${speciesNames[species] ?? species} · ${season}`} title={metricNames[metric]} message={riskText || copy.noObservations} />
-        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}{plot.areaM2 ? ` · ${plot.areaM2.toLocaleString(ja ? 'ja-JP' : 'en-US')} m²` : ''}{plot.operation ? ` · ${plot.operation}` : ''}</p>}
+        <HmiObservations data={data} metric={metric} lang={lang} kicker={`${speciesNames[species] ?? species} · ${season}`} title={metricNames[metric]} note={riskText} empty={riskText || copy.noObservations} />
+        {plot && <p class="shelf-note">{plot.plotCode} · {plotSource}{plot.areaM2 ? ` · ${plot.areaM2.toLocaleString(ja ? 'ja-JP' : 'en-US')} m²` : ''}{plot.operation ? ` · ${operationNames[plot.operation] ?? plot.operation}` : ''}</p>}
       </div>
     </section>
 
     <button type="button" class="observations-toggle" data-shelf="observations" aria-expanded="false" aria-controls="observations-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18V5m0 13h18M6 14l4-5 4 3 6-8" /></svg>{copy.observations}<span>↑</span></button>
-    <div class="map-zoom" aria-label={copy.zoom}><button type="button" data-zoom="in" aria-label={copy.zoomIn}>+</button><button type="button" data-zoom="out" aria-label={copy.zoomOut}>−</button></div>
+    <div class="map-zoom" role="group" aria-label={copy.zoom}><button type="button" data-zoom="in" aria-label={copy.zoomIn}>+</button><button type="button" data-zoom="out" aria-label={copy.zoomOut}>−</button></div>
     <form id="hmi-view" class="coast-dock" method="get" aria-label={copy.viewControls}>
       <input type="hidden" name="season" value={season} />
       <input type="hidden" name="lang" value={lang} />
@@ -288,7 +303,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
         {!supportedSpecies.length && <p class="shelf-note">{copy.noSpecies}</p>}
       </fieldset>
-      <div class="season-picker" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2025}>›</button></div></div>
+      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2025}>›</button></div></div>
       <p class="dock-status sr-only" data-view-status role="status"></p>
       <noscript><button type="submit">{copy.show}</button></noscript>
     </form>
