@@ -10,9 +10,11 @@ import { heatDays, SPECIES } from '@repo/shared';
 import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
+import type { HabLayerResult } from '../lib/hab-layers.server';
+import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
 
-interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; lang?: 'en' | 'ja' }
-const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, lang = 'en' } = Astro.props;
+interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; lang?: 'en' | 'ja'; hab?: HabLayerResult | null; habMonth?: string }
+const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, lang = 'en', hab = null, habMonth = '08' } = Astro.props;
 const ja = lang === 'ja';
 const plots = hmi.status === 'available' ? hmi.plots : [];
 const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
@@ -104,6 +106,19 @@ const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
+// JAXA SGLI chl-a from the pipeline's own tiles (#135), proxied same-origin by /api/tiles.
+const habLayer = hab?.status === 'available' ? hab.layer : null;
+const habText = habLayer ? ''
+  : hab?.status === 'not-built' ? (ja ? `${season}年${Number(habMonth)}月のクロロフィルaレイヤーは未作成です。` : `No chlorophyll-a layer built for ${season}-${habMonth}.`)
+  : hab?.status === 'unavailable' || hab?.status === 'invalid-payload' ? (ja ? 'クロロフィルaレイヤーに接続できません。' : 'Chlorophyll-a layer is unavailable.')
+  : (ja ? 'HABレイヤーは未設定です。' : 'HAB layer is not configured.');
+const habOverlay = habLayer ? JSON.stringify({
+  url: `/api/tiles${habLayer.tileUrl}`,
+  bounds: [[habLayer.bbox[1], habLayer.bbox[0]], [habLayer.bbox[3], habLayer.bbox[2]]],
+  note: `JAXA GCOM-C SGLI · ${habLayer.cadence === 'monthly' ? habLayer.date.slice(0, 7) : habLayer.date}`,
+}) : '';
+const monthName = (value: string) => ja ? `${Number(value)}月`
+  : new Date(Date.UTC(2000, Number(value) - 1, 1)).toLocaleString('en', { month: 'long', timeZone: 'UTC' });
 const clientCopy = JSON.stringify({
   draw: copy.draw, cancel: copy.cancel, help: copy.help, extent: copy.extent, sampling: copy.sampling, noData: copy.noData,
   areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
@@ -155,9 +170,27 @@ const languageHref = (locale: 'en' | 'ja') => {
         <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
         <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
         <label><input type="checkbox" name="map-layer" value="chl" /><span>{copy.chl}</span></label>
+        <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
+      <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
+        <select name="habMonth" form="hmi-view">
+          {HAB_MONTHS.map((value) => <option value={value} selected={value === habMonth}>{monthName(value)}</option>)}
+        </select>
+      </label>
       <p class="shelf-note" data-layer-date>{copy.satelliteNote}</p>
       <p class="shelf-note" data-chlorophyll-note hidden>{copy.chlNote}</p>
+      <div data-response-panel="hab">
+        <div data-hab-source data-overlay={habOverlay}></div>
+        {habText && <p class="shelf-note">{habText}</p>}
+        {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
+          <p class="hab-legend-title"><strong>{ja ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong> · {habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
+          <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
+          <p class="hab-ramp-labels"><span>≤{habLayer.tileScale.min}</span><span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span><span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (ja ? '（対数）' : ' (log)') : ''}</span></p>
+          <p class="shelf-note">{ja ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}</p>
+          <p class="shelf-note">{habLayer.product} · <code>{habLayer.sha256.slice(0, 12)}</code></p>
+          <p class="shelf-note">{ja ? 'クロロフィルaは藻類量の指標で、貝毒や出荷規制の有無を示すものではありません。' : 'Chlorophyll-a is a bloom proxy only; it does not show toxin status or shipment restrictions.'}</p>
+        </section>}
+      </div>
       <p class="shelf-note">{copy.imageryContext}</p>
     </section>
 

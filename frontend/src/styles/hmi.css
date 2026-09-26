@@ -36,11 +36,16 @@
 .coast-stack { position: absolute; top: 94px; left: 12px; z-index: 800; display: grid; gap: 8px; width: min(260px, calc(100vw - 100px)); }
 .coast-label { display: grid; gap: 6px; padding: 9px 11px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
 .hmi-page:has(.map-shelf[data-open]) .coast-stack { visibility: hidden; }
-.plot-picker select, .metric-picker select { width: 100%; min-height: 44px; padding: 6px 8px; border: 1px solid #86aaa8; border-radius: 4px; color: var(--sea-ink); background: #fff; font: 700 13px var(--font-body); }
+.plot-picker select, .metric-picker select, .shelf-select select { width: 100%; min-height: 44px; padding: 6px 8px; border: 1px solid #86aaa8; border-radius: 4px; color: var(--sea-ink); background: #fff; font: 700 13px var(--font-body); }
 .language-switch { display: flex; gap: 6px; }
 .language-switch a { display: inline-flex; flex: 1; align-items: center; justify-content: center; min-height: 44px; border: 1px solid #aec6bf; border-radius: 4px; color: #45666a; background: #fff; font-size: 12px; font-weight: 750; text-decoration: none; }
 .language-switch a[aria-current="page"] { color: var(--sea-ink); border-color: #123a3e; background: #e7f1e6; }
-.metric-picker { display: grid; gap: 4px; margin: 4px 0 10px; color: #526b6e; font-size: 12px; font-weight: 750; }
+.metric-picker, .shelf-select { display: grid; gap: 4px; margin: 4px 0 10px; color: #526b6e; font-size: 12px; font-weight: 750; }
+.shelf-select { margin: 10px 0 0; }
+.hab-legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid #c5d8d1; overflow-wrap: anywhere; }
+.hab-legend-title { margin: 0; font-size: 12px; line-height: 1.4; }
+.hab-ramp { height: 10px; margin-top: 8px; border-radius: 2px; }
+.hab-ramp-labels { display: flex; justify-content: space-between; gap: 6px; margin: 3px 0 0; color: #526b6e; font-size: 11px; }
 .hmi-page:has(.side-shelf[data-open]) .observations-toggle { visibility: hidden; }
 .coast-label h1 { margin: 0; font: 800 17px/1.2 var(--font-body); }
 .coast-label span { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; color: #45666a; }

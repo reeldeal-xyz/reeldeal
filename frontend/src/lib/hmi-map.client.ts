@@ -130,6 +130,22 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     activeOverlays.clear();
     const selected = layerInputs.filter((input) => input.checked && input.value !== 'satellite');
     const time = `${seasonInput.value}-10-31`;
+    const notes: string[] = [];
+    const habSource = habOverlay();
+    const habLegend = scene!.querySelector<HTMLElement>('[data-hab-legend]');
+    const habOn = selected.some((input) => input.value === 'hab') && !!habSource;
+    if (habLegend) habLegend.hidden = !habOn;
+    if (habOn && habSource) {
+      // The pipeline's JAXA SGLI chl-a tiles, bounded to the layer grid so nothing is requested outside it.
+      const overlay = L.tileLayer(habSource.url, {
+        bounds: habSource.bounds, maxNativeZoom: 12, maxZoom: 16,
+        opacity: selected.length > 1 ? 0.6 : 0.85, attribution: 'JAXA GCOM-C SGLI',
+      });
+      watchTiles(overlay, () => copy.tilesFailed);
+      activeOverlays.set('hab', overlay.addTo(map));
+      notes.push(habSource.note);
+    }
+    if (selected.some((input) => layers[input.value])) notes.unshift(`NASA GIBS · ${time}`);
     selected.forEach((input) => {
       const layer = layers[input.value];
       if (!layer) return;
@@ -141,10 +157,23 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       watchTiles(overlay, () => copy.overlayUnavailable.replace('{layer}', layer.label).replace('{time}', time));
       activeOverlays.set(input.value, overlay.addTo(map));
     });
-    layerNote.textContent = selected.length ? `NASA GIBS · ${time}` : satellite ? copy.satelliteNote : copy.outlines;
+    layerNote.textContent = notes.length ? notes.join(' / ') : satellite ? copy.satelliteNote : copy.outlines;
     chlorophyllNote.hidden = !selected.some((input) => input.value === 'chl');
   }
+  function habOverlay() {
+    const raw = scene!.querySelector<HTMLElement>('[data-hab-source]')?.dataset.overlay;
+    return raw ? JSON.parse(raw) as { url: string; bounds: L.LatLngBoundsLiteral; note: string } : null;
+  }
+  // After a season or month change the HAB panel is swapped in place: follow whether a layer exists for it.
+  function syncHab() {
+    const input = layerInputs.find((item) => item.value === 'hab');
+    if (!input) return;
+    input.disabled = !habOverlay();
+    if (input.disabled) input.checked = false;
+    renderMapLayers();
+  }
   layerInputs.forEach((input) => input.addEventListener('change', renderMapLayers));
+  scene.querySelector<HTMLSelectElement>('select[name="habMonth"]')?.addEventListener('change', () => { void updateView(); });
   scene.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
     if (button.dataset.zoom === 'in') map.zoomIn(); else map.zoomOut();
   }));
@@ -191,11 +220,12 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       if (!response.ok) throw Error('View unavailable');
       const next = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector<HTMLElement>('.hmi-page');
       if (!next) throw Error('View unavailable');
-      for (const panel of ['thresholds', 'observations']) {
+      for (const panel of ['thresholds', 'observations', 'hab']) {
         const target = scene!.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
         const source = next.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
         if (target && source) target.innerHTML = source.innerHTML;
       }
+      syncHab();
       const nextPlots = next.querySelector<HTMLSelectElement>('select[name="plot"]');
       if (nextPlots) {
         plotInput.innerHTML = nextPlots.innerHTML;
