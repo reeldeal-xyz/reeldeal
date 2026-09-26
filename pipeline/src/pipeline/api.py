@@ -1,16 +1,21 @@
 """FastAPI app: shared core routes, species reference routes and the three module routers (README §11)."""
 
 import os
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from datetime import datetime
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from shapely.geometry import shape
 from starlette.routing import BaseRoute
 
 from pipeline import __version__
-from pipeline.core.errors import is_stub, not_implemented, stub
-from pipeline.core.plots import store
+from pipeline.core import stations as station_store
+from pipeline.core.db import NoDatabase
+from pipeline.core.errors import is_stub
+from pipeline.core.plots import store, uploads
 from pipeline.core.regions import sea_areas
 from pipeline.core.schemas import (
     Health,
@@ -30,12 +35,15 @@ from pipeline.core.schemas import (
     Zone,
 )
 from pipeline.hazards import hab, heat, storm
+from pipeline.hazards.hab import api as hab_api
 from pipeline.hazards.hab.api import router as hab_router
-from pipeline.hazards.hab.schemas import HabRiskResponse
+from pipeline.hazards.hab.schemas import HabRiskRequest, HabRiskResponse
+from pipeline.hazards.heat import api as heat_api
 from pipeline.hazards.heat.api import router as heat_router
-from pipeline.hazards.heat.schemas import HeatRiskResponse
+from pipeline.hazards.heat.schemas import HeatRiskRequest, HeatRiskResponse
+from pipeline.hazards.storm import api as storm_api
 from pipeline.hazards.storm.api import router as storm_router
-from pipeline.hazards.storm.schemas import StormRiskResponse
+from pipeline.hazards.storm.schemas import StormRiskRequest, StormRiskResponse
 from pipeline.species.api import router as species_router
 
 MODULES: dict[ModuleName, tuple[APIRouter, str]] = {
@@ -52,6 +60,19 @@ class CombinedRisk(Model):
     heat: HeatRiskResponse | None
     hab: HabRiskResponse | None
     storm: StormRiskResponse | None
+
+
+def _module(call: Callable[[], Model]) -> Model | None:
+    """A module's response, or None when it has nothing to give: not built (404), not implemented (501) or its
+    database is unavailable. Invalid input (422) still fails the whole request."""
+    try:
+        return call()
+    except NoDatabase:
+        return None
+    except HTTPException as e:
+        if e.status_code in (status.HTTP_404_NOT_FOUND, status.HTTP_501_NOT_IMPLEMENTED):
+            return None
+        raise
 
 
 def _route_counts(routes: Iterable[BaseRoute]) -> RouteCounts:
@@ -118,26 +139,52 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
 
     @router.get("/plots", response_model=list[Plot])
     def list_plots(bbox: str | None = None, species: Species | None = None) -> list[Plot]:
-        """Plot inventory (no personal data). bbox = west,south,east,north."""
-        return [_plot(p) for p in store.query(_bbox(bbox), species)]
+        """Plot inventory (no personal data): every live plot in the database. bbox = west,south,east,north.
+
+        That covers uploads, the loaded fishery rights and the demo plots; while the database is unavailable only the
+        reviewed seed is listed.
+        """
+        return [_plot(p) for p in store.query_all(_bbox(bbox), species)]
 
     @router.post("/plots", response_model=Plot, status_code=201)
-    @stub
     def create_plot(plot: PlotCreate) -> Plot:
-        """Register / upload a plot polygon. Waits on the PostGIS service that will hold plots."""
-        raise not_implemented("POST /plots")
+        """Register a plot polygon (no personal data). Stored in PostGIS as `upload:<plotCode>`.
+
+        409 if the code is taken, 422 for an invalid polygon, 503 while the database is unavailable.
+        """
+        geojson = plot.geometry.model_dump(exclude_none=True)
+        geom = shape(geojson)
+        if not geom.is_valid or geom.is_empty:
+            raise HTTPException(422, detail="geometry is not a valid polygon")
+        try:
+            record = uploads.insert(plot.plot_code, geom, geojson, list(plot.species), plot.operation)
+        except uploads.DuplicatePlot as e:
+            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e)) from None
+        return _plot(record)
 
     @router.get("/stations", response_model=list[Station])
-    @stub
     def list_stations(bbox: str | None = None, type: StationType | None = None) -> list[Station]:
-        """Station registry."""
-        raise not_implemented("GET /stations")
+        """Station registry (buoys, tide gauges, shore and research stations). bbox = west,south,east,north."""
+        return station_store.stations(_bbox(bbox), type)
 
     @router.get("/stations/{station_id}/series", response_model=StationSeries)
-    @stub
-    def station_series(station_id: str, var: str) -> StationSeries:
-        """Station observations."""
-        raise not_implemented("GET /stations/{id}/series")
+    def station_series(
+        station_id: str,
+        var: str,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        depth: float | None = None,
+    ) -> StationSeries:
+        """Observations of one variable (e.g. WT, water temperature), oldest first, with the pinned inputs behind them.
+
+        A station measuring the variable at several depths needs `depth` (m).
+        """
+        try:
+            return station_store.series(station_id, var, start, end, depth)
+        except station_store.UnknownStation:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"unknown station {station_id!r}") from None
+        except ValueError as e:
+            raise HTTPException(422, detail=str(e)) from None
 
     @router.get("/zones", response_model=list[Zone])
     def list_zones() -> list[Zone]:
@@ -150,10 +197,19 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
     if set(modules) == set(MODULES):
 
         @router.post("/risk", response_model=CombinedRisk)
-        @stub
         def combined_risk(req: RiskRequest) -> CombinedRisk:
-            """Calls /heat/risk, /hab/risk, /storm/risk and merges them."""
-            raise not_implemented("POST /risk")
+            """Calls /heat/risk, /hab/risk and /storm/risk and merges them; no logic of its own.
+
+            A module is null when its required field is missing (`species` for HAB, `gear` for storm) or when it has
+            nothing to give: not built, not implemented yet, or its database is unavailable.
+            """
+            base = {"feature": req.feature, "start": req.start, "end": req.end}
+            return CombinedRisk(
+                plot=store.summary(shape(req.feature.geometry.model_dump())),
+                heat=_module(lambda: heat_api.risk(HeatRiskRequest(**base, t=req.t))),
+                hab=_module(lambda: hab_api.risk(HabRiskRequest(**base, species=req.species))) if req.species else None,
+                storm=_module(lambda: storm_api.risk(StormRiskRequest(**base, gear=req.gear, h=req.h))) if req.gear else None,
+            )
 
     return router
 
@@ -167,6 +223,11 @@ def create_app(modules: Iterable[ModuleName] = MODULES) -> FastAPI:
         "Index values and species reference data: no statuses or payout decisions; rules are served, never evaluated.",
     )
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+    @app.exception_handler(NoDatabase)
+    def no_database(request: Request, exc: NoDatabase) -> JSONResponse:
+        return JSONResponse({"detail": str(exc)}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+
     # Kept on app.state because FastAPI doesn't expose included routes as APIRoutes in app.routes (/health counts them).
     app.state.routers = [core_router(modules), species_router, *(MODULES[m][0] for m in modules)]
     for router in app.state.routers:

@@ -1,13 +1,15 @@
 ---
 import '../styles/global.css';
 import '../styles/market.css';
+import '../styles/wallet.css';
 import reeldealLogo from '../../../docs/assets/reeldeal-logo.svg?url';
 import BrandIntro from '../components/BrandIntro.astro';
-interface Props { title: string; description?: string; section?: string }
-const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'workshop' } = Astro.props;
+interface Props { title: string; description?: string; section?: string; lang?: 'en' | 'ja' }
+const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'market', lang = 'en' } = Astro.props;
+const ja = lang === 'ja';
 ---
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -28,21 +30,31 @@ const { title, description = 'ReelDeal supports coastal communities through loca
   <body>
     <BrandIntro />
     <div class="app-frame">
-      <a class="skip-link" href="#main">Skip to content</a>
+      <a class="skip-link" href="#main">{ja ? '本文へ移動' : 'Skip to content'}</a>
       <header class="site-header"><div class="shell site-header__inner">
-        <a class="brand" href="/" aria-label="ReelDeal home">
+        <a class="brand" href="/" aria-label={ja ? 'ReelDeal ホーム' : 'ReelDeal home'}>
           <!-- Display the artwork without the source image's outer white margin. -->
           <svg class="brand__logo" viewBox="154 150 946 946" width="48" height="48" aria-hidden="true" focusable="false">
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label="Main navigation">
-          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Fish market</a>
-          <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>Coastal map</a>
+        <nav class="site-nav" style="grid-template-columns:repeat(4,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
+          <a href="/market" aria-current={section === 'market' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
+          <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
+          <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>
+          <a href="/relief" aria-current={section === 'relief' ? 'page' : undefined}>{ja ? '救済' : 'Relief'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{section === 'hmi' ? 'Aquaculture HMI · live pipeline data only · incomplete layers are labeled' : 'Component preview · synthetic data · no payments or messages'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{section === 'relief'
+        ? 'ReliefPool + ENS + HumanRegistry · Sepolia test funds · live contract state'
+        : ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
     </div>
   </body>
 </html>
+<style>
+  @media (max-width: 380px) {
+    .site-header__inner { flex-wrap: wrap; justify-content: center; gap: 8px; padding-block: 8px; }
+    .site-nav { flex-basis: 100%; }
+  }
+</style>

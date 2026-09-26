@@ -27,7 +27,7 @@ Species = Literal[
     "salmon",
     "bluefin-tuna",
 ]
-Operation = Literal["longline", "raft", "cage"]
+Operation = Literal["longline", "raft", "cage", "other"]
 
 # §3 pixel extraction order; `tide_station` is storm surge only.
 ExtractionStrategy = Literal["inside", "buffer_500m", "buffer_2km", "nearest_pixel", "tide_station"]
@@ -67,7 +67,7 @@ class Plot(Model):
     prefecture: str | None = None
     area_m2: float
     centroid: tuple[float, float]
-    source: Literal["msil", "upload", "demo"] = Field(description="demo: synthetic plot for the Kesennuma demo, not surveyed")
+    source: Literal["msil", "upload", "demo", "fishery_right"] = Field(description="demo: synthetic fallback; fishery_right: licensed 区画漁業権 polygon")
 
 
 class PlotCreate(Model):
@@ -117,6 +117,8 @@ class StationSeries(Model):
     station_id: str
     var: str
     unit: str
+    depth_m: float | None = Field(default=None, description="Depth of these observations; null when there are none")
+    sources: list[str] = Field(default_factory=list, description="sha256 of every pinned input behind the points")
     points: list[StationPoint]
 
 

@@ -5,6 +5,10 @@
     pipeline all --season 2025 --region miyagi            same as `build`
     pipeline all build --days 35                          cron: the last 35 days to today (JST), incl. last month's composites
     pipeline hab build --month 2025-08                    monthly composites only
+    pipeline stations build                               load the reviewed station registry into PostGIS
+
+`hab build` also publishes the reviewed shellfish-ban table (data/ref/hab/bans.csv) to PostGIS; database steps are
+skipped while DATABASE_URL is unset.
 
 Daily JAXA files appear ~3 days after observation and monthly ones after the month ends, so the cron rebuilds a
 trailing window; existing layers are kept (use --force to rebuild them, --refresh to re-download inputs too).
@@ -17,13 +21,17 @@ import sys
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from pipeline.core import stations
+from pipeline.core.db import NoDatabase
 from pipeline.core.pin import PinError
 from pipeline.core.regions import REGIONS, region
+from pipeline.hazards.hab import bans as hab_bans
 from pipeline.hazards.hab import layers as hab_layers
 from pipeline.hazards.heat import build as heat_build
 from pipeline.hazards.heat.layers import season_window as heat_season_window
 
 MODULES = ("heat", "hab", "storm")
+TARGETS = (*MODULES, "stations")
 JST = ZoneInfo("Asia/Tokyo")
 
 
@@ -51,6 +59,9 @@ def _window(args: argparse.Namespace, module: str) -> tuple[date, date, bool]:
 
 
 def run(module: str, action: str, args: argparse.Namespace) -> dict:
+    if module == "stations":
+        head = {"module": module, "action": action}
+        return head | ({"skipped": "stations have nothing to fetch"} if action == "fetch" else stations.build())
     reg = region(args.region)
     start, end, months_only = _window(args, module)
     head = {"module": module, "action": action, "region": reg.id, "start": start.isoformat(), "end": end.isoformat()}
@@ -62,12 +73,13 @@ def run(module: str, action: str, args: argparse.Namespace) -> dict:
         return head | heat_build.build(start, end, reg, offline=args.offline, force=args.force or args.refresh, months_only=months_only)
     if action == "fetch":
         return head | {"pinned": hab_layers.fetch(start, end, reg, refresh=args.refresh)}
-    return head | hab_layers.build(start, end, reg, offline=args.offline, force=args.force or args.refresh, months_only=months_only)
+    built = hab_layers.build(start, end, reg, offline=args.offline, force=args.force or args.refresh, months_only=months_only)
+    return head | built | hab_bans.build()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pipeline", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("module", choices=[*MODULES, "all"])
+    parser.add_argument("module", choices=[*TARGETS, "all"])
     parser.add_argument("action", nargs="?", choices=["fetch", "build", "train"], default="build")
     when = parser.add_mutually_exclusive_group()
     when.add_argument("--season", help="YYYY (heat: 06-01..10-31; hab: the calendar year)")
@@ -87,12 +99,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "train":
         print("model training is not implemented yet (README §10, Q5)", file=sys.stderr)
         return 2
-    modules = MODULES if args.module == "all" else (args.module,)
+    modules = TARGETS if args.module == "all" else (args.module,)
     status = 0
     for m in modules:
         try:
             result = run(m, args.action, args)
-        except (PinError, ValueError) as e:
+        except (PinError, ValueError, NoDatabase) as e:
             result, status = {"module": m, "error": str(e)}, 1
         print(json.dumps(result, ensure_ascii=False))
     return status

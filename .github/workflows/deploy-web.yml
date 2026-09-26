@@ -43,7 +43,10 @@ jobs:
         run: |
           probe() { docker run --rm --network reeldeal curlimages/curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://web:4321$1"; }
           [ "$(probe /health)" = "200 " ]
-          [ "$(probe /workshop)" = "200 " ]
+          [ "$(probe /hmi)" = "200 " ]
+          [ "$(probe /market)" = "200 " ]
+          [ "$(probe /workshop)" = "404 " ]
+          [ "$(probe /market/checkout-demo)" = "404 " ]
           [ "$(probe '/map?x=1')" = "307 https://legacy.example/map?x=1" ]
           [ "$(probe /api/world)" = "404 " ]
           echo "routes ok"

@@ -27,14 +27,12 @@ Live: `https://app.13-196-78-137.sslip.io`. Pages not yet ported to Astro redire
 LEGACY_WEB_ORIGIN=https://web-production-746aa.up.railway.app
 PIPELINE_API_URL=https://13-196-78-137.sslip.io
 DATABASE_URL=postgres://app:<APP_PASSWORD from db/.env>@db:5432/reeldeal
-# Relief fund + marketplace checkout (frontend/src/lib/chain, /relief, /market/checkout-demo). See below.
+# Relief fund (frontend/src/lib/chain, /relief and its API routes). See below.
 SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 NEXT_PUBLIC_REOWN_PROJECT_ID=<public project ID from the existing /app Reown setup; allow app.<SITE_ADDRESS>>
-QUOTE_SIGNER_PRIVATE_KEY=<same key as the repo root .env's COOP_SIGNER_PRIVATE_KEY, unless a distinct
-  quote signer was configured on SaleRouter via QUOTE_SIGNER at deploy time -- see docs/SALE-ROUTER.md>
 ```
 
-These are read at runtime; changing them needs only `frontend/deploy/up.sh`, not a rebuild. `NEXT_PUBLIC_REOWN_PROJECT_ID` is public and enables Reown's mobile wallet chooser; injected browser wallets still work without it. `PUBLIC_CHAIN_ID` is a build-time public value and defaults to Sepolia. `SEPOLIA_RPC_URL` has a public default baked into `astro.config.mjs` and only needs setting to use a private/rate-limited RPC. `QUOTE_SIGNER_PRIVATE_KEY` has no default -- unset, the HMI disables checkout and `POST /api/market/quote` responds `503`. Never print or commit this key.
+These are read at runtime; changing them needs only `frontend/deploy/up.sh`, not a rebuild. `NEXT_PUBLIC_REOWN_PROJECT_ID` is public and enables Reown's mobile wallet chooser; injected browser wallets still work without it. `PUBLIC_CHAIN_ID` is a build-time public value and defaults to Sepolia. `SEPOLIA_RPC_URL` has a public default baked into `astro.config.mjs` and only needs setting to use a private/rate-limited RPC.
 
 ## Deploy
 

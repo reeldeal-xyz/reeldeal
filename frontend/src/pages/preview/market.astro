@@ -1,0 +1,12 @@
+---
+import PreviewLayout from '../../layouts/PreviewLayout.astro';
+import MarketplaceDiscovery from '../../components/organisms/marketplace/MarketplaceDiscovery.astro';
+---
+<PreviewLayout title="Local catch" current="/preview/market"><div class="preview-market"><MarketplaceDiscovery /></div></PreviewLayout>
+<style>
+  .preview-market { min-width: 0; }
+  .preview-market :global(.marketplace-canvas) { min-height: 0; }
+  .preview-market :global(.marketplace-preview) { padding: 0; }
+  .preview-market :global(.marketplace-preview__grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 359px) { .preview-market :global(.marketplace-preview__grid) { grid-template-columns: 1fr; } }
+</style>

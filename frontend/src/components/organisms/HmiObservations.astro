@@ -1,0 +1,101 @@
+---
+import type { PipelineHeatRisk } from '@repo/shared';
+import { observationChart } from '../../lib/hmi-presentation';
+
+interface Props {
+  data: PipelineHeatRisk | null;
+  metric: 'SST' | 'SST_ANOM' | 'SST_MONTH';
+  lang: 'en' | 'ja';
+  /** Species · season line above the metric title. */
+  kicker: string;
+  title: string;
+  /** Status note shown under the chart (e.g. partial data); empty when there is nothing to add. */
+  note: string;
+  /** Shown instead of the chart when there are no observations. */
+  empty: string;
+}
+
+const { data, metric, lang, kicker, title, note, empty } = Astro.props;
+const ja = lang === 'ja';
+const series = data?.indices.filter((item) => item.index === metric) ?? [];
+const chart = observationChart(series, metric);
+const latest = series.filter((item) => item.value !== null).at(-1);
+const expected = data
+  ? metric === 'SST_MONTH'
+    ? (Number(data.window.end.slice(0, 4)) - Number(data.window.start.slice(0, 4))) * 12
+      + Number(data.window.end.slice(5, 7)) - Number(data.window.start.slice(5, 7)) + 1
+    : (Date.parse(data.window.end) - Date.parse(data.window.start)) / 86_400_000 + 1
+  : null;
+const missing = expected === null ? null : Math.max(0, expected - (chart?.count ?? 0));
+const sources = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()];
+
+const labels = ja ? {
+  observed: '観測記録', latest: '直近の記録', range: '記録の範囲', average: '平均', samples: '有効な記録',
+  missing: '欠測', evidence: '数値と出典を確認', date: '日付', value: '値', noData: '欠測',
+  support: '抽出範囲', window: '対象期間',
+} : {
+  observed: 'Recorded observations', latest: 'Latest recorded', range: 'Recorded range', average: 'Mean',
+  samples: 'Valid samples', missing: 'Missing samples', evidence: 'Inspect values and sources', date: 'Date',
+  value: 'Value', noData: 'Missing', support: 'Extraction support', window: 'Window',
+};
+
+const strategies: Record<string, string> = ja
+  ? { inside: '区画内', buffer_500m: '500 mの周辺範囲', buffer_2km: '2 kmの周辺範囲', nearest_pixel: '最寄り画素' }
+  : { inside: 'Inside plot', buffer_500m: '500 m buffer', buffer_2km: '2 km buffer', nearest_pixel: 'Nearest pixel' };
+---
+
+<div class="observation-panel">
+  <div class="observation-heading">
+    <div><p class="shelf-kicker">{kicker}</p><h3>{title}</h3></div>
+    <span>°C</span>
+  </div>
+
+  {chart ? <>
+    <div class="observation-reading">
+      <strong>{chart.latest.value.toFixed(1)}<span> °C</span></strong>
+      <p>{labels.latest}<time datetime={chart.latest.asOf}>{chart.latest.asOf}</time></p>
+    </div>
+
+    <svg class="chart" viewBox="0 0 320 150" role="img" aria-label={`${title} · ${chart.start} – ${chart.end}`}>
+      {chart.ticks.map((tick) => <>
+        <path class="chart-grid" d={`M44 ${tick.y}H308`} />
+        <text x="36" y={tick.y + 4} text-anchor="end">{tick.value.toFixed(1)}</text>
+      </>)}
+      {chart.segments.map((segment) => segment.length > 1
+        ? <polyline points={segment.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ')} />
+        : segment[0] && <circle cx={segment[0].x} cy={segment[0].y} r="3"><title>{segment[0].asOf}: {segment[0].value} °C</title></circle>)}
+    </svg>
+    <div class="chart-dates"><time datetime={chart.start}>{chart.start}</time><time datetime={chart.end}>{chart.end}</time></div>
+
+    <dl class="observation-stats">
+      <div><dt>{labels.range}</dt><dd>{chart.min.toFixed(1)} – {chart.max.toFixed(1)} °C</dd></div>
+      <div><dt>{labels.average}</dt><dd>{chart.mean.toFixed(1)} °C</dd></div>
+      <div><dt>{labels.samples}</dt><dd>{chart.count}</dd></div>
+      <div><dt>{labels.missing}</dt><dd>{missing ?? '—'}</dd></div>
+    </dl>
+  </> : <p class="shelf-note">{empty}</p>}
+
+  {chart && note && <p class="shelf-note">{note}</p>}
+  {data && <p class="shelf-note">{labels.window}: <time datetime={data.window.start}>{data.window.start}</time> – <time datetime={data.window.end}>{data.window.end}</time></p>}
+
+  {latest?.pixels && <p class="shelf-note">
+    {labels.support}: {strategies[latest.pixels.strategy] ?? latest.pixels.strategy}
+    · {latest.pixels.count} {ja ? '画素' : 'pixels'}
+    {latest.pixels.distanceKm != null ? ` · ${latest.pixels.distanceKm.toFixed(1)} km` : ''}
+  </p>}
+
+  {series.length > 0 && <details class="observation-evidence">
+    <summary>{labels.evidence}</summary>
+    <div class="observation-table" tabindex="0" role="region" aria-label={labels.observed}>
+      <table>
+        <caption>{title} · °C</caption>
+        <thead><tr><th scope="col">{labels.date}</th><th scope="col">{labels.value}</th></tr></thead>
+        <tbody>{series.map((item) => <tr><th scope="row">{item.asOf}</th><td>{item.value === null ? labels.noData : item.value.toFixed(2)}</td></tr>)}</tbody>
+      </table>
+    </div>
+    <dl class="observation-sources">{sources.map((source) => <div><dt>{source.product}</dt><dd><code>{source.sha256}</code></dd></div>)}</dl>
+    <p class="shelf-note">{ja
+      ? 'ハッシュはパイプラインが報告した値です。この画面では元データを再検証していません。'
+      : 'Hashes are reported by the pipeline; original files are not reverified in this view.'}</p>
+  </details>}
+</div>

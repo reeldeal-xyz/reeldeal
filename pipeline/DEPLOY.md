@@ -79,6 +79,24 @@ curl https://<SITE_ADDRESS>/health
 
 The web app points at `https://<SITE_ADDRESS>`. CORS is open (`api.py`), so no extra config is needed. Interactive docs are at `/docs`.
 
+**Database (PostGIS, `db/`):** uploaded plots, stations and HAB restrictions live in the separate database service. The `api` container joins the `reeldeal` network and reaches it as `db:5432`. To connect it:
+
+1. Set `DATABASE_URL=postgresql://pipeline:<PIPELINE_PASSWORD>@db:5432/reeldeal` in `pipeline/.env`, using `PIPELINE_PASSWORD` from `db/.env`.
+2. Run `docker compose up -d` so the container picks up the setting.
+3. Publish the reviewed tables once, without waiting for the nightly job:
+
+```sh
+docker compose run --rm api pipeline hab build --date "$(date +%F)"   # risk.restrictions from data/ref/hab/bans.csv
+docker compose run --rm api pipeline stations build                   # geo.stations from data/ref/stations.json
+```
+
+Without `DATABASE_URL`:
+- those routes answer 503;
+- `GET /plots` lists only the seed;
+- the builds skip their database steps.
+
+The database's migrations (including the `risk.restrictions` bulletin columns) must have been applied by `deploy-db.yml`.
+
 ## 4. Deploying changes
 
 ```sh
@@ -170,6 +188,8 @@ Add this crontab entry (`crontab -e` as `ubuntu`). The `pipeline` CLI (README §
 ```
 
 Pinned inputs go to `data/raw/` (~1 GB per Miyagi heat season) and layers and indices to `out/`; both are volumes, so they survive redeploys.
+
+`all` also covers the database steps: `hab build` upserts the reviewed shellfish-ban table into `risk.restrictions`, and `stations build` loads the station registry. With `DATABASE_URL` unset, both report `skipped`.
 
 `docker compose run` uses the same image, `.env` and volumes as the API, so layers written to `out/` are served immediately.
 

@@ -1,10 +1,11 @@
-"""Plot inventory (README §3), read-only.
+"""Plot inventory (README §3).
 
 Plots carry code, geometry, species, operation and sea area only. No owner names or personal data.
 
-Spatial data is moving to a separate PostGIS service that the pipeline reads as a client (decided 2026-09-26).
-Until that service exists, the inventory is the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo
-plots), and uploads (`POST /plots`) stay unimplemented. Swapping the backend only changes this module.
+Two sources: the reviewed seed in `data/ref/plots.geojson` (served without a database) and the live PostGIS
+inventory in `geo.plots`. When the database is reachable, its rows are authoritative for matching plot codes;
+this is how the HMI receives the fishery-right polygons that replaced the old p1213-* seed discs. When the
+database is unset or down, lookups and listings fall back to the reviewed seed.
 """
 
 import json
@@ -18,6 +19,7 @@ from shapely.geometry.base import BaseGeometry
 
 from pipeline.core.config import ref_dir
 from pipeline.core.regions import sea_area_of
+from pipeline.core.schemas import PlotSummary
 
 KM_PER_DEG = 111.32
 
@@ -47,6 +49,17 @@ def area_m2(geom: BaseGeometry) -> float:
     """Area of a lon/lat geometry in m² (local equirectangular)."""
     k = (KM_PER_DEG * 1000) ** 2 * math.cos(math.radians(geom.centroid.y))
     return round(geom.area * k, 1)
+
+
+def summary(geom: BaseGeometry, plot_code: str | None = None, sea_area: str | None = None) -> PlotSummary:
+    """The plot as echoed in a module response."""
+    c = geom.centroid
+    return PlotSummary(
+        plot_code=plot_code,
+        area_m2=area_m2(geom),
+        centroid=(round(c.x, 6), round(c.y, 6)),
+        sea_area=sea_area or sea_area_of(geom),
+    )
 
 
 def _record(f: dict) -> PlotRecord:
@@ -85,3 +98,29 @@ def query(bbox: tuple[float, float, float, float] | None = None, species: str | 
         for p in sorted(plots().values(), key=lambda p: p.plot_code)
         if (area is None or area.intersects(p.geometry)) and (species is None or species in p.species)
     ]
+
+
+def lookup(plot_code: str) -> PlotRecord | None:
+    """Current DB plot when reachable; reviewed seed only as a fallback."""
+    from pipeline.core import db
+
+    from . import inventory
+
+    try:
+        if p := inventory.get(plot_code):
+            return p
+    except db.NoDatabase:
+        pass
+    return get(plot_code)
+
+
+def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
+    """Current DB inventory when reachable; reviewed seed only when the database is unavailable."""
+    from pipeline.core import db
+
+    from . import inventory
+
+    try:
+        return inventory.query(bbox, species)
+    except db.NoDatabase:
+        return query(bbox, species)
