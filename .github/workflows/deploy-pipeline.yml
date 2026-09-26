@@ -1,0 +1,77 @@
+# Test the pipeline, then deploy it to the EC2 instance via SSM Run Command (pipeline/DEPLOY.md §5).
+# Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID. No stored AWS or SSH keys: GitHub OIDC.
+name: deploy-pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/deploy-pipeline.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+
+      - name: Deploy over SSM
+        env:
+          INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          SHA: ${{ github.sha }}
+        run: |
+          # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes.
+          script="set -e
+          cd /home/ubuntu/eth-global-tokyo
+          git checkout -q main
+          git fetch -q origin main
+          git reset -q --hard $SHA
+          cd pipeline
+          docker compose up -d --build --wait
+          docker image prune -f"
+          params=$(jq -nc --arg s "$script" '{commands: ["sudo -u ubuntu -H bash -c \(($s | @sh))"]}')
+
+          cmd_id=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${SHA::7}" \
+            --parameters "$params" \
+            --query Command.CommandId --output text)
+          echo "SSM command $cmd_id"
+
+          status=Pending
+          for _ in $(seq 1 120); do
+            sleep 5
+            status=$(aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || echo Pending)
+            case "$status" in Success|Failed|Cancelled|TimedOut) break ;; esac
+          done
+
+          aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$INSTANCE_ID" \
+            --query '[StandardOutputContent, StandardErrorContent]' --output text || true
+          echo "Status: $status"
+          [ "$status" = Success ]
