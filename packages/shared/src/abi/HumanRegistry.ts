@@ -17,13 +17,26 @@ export const HumanRegistryAbi = [
   },
   {
     "type": "function",
-    "name": "admin",
+    "name": "BINDER_ROLE",
     "inputs": [],
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -33,48 +46,96 @@ export const HumanRegistryAbi = [
     "name": "bind",
     "inputs": [
       {
-        "name": "",
+        "name": "wallet",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "",
+        "name": "nullifier",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "schemaId",
         "type": "uint16",
         "internalType": "uint16"
       },
       {
-        "name": "",
+        "name": "sybilScoreBps",
         "type": "uint16",
         "internalType": "uint16"
       },
       {
-        "name": "",
+        "name": "verifiedAt",
         "type": "uint64",
         "internalType": "uint64"
       },
+      {
+        "name": "receiptHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getRoleAdmin",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
       {
         "name": "",
         "type": "bytes32",
         "internalType": "bytes32"
       }
     ],
-    "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
-    "name": "binder",
-    "inputs": [],
+    "name": "grantRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "hasRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "outputs": [
       {
         "name": "",
-        "type": "address",
-        "internalType": "address"
+        "type": "bool",
+        "internalType": "bool"
       }
     ],
     "stateMutability": "view"
@@ -84,14 +145,14 @@ export const HumanRegistryAbi = [
     "name": "humanOf",
     "inputs": [
       {
-        "name": "",
+        "name": "wallet",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [
       {
-        "name": "h",
+        "name": "",
         "type": "tuple",
         "internalType": "struct IHumanRegistry.Human",
         "components": [
@@ -123,14 +184,14 @@ export const HumanRegistryAbi = [
         ]
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "levelOf",
     "inputs": [
       {
-        "name": "",
+        "name": "wallet",
         "type": "address",
         "internalType": "address"
       }
@@ -142,60 +203,141 @@ export const HumanRegistryAbi = [
         "internalType": "uint8"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minSybilScoreBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "rebind",
     "inputs": [
       {
-        "name": "",
+        "name": "nullifier",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "newWallet",
         "type": "address",
         "internalType": "address"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renounceRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "callerConfirmation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setMinSybilScoreBps",
+    "inputs": [
+      {
+        "name": "newMin",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportsInterface",
+    "inputs": [
+      {
+        "name": "interfaceId",
+        "type": "bytes4",
+        "internalType": "bytes4"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
     "name": "upgrade",
     "inputs": [
       {
-        "name": "",
+        "name": "wallet",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "",
+        "name": "nullifier",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "schemaId",
         "type": "uint16",
         "internalType": "uint16"
       },
       {
-        "name": "",
+        "name": "receiptHash",
         "type": "bytes32",
         "internalType": "bytes32"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
     "name": "walletOf",
     "inputs": [
       {
-        "name": "",
+        "name": "nullifier",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -207,7 +349,7 @@ export const HumanRegistryAbi = [
         "internalType": "address"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -242,6 +384,25 @@ export const HumanRegistryAbi = [
   },
   {
     "type": "event",
+    "name": "MinSybilScoreUpdated",
+    "inputs": [
+      {
+        "name": "oldMin",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      },
+      {
+        "name": "newMin",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Rebound",
     "inputs": [
       {
@@ -260,6 +421,81 @@ export const HumanRegistryAbi = [
         "name": "newWallet",
         "type": "address",
         "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleAdminChanged",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdminRole",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "inputs": [
+      {
+        "name": "role",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -292,8 +528,24 @@ export const HumanRegistryAbi = [
   },
   {
     "type": "error",
-    "name": "NotImplemented",
+    "name": "AccessControlBadConfirmation",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "AccessControlUnauthorizedAccount",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "neededRole",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
   },
   {
     "type": "error",
@@ -303,6 +555,17 @@ export const HumanRegistryAbi = [
         "name": "wallet",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NullifierNotBound",
+    "inputs": [
+      {
+        "name": "nullifier",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },
@@ -343,5 +606,31 @@ export const HumanRegistryAbi = [
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "WalletNullifierMismatch",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nullifier",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroNullifier",
+    "inputs": []
   }
 ] as const;
