@@ -3,12 +3,15 @@
 
 import SpeciesIcon from './SpeciesIcon.astro';
 import HmiObservations from './organisms/HmiObservations.astro';
+import WeatherForecast from './organisms/WeatherForecast.astro';
+import SpeciesThresholds from './organisms/SpeciesThresholds.astro';
 import WalletConnect from './react/WalletConnect';
 import MarketEmpty from './molecules/marketplace/MarketEmpty.astro';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
+import '../styles/weather-thresholds.css';
 
-import { heatDays, SPECIES } from '@repo/shared';
+import { SPECIES } from '@repo/shared';
 import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
@@ -95,15 +98,6 @@ const metricNames = ja
 
 const data = risk?.data?.plot.plotCode === plot?.plotCode ? risk?.data ?? null : null;
 const speciesData = speciesInfo?.data?.id === species ? speciesInfo.data : null;
-const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
-const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
-const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
-  ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
-const speciesText = !species || speciesInfo?.status === 'available' ? ''
-  : speciesInfo?.status === 'not-configured' ? (ja ? '魚種の基準データは未設定です。' : 'Species reference data is not configured for this deployment.')
-  : speciesInfo?.status === 'not-found' ? (ja ? `${speciesNames[species] ?? species}の魚種基準データがありません。` : `No species reference for ${speciesNames[species] ?? species}.`)
-  : speciesInfo?.status === 'invalid-payload' ? (ja ? '魚種の基準データを検証できませんでした。' : 'Species reference failed validation.')
-  : (ja ? '魚種の基準データに接続できません。' : 'Species reference data is unavailable.');
 const statusText = hmi.status === 'not-configured' ? (ja ? 'データパイプラインが未設定です。' : 'Pipeline is not configured for this deployment.')
   : hmi.status === 'unavailable' ? (ja ? '区画・海域データを取得できません。' : 'Live plot and zone data are unavailable.')
   : hmi.status === 'invalid-payload' ? (ja ? '地図データを検証できませんでした。' : 'Pipeline map data failed validation.') : '';
@@ -244,18 +238,15 @@ const languageHref = (locale: 'en' | 'ja') => {
     <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
       <header><h2 id="thresholds-heading">{copy.speciesThresholds}</h2><button type="button" data-close-shelf aria-label={ja ? '基準値を閉じる' : 'Close thresholds'}>×</button></header>
       <div data-response-panel="thresholds">
-        <p class="shelf-kicker">{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : speciesNames[species] ?? species} · {season}</p>
-        {speciesData && <p class="shelf-note">{speciesData.taxon}</p>}
-        {speciesText ? <p class="shelf-note">{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>{rule.tempC}°C</strong><span>{ja ? `段階 ${rule.tier}` : `Tier ${rule.tier}`} · {rule.tempC == null ? '' : `${(rule.tempC * 9 / 5 + 32).toFixed(1)}°F · `}{rule.window?.start} – {rule.window?.end}</span></div><b>{count}<small> / {rule.threshold}{ja ? '日' : ' days'}</small></b></div>) : <p class="shelf-note">{copy.noThreshold}</p>}
-        <p class="shelf-note">{copy.daysAbove}</p>
-        {speciesData && <p class="shelf-note">{copy.rules} {speciesData.rules_version} · {copy.profiles} {speciesData.profile_version}</p>}
-        {speciesData && !!speciesData.evidence.length && <details class="data-sources"><summary>{copy.evidence}</summary>{speciesData.evidence.map((study) => <p><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.factors.join(', ').replaceAll('_', ' ')} · {study.lifeStage ?? (ja ? '成長段階の記録なし' : 'life stage unrecorded')} · {study.status === 'measured' ? `${study.points.length} ${ja ? '測定点' : 'measured points'}` : (ja ? '対応データなし' : 'No supported response data')}{study.note && ` · ${study.note}`}</p>)}</details>}
+        <SpeciesThresholds species={species} season={season} plot={plot} data={data} profile={speciesData} lang={lang} />
       </div>
     </section>
 
     <section id="forecast-shelf" class="map-shelf bottom-shelf" aria-labelledby="forecast-heading" inert>
       <header><h2 id="forecast-heading">{copy.forecast}</h2><button type="button" data-close-shelf aria-label={ja ? '予報を閉じる' : 'Close forecast'}>×</button></header>
-      <p class="shelf-kicker">{copy.coast}</p><p class="shelf-note">{copy.forecastNone}</p>
+      <div data-response-panel="forecast">
+        <WeatherForecast plotCode={plot?.plotCode} centroid={plot?.centroid} lang={lang} operational={!!endpoint} />
+      </div>
     </section>
 
     <section id="area-shelf" class="map-shelf side-shelf" aria-labelledby="area-heading" inert>

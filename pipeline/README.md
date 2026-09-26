@@ -457,3 +457,8 @@ scripts/testdb.sh down
 - **Q13** Demo scope: run the full national daily job for all three modules, or backfill nationally but demo live on a few prefectures and one or two modules?
 - **Q14** Does JMA MOVE-JPN publish machine-readable gridded output (and under what licence), or only maps? If gridded, it could supplement Copernicus physics nearshore. (FRA-ROMS II is resolved: application-only, not used.)
 - **Q15** Marine heatwave baseline: Hobday needs a 30-year daily 90th percentile. COBE-SST daily normals in the Earth API give the mean only, and JAXA satellite SST starts in 2012 (AMSR2) / 2018 (SGLI). Compute percentiles from Copernicus multiyear physics surface temperature (1993–), or drop `MHW_DAYS` to advisory?
+
+
+### Plot geometry cache identity (#161)
+
+`heat build` reads the authoritative inventory and writes a private geometry fingerprint alongside each cached plot response. `/heat/plots/{plot}/risk` ignores old geometry, legacy unversioned files, wrong identities/windows and corrupt files, then computes against the current polygon using built layers. When the output volume is writable, repaired responses are cached with a unique atomic temporary file; read-only volumes can serve the computation without caching. The fingerprint is never returned in the public response. Daily layer builds still refresh seasonal observations. The SST threshold panel cannot reuse pre-migration seed-geometry exposure for a migrated licensed polygon.

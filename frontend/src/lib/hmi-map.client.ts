@@ -1,5 +1,6 @@
 import L from 'leaflet';
 import { hmiLayerDate } from './hmi-layer-date';
+import { initWeatherForecast } from './weather-forecast.client';
 import { readPlotObservations } from './plot-observations';
 import { operationColor, plotFacts, type PlotLabels } from './plot-layer';
 
@@ -39,6 +40,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     hectares: 'ha', locale: 'en-US',
   };
   const lang = scene.dataset.lang === 'ja' ? 'ja' : 'en';
+  const weather = initWeatherForecast(scene);
   const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[]}') as { plots: Plot[] };
   const dock = scene.querySelector<HTMLFormElement>('.coast-dock')!;
   const status = scene.querySelector<HTMLElement>('[data-view-status]')!;
@@ -259,6 +261,8 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     attributionCorner.style.bottom = `${Math.ceil(panelTop + 6)}px`;
   };
   window.addEventListener('resize', placeAttribution);
+  const shelfSize = new ResizeObserver(placeAttribution);
+  scene.querySelectorAll('.bottom-shelf').forEach((shelf) => shelfSize.observe(shelf));
 
   function openShelf(name: string | null) {
     scene!.querySelectorAll<HTMLElement>('.map-shelf').forEach((shelf) => {
@@ -270,6 +274,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       button.setAttribute('aria-expanded', String(button.dataset.shelf === name));
     });
     if (name !== 'area' && drawing) setDrawing(false);
+    if (name === 'forecast') weather.open();
     placeAttribution();
   }
   scene.querySelectorAll<HTMLButtonElement>('[data-shelf]').forEach((button) => button.addEventListener('click', () => {
@@ -318,6 +323,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       // The pipeline's JAXA SGLI chl-a tiles, bounded to the layer grid so nothing is requested outside it.
       const overlay = L.tileLayer(habSource.url, {
         bounds: habSource.bounds, maxNativeZoom: 12, maxZoom: 16,
+        zIndex: 200,
         opacity: selected.length > 1 ? 0.6 : 0.85, attribution: 'JAXA GCOM-C SGLI',
       });
       watchTiles(overlay, () => copy.tilesFailed);
@@ -330,6 +336,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       if (!layer) return;
       const overlay = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
         layers: layer.name, format: 'image/png', transparent: true,
+        zIndex: 200,
         opacity: selected.length > 1 ? 0.34 : 0.72, version: '1.1.1', time,
         attribution: '&copy; NASA GIBS',
       } as L.WMSOptions);
@@ -435,11 +442,12 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       signal.throwIfAborted();
       if (pending !== controller) return;
       if (!next) throw Error('View unavailable');
-      for (const panel of ['thresholds', 'observations', 'hab']) {
+      for (const panel of ['thresholds', 'observations', 'hab', 'forecast']) {
         const target = scene!.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
         const source = next.querySelector<HTMLElement>(`[data-response-panel="${panel}"]`);
         if (target && source) target.innerHTML = source.innerHTML;
       }
+      weather.reset();
       const nextPlots = next.querySelector<HTMLSelectElement>('select[name="plot"]');
       if (nextPlots) {
         plotInput.innerHTML = nextPlots.innerHTML;

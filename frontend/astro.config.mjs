@@ -18,6 +18,7 @@ export default defineConfig({
       LEGACY_WEB_ORIGIN: envField.string({ context: 'server', access: 'secret', optional: true, url: true }),
       PIPELINE_API_URL: envField.string({ context: 'server', access: 'secret', optional: true, url: true }),
       DATABASE_URL: envField.string({ context: 'server', access: 'secret', optional: true }),
+      OPEN_METEO_API_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
       // Sepolia RPC for server-side ReliefPool/SaleRouter reads (frontend/src/lib/chain). The default is a
       // public, non-secret endpoint; override for a private/rate-limited RPC in production.
       SEPOLIA_RPC_URL: envField.string({

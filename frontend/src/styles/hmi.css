@@ -20,6 +20,7 @@
   box-shadow: 0 2px 8px rgb(16 42 48 / .12);
 }
 .app-frame:has(.hmi-page) .site-footer { display: none; }
+.app-frame:has(.hmi-page) .site-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .app-frame:has(.hmi-page) .site-nav a { min-height: 44px; }
 .hmi-page { --sea-ink: #123a3e; --sea-paper: #faf8ee; position: fixed; inset: 0; isolation: isolate; color: var(--sea-ink); font: 14px/1.4 var(--font-body); }
 .hmi-page button { font: inherit; cursor: pointer; }
@@ -53,6 +54,7 @@
 .hab-ramp { height: 10px; margin-top: 8px; border-radius: 2px; }
 .hab-ramp-labels { display: flex; justify-content: space-between; gap: 6px; margin: 3px 0 0; color: #526b6e; font-size: 11px; }
 .hmi-page:has(.side-shelf[data-open]) .observations-toggle { visibility: hidden; }
+.hmi-page:has(.bottom-shelf[data-open]) .observations-toggle { visibility: hidden; }
 .coast-label h1 { margin: 0; font: 800 17px/1.2 var(--font-body); }
 .coast-label span { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; color: #45666a; }
 .coast-label i { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #aa7450; }.coast-label i.online { background: #138a74; }
@@ -71,17 +73,17 @@
 .map-tool[aria-expanded="true"] { background: #b8ff36; border-color: #123a3e; }
 .map-tool svg,.observations-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .map-tool span { font-size: 9px; font-weight: 750; }
-.map-shelf { position: absolute; z-index: 850; overflow: auto; color: var(--sea-ink); background: var(--sea-paper); border: 1px solid #749b99; box-shadow: 0 2px 8px rgb(0 0 0 / .16); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms ease-out, transform 220ms cubic-bezier(.23,1,.32,1), visibility 0s 220ms; }
+.map-shelf { position: absolute; z-index: 850; min-width: 0; overflow: auto; overflow-wrap: anywhere; overscroll-behavior: contain; color: var(--sea-ink); background: var(--sea-paper); border: 1px solid #749b99; box-shadow: 0 2px 8px rgb(0 0 0 / .16); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms ease-out, transform 220ms cubic-bezier(.23,1,.32,1), visibility 0s 220ms; }
 .map-shelf[data-open] { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 180ms ease-out, transform 220ms cubic-bezier(.23,1,.32,1); }
 .map-shelf header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .map-shelf h2 { margin: 0; font: 800 16px/1.2 var(--font-body); }
 .map-shelf header button { flex: none; width: 44px; height: 44px; border: 1px solid #aec6bf; border-radius: 4px; background: white; font-size: 23px; line-height: 1; }
-.side-shelf { top: 94px; right: 80px; width: min(220px,calc(100vw - 100px)); max-height: min(58dvh,500px); padding: 10px 12px; border-radius: 4px; transform: translateX(10px); }
+.side-shelf { top: 94px; right: 80px; width: min(320px,calc(100vw - 100px)); max-height: min(58dvh,500px,calc(100dvh - 200px - env(safe-area-inset-bottom))); padding: 10px 12px; border-radius: 4px; transform: translateX(10px); }
 .side-shelf[data-open] { transform: translateX(0); }
-.bottom-shelf { right: 12px; bottom: calc(106px + env(safe-area-inset-bottom)); left: 12px; max-height: min(40dvh,380px); padding: 17px 18px; border-radius: 4px; transform: translateY(12px); }
+.bottom-shelf { right: 80px; bottom: calc(106px + env(safe-area-inset-bottom)); left: 12px; max-height: min(62dvh,calc(100dvh - 200px - env(safe-area-inset-bottom))); padding: 14px; border-radius: 4px; transform: translateY(12px); }
 .bottom-shelf[data-open] { transform: translateY(0); }
 .layer-choices { display: grid; min-width: 0; margin: 0; padding: 0; border: 0; }
-.layer-choices label { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 2px; border-bottom: 1px solid #c5d8d1; cursor: pointer; font-size: 13px; font-weight: 750; white-space: nowrap; }
+.layer-choices label { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 6px 2px; border-bottom: 1px solid #c5d8d1; cursor: pointer; font-size: 13px; font-weight: 750; }
 .layer-choices label:has(:checked) { color: #176b5c; }
 .layer-choices input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: #187b69; }
 .layer-choices + .shelf-note { margin-top: 8px; }
@@ -135,11 +137,9 @@
 .species-picker svg { width: 32px; height: 32px; }.species-picker label > span > span { max-width: 100%; }
 .season-picker { flex: none; padding-left: 8px; border-left: 1px solid #b8cbc3; text-align: center; }.season-picker > span { display: block; margin-bottom: 2px; color: #526b6e; font-size: 10px; font-weight: 750; }.season-picker > div { display: flex; align-items: center; gap: 1px; }.season-picker button { width: 32px; height: 44px; padding: 0; border: 0; background: #eaf1e8; font-size: 26px; line-height: 1; }.season-picker output { min-width: 36px; font-weight: 800; font-size: 14px; }
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-@media (min-width: 700px) { .bottom-shelf { left: auto; width: min(520px,calc(100vw - 24px)); }.coast-dock { left: 50%; right: auto; width: min(520px,calc(100vw - 24px)); transform: translateX(-50%); }.observations-toggle { right: 18px; }.map-zoom { right: 18px; }.side-shelf { width: 240px; } }
+@media (min-width: 700px) { .bottom-shelf { left: auto; width: min(520px,calc(100vw - 104px)); }.coast-dock { left: 50%; right: auto; width: min(520px,calc(100vw - 24px)); transform: translateX(-50%); }.observations-toggle { right: 18px; }.map-zoom { right: 18px; } }
 @media (max-width: 699px) { .app-frame:has(.hmi-page) .site-header { width: 64px; min-width: 0; overflow: hidden; }.app-frame:has(.hmi-page) .site-header__inner { width: 58px; min-height: 48px; }.app-frame:has(.hmi-page) .brand__logo { width: 44px; height: 44px; }.app-frame:has(.hmi-page) .site-nav { display: none; }.market-shelf { top: 68px; }.market-actions { gap: 4px; } }
-@media (max-width: 359px) { .coast-dock { gap: 4px; padding: 5px; }.species-picker label { flex-basis: 48px; }.species-picker svg { width: 27px; height: 27px; }.species-picker label > span { font-size: 9px; }.season-picker { padding-left: 4px; }.season-picker button { width: 26px; }.season-picker output { min-width: 30px; font-size: 12px; }.side-shelf { max-height: 52dvh; } }
-/* Short screens: bottom panels end below the tool column (94px + 4 tools) instead of sliding under it; they scroll. */
-@media (max-height: 699px) { .bottom-shelf { max-height: max(140px, calc(100dvh - 412px - env(safe-area-inset-bottom))); } }
+@media (max-width: 359px) { .coast-dock { gap: 4px; padding: 5px; }.species-picker label { flex-basis: 48px; }.species-picker svg { width: 27px; height: 27px; }.species-picker label > span { font-size: 9px; }.season-picker { padding-left: 4px; }.season-picker button { width: 26px; }.season-picker output { min-width: 30px; font-size: 12px; } }
 /* Very short screens: tighten the tool column so it clears the zoom buttons. */
 /* The coast stack clears the header, which is up to 76px tall at <=380px wide (BaseLayout wraps it there). */
 @media (max-height: 580px) { .map-tools { top: 70px; gap: 4px; }.map-tool { min-height: 44px; }.coast-stack { top: 84px; } }
