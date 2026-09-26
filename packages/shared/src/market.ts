@@ -23,16 +23,18 @@ export interface Listing {
   unit: string;
   /** Whole yen. Must match the storefront's priceJpy -- the quote route signs this price. */
   priceYen: number;
-  species: 'katsuo' | 'sanma' | 'saba' | 'hotate' | 'mebachi' | 'awabi';
+  species: 'katsuo' | 'sanma' | 'saba' | 'hotate' | 'mebachi' | 'awabi' | 'hoya' | 'oyster';
   blurb: string;
 }
 
 // Eric's storefront catalogue (frontend/src/fixtures/preview-lots.ts), made purchasable.
 export const LISTINGS: readonly Listing[] = [
+  { slug: 'rd-lot-004', name: 'Scallop (hotate)', nameJa: 'ホタテ', origin: 'Karakuwa, Kesennuma', unit: '220 g · 110 mm', priceYen: 3800, species: 'hotate', blurb: 'Hanging-culture scallops from the plots this fund protects.' },
+  { slug: 'kesennuma-hoya', name: 'Sea pineapple (hoya)', nameJa: '気仙沼産ホヤ', origin: 'Kesennuma Bay', unit: '5 pieces', priceYen: 1800, species: 'hoya', blurb: 'Sweet, briny and in season through summer.' },
+  { slug: 'karakuwa-oysters', name: 'Karakuwa oysters', nameJa: '唐桑産カキ', origin: 'Karakuwa, Kesennuma', unit: '12 pieces', priceYen: 4200, species: 'oyster', blurb: 'Raised in the same waters as the scallops, shucked to order.' },
   { slug: 'rd-lot-001', name: 'Skipjack tuna (katsuo)', nameJa: 'カツオ', origin: 'Kesennuma port', unit: '1,480 g · 412 mm', priceYen: 2800, species: 'katsuo', blurb: "Landed at Japan's top bonito port." },
   { slug: 'rd-lot-002', name: 'Pacific saury (sanma)', nameJa: 'サンマ', origin: 'Kesennuma port', unit: '265 g · 318 mm', priceYen: 760, species: 'sanma', blurb: 'Autumn saury, best salted and grilled.' },
   { slug: 'rd-lot-003', name: 'Chub mackerel (saba)', nameJa: 'サバ', origin: 'Kesennuma port', unit: '690 g · 365 mm', priceYen: 1240, species: 'saba', blurb: 'Rich winter mackerel.' },
-  { slug: 'rd-lot-004', name: 'Scallop (hotate)', nameJa: 'ホタテ', origin: 'Karakuwa, Kesennuma', unit: '220 g · 110 mm', priceYen: 3800, species: 'hotate', blurb: 'Hanging-culture scallops from the plots this fund protects.' },
   { slug: 'rd-lot-005', name: 'Bigeye tuna (mebachi)', nameJa: 'メバチマグロ', origin: 'Kesennuma port', unit: '18,000 g · 1,100 mm', priceYen: 4500, species: 'mebachi', blurb: 'Longline-caught bigeye.' },
   { slug: 'rd-lot-006', name: 'Abalone (awabi)', nameJa: 'アワビ', origin: 'Karakuwa, Kesennuma', unit: '180 g · 95 mm', priceYen: 12000, species: 'awabi', blurb: 'Wild abalone from the Sanriku coast.' },
 ];

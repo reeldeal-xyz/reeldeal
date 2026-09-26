@@ -13,10 +13,10 @@ const selectLayers = async (canvas) => {
   await userEvent.click(canvas.getByRole('button', { name: 'Layers' }));
   await waitFor(() => expect(canvas.getByRole('heading', { name: 'Layers' })).toBeVisible());
   await userEvent.click(canvas.getByRole('checkbox', { name: 'Sea temperature' }));
-  await userEvent.click(canvas.getByRole('checkbox', { name: 'Temp anomaly' }));
+  await userEvent.click(canvas.getByRole('checkbox', { name: 'Temperature anomaly' }));
   await expect(canvas.getByRole('checkbox', { name: 'Satellite' })).toBeChecked();
   await expect(canvas.getByRole('checkbox', { name: 'Sea temperature' })).toBeChecked();
-  await expect(canvas.getByRole('checkbox', { name: 'Temp anomaly' })).toBeChecked();
+  await expect(canvas.getByRole('checkbox', { name: 'Temperature anomaly' })).toBeChecked();
 };
 
 export default {
@@ -85,7 +85,7 @@ export const MobileMarket = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
     await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
-    await expect(canvas.getByRole('heading', { name: 'Skipjack tuna (katsuo)' })).toBeVisible();
+    await expect(canvas.getByRole('heading', { name: 'Scallop (hotate)' })).toBeVisible();
     await expect(canvas.queryByRole('button', { name: /buy|checkout/i })).toBeNull();
   },
 };
@@ -107,9 +107,13 @@ export const MobileJapaneseHab = {
     await initMap(canvasElement);
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'レイヤー' }));
-    await userEvent.click(canvas.getByRole('checkbox', { name: 'HAB指標（JAXA）' }));
+    await expect(canvas.queryByRole('combobox', { name: 'クロロフィルaの月' })).toBeNull();
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'クロロフィルa' }));
+    await expect(canvas.getByRole('combobox', { name: 'クロロフィルaの月' })).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'レイヤーを閉じる' }));
     await waitFor(() => expect(canvasElement.querySelector('[data-hab-chip]')).toBeVisible());
+    await expect(canvas.getAllByRole('region', { name: 'クロロフィルa凡例' })).toHaveLength(1);
+    expect(canvasElement.querySelector('[data-hab-chip]').getBoundingClientRect().bottom).toBeLessThanOrEqual(canvasElement.querySelector('.coast-dock').getBoundingClientRect().top);
     await expect(canvas.getByText('藻類量の指標。貝毒・出荷規制を示すものではありません。')).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: '範囲' }));
     await userEvent.click(canvas.getByRole('button', { name: '範囲を描く' }));

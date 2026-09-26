@@ -391,3 +391,7 @@ h2 {
 .address { font-size: .875rem; overflow-wrap: anywhere; }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+.app-frame:has(.market-page),.app-frame:has(.relief-page) { width: 100%; height: auto; min-height: 100dvh; margin: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+.app-frame:has(.market-page) .shell,.app-frame:has(.relief-page) .shell { width: min(1120px,calc(100% - 32px)); }
+@media(min-width:700px) { .app-frame:has(.market-page) .site-nav,.app-frame:has(.relief-page) .site-nav { grid-template-columns: repeat(4,minmax(0,1fr)); } }

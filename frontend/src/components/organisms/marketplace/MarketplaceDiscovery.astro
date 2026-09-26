@@ -3,8 +3,10 @@ import MarketplaceBrowser from '../../react/MarketplaceBrowser';
 import MarketCard from '../../molecules/MarketCard.astro';
 import Amount from '../../atoms/Amount.astro';
 import CheckoutForm from '../../solid/CheckoutForm.tsx';
-import { marketplaceCopy, marketplaceLiveCopy, marketplacePreviewItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
+import { getListing, splitSale } from '@repo/shared';
+import { marketplaceCopy, marketplaceLiveCopy, marketplacePreviewItems, marketplaceItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
 import { filterPreviewItems } from './filter';
+import { speciesColor } from '../../../lib/plot-layer';
 
 interface Props {
   initialLocale?: MarketplaceLocale;
@@ -12,32 +14,50 @@ interface Props {
   initialSpecies?: PreviewSpecies | 'all';
   initialAvailability?: PreviewAvailability | 'all';
   initialState?: 'ready' | 'loading' | 'unavailable';
-  /** Live storefront: every lot is open and its detail panel is a real SaleRouter checkout. */
   live?: boolean;
 }
 const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready', live = false } = Astro.props;
 const copy = live ? marketplaceLiveCopy : marketplaceCopy;
-const items = live ? marketplacePreviewItems.map(item => ({ ...item, availability: 'open' as const })) : marketplacePreviewItems;
+const items = live ? marketplaceItems : marketplacePreviewItems;
 const visible = new Set(filterPreviewItems(items, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
 const t = copy[initialLocale];
 ---
 
-<div class="marketplace-canvas">
-<MarketplaceBrowser items={items} copy={copy} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
+<div class:list={['marketplace-canvas', { 'marketplace-canvas--storefront': live }]}>
+<MarketplaceBrowser live={live} items={items} copy={copy} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
   <div class="market-grid marketplace-preview__grid">
-    {items.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
-      <p class="marketplace-preview__availability" data-preview-en={copy.en[item.availability]} data-preview-ja={copy.ja[item.availability]}>{t[item.availability]}</p>
-      <MarketCard lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: item.nameJa === item.lot.species ? item.lot.species : `${item.nameJa} / ${item.lot.species}`, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
-      <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
+    {items.map((item, index) => <div class="marketplace-preview__item" style={live ? `--species-color: ${speciesColor([item.species])}` : undefined} data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
+      {!live && <p class="marketplace-preview__availability" data-preview-en={copy.en[item.availability]} data-preview-ja={copy.ja[item.availability]}>{t[item.availability]}</p>}
+      <MarketCard storefront={live} lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: live ? (initialLocale === 'ja' ? item.nameJa : item.englishName) : `${item.nameJa} / ${item.lot.species}`, speciesEn: item.englishName, speciesJa: item.nameJa, unit: item.unit, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
+      {!live ? <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
         <summary data-preview-en={copy.en.details} data-preview-ja={copy.ja.details}>{t.details}</summary>
         <dl>
-          <div><dt data-preview-en={copy.en.weight} data-preview-ja={copy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG.toLocaleString('ja-JP')} g</dd></div>
+          <div><dt data-preview-en={copy.en.weight} data-preview-ja={copy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG?.toLocaleString('ja-JP')} g</dd></div>
           <div><dt data-preview-en={copy.en.length} data-preview-ja={copy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
           <div><dt>JPY</dt><dd><Amount value={String(item.lot.priceJpy)} currency="JPY" /></dd></div>
         </dl>
         <p data-preview-en={copy.en.noReceipt} data-preview-ja={copy.ja.noReceipt}>{t.noReceipt}</p>
-        {live && <CheckoutForm listing={{ slug: item.lot.id.toLowerCase(), priceJpy: item.lot.priceJpy }} client:visible />}
-      </details>
+      </details> : <>
+        <button type="button" class="marketplace-review" data-market-review={`market-preview-detail-${item.lot.id}`} aria-haspopup="dialog" data-preview-en={copy.en.details} data-preview-ja={copy.ja.details}>{t.details}</button>
+        <dialog class="marketplace-purchase" id={`market-preview-detail-${item.lot.id}`} aria-labelledby={`purchase-title-${item.lot.id}`}>
+          <header>
+            <h2 id={`purchase-title-${item.lot.id}`} data-preview-en={item.englishName} data-preview-ja={item.nameJa}>{initialLocale === 'ja' ? item.nameJa : item.englishName}</h2>
+            <form method="dialog"><button type="submit" autofocus data-market-close aria-label={initialLocale === 'ja' ? '閉じる' : 'Close purchase'}>×</button></form>
+          </header>
+          <p class="marketplace-purchase__unit">{item.unit}</p>
+          <p class="marketplace-purchase__total"><Amount value={String(item.lot.priceJpy)} /></p>
+          {(() => {
+            const listing = getListing(item.lot.id.toLowerCase())!;
+            const split = splitSale(BigInt(listing.priceYen) * 10n ** 18n);
+            const amount = (value: bigint) => (value / 10n ** 18n).toLocaleString('ja-JP');
+            return <dl class="marketplace-preview__split">
+              <div><dt data-preview-en="Seller" data-preview-ja="販売者">{initialLocale === 'ja' ? '販売者' : 'Seller'}</dt><dd>{amount(split.seller)} <small>JPYC</small></dd></div>
+              <div><dt data-preview-en="Relief fund · 5%" data-preview-ja="救済基金 · 5%">{initialLocale === 'ja' ? '救済基金 · 5%' : 'Relief fund · 5%'}</dt><dd>{amount(split.relief)} <small>JPYC</small></dd></div>
+            </dl>;
+          })()}
+          <CheckoutForm listing={{ slug: item.lot.id.toLowerCase(), priceJpy: item.lot.priceJpy }} locale={initialLocale} client:visible />
+        </dialog>
+      </>}
     </div>)}
   </div>
 </MarketplaceBrowser>
@@ -58,7 +78,7 @@ const t = copy[initialLocale];
   .marketplace-preview__results { font-weight: 700; }
   .marketplace-preview__grid { align-items: start; }
   .marketplace-preview__item { display: grid; min-width: 0; gap: var(--space-3); }
-  .marketplace-preview__item:has(details[open]) { grid-column: 1 / -1; }
+  .marketplace-canvas:not(.marketplace-canvas--storefront) .marketplace-preview__item:has(details[open]) { grid-column: 1 / -1; }
   .marketplace-preview__availability { margin: 0; font-size: .875rem; font-weight: 800; }
   .marketplace-preview__detail { background: var(--color-surface); border: 2px solid var(--color-ink); border-radius: var(--radius-card); overflow-wrap: anywhere; }
   .marketplace-preview__detail summary { min-height: var(--tap-size); padding: var(--space-3); cursor: pointer; font-weight: 800; }
@@ -71,4 +91,39 @@ const t = copy[initialLocale];
   .marketplace-preview__sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (min-width: 768px) { .marketplace-preview__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 359px) { .marketplace-preview__selects { grid-template-columns: 1fr; } }
+
+  .marketplace-canvas--storefront { min-height: 0; }
+  .marketplace-canvas--storefront .marketplace-preview { max-width: 960px; width: calc(100% - 32px); padding: 24px 0; gap: 20px; }
+  .marketplace-canvas--storefront .marketplace-preview__toolbar { align-items: center; }
+  .marketplace-canvas--storefront .marketplace-preview__toolbar p { margin: 0; color: var(--color-ink-soft); font-size: .875rem; }
+  .marketplace-canvas--storefront .marketplace-preview__filters { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+  .marketplace-canvas--storefront .marketplace-preview__filters .field { display: grid; grid-template-rows: auto 44px; gap: 8px; margin: 0; }
+  .marketplace-canvas--storefront .marketplace-preview__selects { grid-template-columns: minmax(0, 1fr); }
+  .marketplace-canvas--storefront select.input { height: 44px; appearance: none; padding-right: 30px; background: linear-gradient(45deg, transparent 50%, currentColor 50%) right 15px center / 5px 5px no-repeat, linear-gradient(135deg, currentColor 50%, transparent 50%) right 10px center / 5px 5px no-repeat, var(--color-surface); }
+  .marketplace-canvas--storefront .marketplace-preview__grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 24px; }
+  .marketplace-canvas--storefront .marketplace-preview__item { gap: 0; grid-column: auto; border: 2px solid var(--color-ink); border-top: 5px solid var(--species-color); border-radius: 14px; background: var(--color-surface); overflow: hidden; }
+  .marketplace-canvas--storefront .market-card { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 16px; gap: 16px; grid-template-rows: auto; }
+  .market-card--storefront .market-card__media { aspect-ratio: 3 / 2; max-height: 200px; min-height: 0; border: 0; border-radius: 8px; }
+  .market-card--storefront .market-card__media::after { display: none; }
+  .market-card--storefront .market-card__description h2 { font-size: 1.375rem; line-height: 1.25; letter-spacing: -.02em; }
+  .market-card--storefront .market-card__description p { margin: 4px 0 0; color: var(--color-ink-soft); font-size: .875rem; }
+  .market-card--storefront .market-card__foot strong { font-size: 1.5rem; }
+  .market-card--storefront .market-card__foot small { font: 700 .875rem var(--font-body); }
+  .marketplace-review { min-height: 44px; margin: 0 16px 16px; padding: 10px 16px; border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-accent); color: var(--color-ink); font: 800 .875rem var(--font-body); cursor: pointer; }
+  .marketplace-purchase { width: min(420px,calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 2px solid var(--color-ink); border-radius: 16px; background: var(--color-surface); color: var(--color-ink); overflow: auto; overscroll-behavior: contain; }
+  .marketplace-purchase::backdrop { background: rgb(21 17 15 / .5); }
+  html:has(.marketplace-purchase[open]) { overflow: hidden; }
+  .marketplace-purchase header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .marketplace-purchase h2 { margin: 0; font: 800 1.25rem/1.3 var(--font-body); overflow-wrap: anywhere; }
+  .marketplace-purchase header button { width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: inherit; font-size: 26px; cursor: pointer; }
+  .marketplace-purchase__unit { margin: 4px 0 12px; color: var(--color-ink-soft); font-size: .875rem; }
+  .marketplace-purchase__total { margin: 0; font-size: 1.5rem; font-weight: 800; }
+  .marketplace-purchase dl { display: grid; gap: 8px; margin: 16px 0; padding: 16px 0; border-block: 1px solid var(--color-line); font-size: .875rem; }
+  .marketplace-purchase dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .marketplace-purchase dd { margin: 0; font-weight: 700; }
+  .marketplace-canvas--storefront .checkout-panel { padding: 0; max-width: none; border: 0; box-shadow: none; background: transparent; gap: 12px; }
+  .marketplace-canvas--storefront .checkout-panel__error { padding: 12px; }
+  @media (max-width: 480px) {
+    .marketplace-canvas--storefront .marketplace-preview__filters { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  }
 </style>

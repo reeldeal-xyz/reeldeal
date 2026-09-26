@@ -12,7 +12,8 @@ function parseJpycAmount(value: string): bigint | null {
   try { return BigInt(trimmed) * 10n ** JPYC_DECIMALS; } catch { return null; }
 }
 
-export default function DonateForm() {
+export default function DonateForm(props: { lang?: 'en' | 'ja' }) {
+  const t = (en: string, ja: string) => props.lang === 'ja' ? ja : en;
   const id = createUniqueId();
   const [amount, setAmount] = createSignal('20000');
   const [memo, setMemo] = createSignal('');
@@ -23,11 +24,11 @@ export default function DonateForm() {
   const busy = () => step() !== 'idle';
 
   const statusLabel = () => ({
-    idle: '', connecting: 'ウォレットに接続しています… / Connecting wallet…',
-    approving: 'JPYC の使用を承認しています… / Approving JPYC…',
-    'waiting-approval': '承認の確認を待っています… / Waiting for 2 approval confirmations…',
-    donating: '寄付を送信しています… / Sending donation…',
-    'waiting-donation': '寄付の確認を待っています… / Waiting for 2 donation confirmations…',
+    idle: '', connecting: t('Connecting wallet…', 'ウォレットに接続中…'),
+    approving: t('Approve JPYC in your wallet.', 'ウォレットでJPYCの使用を承認してください。'),
+    'waiting-approval': t('Confirming approval…', '承認を確認中…'),
+    donating: t('Confirm the donation in your wallet.', 'ウォレットで寄付を確認してください。'),
+    'waiting-donation': t('Confirming donation…', '寄付を確認中…'),
   })[step()];
 
   async function submit(event: SubmitEvent) {
@@ -36,7 +37,7 @@ export default function DonateForm() {
     setError(''); setAmountError('');
     const value = parseJpycAmount(amount());
     if (value === null) {
-      setAmountError('正の整数（円）を入力してください / Enter a positive whole-yen amount.');
+      setAmountError(t('Enter a positive whole number of JPYC.', 'JPYCの金額を正の整数で入力してください。'));
       return;
     }
     try {
@@ -52,15 +53,14 @@ export default function DonateForm() {
 
   return (
     <section class="donate-panel" aria-label="Donate JPYC">
-      <h2>寄付する / Donate JPYC</h2>
+      <h2>{t('Donate', '寄付する')}</h2>
       <p class="donate-panel__hint">
-        Sepolia テストネット上の実際のトランザクションです。注入型ウォレット（MetaMask 等）が必要です。<br />
-        This sends a real Sepolia transaction from your injected wallet (e.g. MetaMask).
+        {t('Sepolia test funds · JPYC', 'Sepoliaのテスト資金 · JPYC')}
       </p>
       <Show when={!result()}>
         <form onSubmit={submit} novalidate>
           <div class="field">
-            <label for={`${id}-amount`}>金額 (JPYC) / Amount (JPYC)</label>
+            <label for={`${id}-amount`}>{t('Amount (JPYC)', '金額 (JPYC)')}</label>
             <input
               id={`${id}-amount`} type="text" inputmode="numeric" autocomplete="off"
               value={amount()} disabled={busy()}
@@ -70,25 +70,25 @@ export default function DonateForm() {
             <Show when={amountError()}><p class="donate-panel__error" id={`${id}-amount-error`} role="alert">{amountError()}</p></Show>
           </div>
           <div class="field">
-            <label for={`${id}-memo`}>メモ（任意）/ Memo (optional)</label>
+            <label for={`${id}-memo`}>{t('Memo (optional)', 'メモ（任意）')}</label>
             <input id={`${id}-memo`} type="text" maxlength="120" value={memo()} disabled={busy()} onInput={(e) => setMemo(e.currentTarget.value)} />
           </div>
           <p class="donate-panel__status" role="status" aria-live="polite">{statusLabel()}</p>
           <Show when={error()}><p class="donate-panel__error" role="alert">{error()}</p></Show>
           <button type="submit" class="donate-panel__submit" disabled={busy()}>
-            {busy() ? '処理中… / Working…' : 'ウォレットを接続して寄付 / Connect wallet & donate'}
+            {busy() ? t('Working…', '処理中…') : t('Donate with wallet', 'ウォレットで寄付する')}
           </button>
         </form>
       </Show>
       <Show when={result()}>
         {(r) => (
           <div class="donate-panel__success" role="status">
-            <strong>寄付が確認されました / Donation confirmed</strong>
-            <p>{shortAddress(r().address)} から / from {shortAddress(r().address)}</p>
+            <strong>{t('Donation confirmed', '寄付が確認されました')}</strong>
+            <p>{t('From', '送信元')} {shortAddress(r().address)}</p>
             <p>Block {r().donateBlockNumber} · {r().confirmations}+ confirmations</p>
-            <p><a href={sepoliaTxUrl(r().donateTxHash)} target="_blank" rel="noreferrer">寄付トランザクションを表示 / View donate transaction</a></p>
-            <p><a href={sepoliaTxUrl(r().approveTxHash)} target="_blank" rel="noreferrer">承認トランザクションを表示 / View approval (block {r().approveBlockNumber})</a></p>
-            <button type="button" class="donate-panel__refresh" onClick={() => location.reload()}>基金残高を更新 / Refresh fund</button>
+            <p><a href={sepoliaTxUrl(r().donateTxHash)} target="_blank" rel="noreferrer">{t('View donation', '寄付の取引を表示')}</a></p>
+            <p><a href={sepoliaTxUrl(r().approveTxHash)} target="_blank" rel="noreferrer">{t('View approval', '承認の取引を表示')}</a></p>
+            <button type="button" class="donate-panel__refresh" onClick={() => location.reload()}>{t('Refresh fund', '基金残高を更新')}</button>
           </div>
         )}
       </Show>

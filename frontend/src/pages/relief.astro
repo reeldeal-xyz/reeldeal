@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import MarketActivity from '../components/molecules/marketplace/MarketActivity.astro';
+import { getMarketActivity } from '../lib/market-activity.server';
 import Address from '../components/atoms/Address.astro';
 import Amount from '../components/atoms/Amount.astro';
 import Badge from '../components/atoms/Badge.astro';
@@ -43,6 +45,7 @@ try {
   loadError = true;
 }
 
+const marketActivity = requestError ? { available: false, atBlock: null, sales: [] } : await getMarketActivity(client);
 const toAmount = (wei: string | null | undefined) => wei ? jpycFromBaseUnits(wei) : null;
 const shortHash = (value: string) => `${value.slice(0, 10)}…${value.slice(-8)}`;
 const txUrl = (hash: string) => `https://sepolia.etherscan.io/tx/${hash}`;
@@ -107,11 +110,11 @@ const stateTone = paymentConfirmed ? 'green'
   : 'ink';
 
 const holdCopy: Record<string, string> = {
-  UNVERIFIED: 'The registered farmer had no qualifying HumanRegistry verification when ReliefPool settled this event.',
-  NO_FARMER: 'No farmer was resolved from the 2026 ENS season slot.',
-  PLOT_EXPIRED: 'The 2026 season slot had expired when ReliefPool evaluated this plot.',
-  CAP: 'The verified human had already reached the event unit cap.',
-  ZONE_MISMATCH: 'The plot enrollment did not match this event’s zone/species.',
+  UNVERIFIED: 'Farmer identity was unverified when this payment was assessed.',
+  NO_FARMER: 'No farmer was registered for this season.',
+  PLOT_EXPIRED: 'The season registration had expired.',
+  CAP: 'The farmer reached the plot limit for this event.',
+  ZONE_MISMATCH: 'The registered area or species did not match this event.',
 };
 
 const eventLabel: Record<ReliefPoolEvent['type'], string> = {
@@ -122,10 +125,10 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
   type === 'Paid' || type === 'Claimed' ? 'green' : type === 'Held' ? 'pink' : type === 'Attested' ? 'yellow' : 'blue';
 ---
 
-<BaseLayout title="Relief status" description="Live 2026 ReelDeal relief status from ReliefPool, ENS slots, HumanRegistry and pinned Miyagi evidence." section="relief">
+<BaseLayout title="Relief status" description="ReelDeal relief fund balance and farmer payments." section="relief">
   {requestError ? <section class="relief-page shell" aria-labelledby="request-error-title">
     <h1 id="request-error-title">Relief selection unavailable</h1>
-    <p role="alert">{requestError} No payment or eligibility has been inferred.</p>
+    <p role="alert">{requestError}</p>
     <a class="button-link" href="/relief">Choose a registered plot</a>
     <a href="/hmi">Return to the coastal map</a>
   </section> : <div class="relief-page shell">
@@ -133,15 +136,26 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       <div>
         <p class="eyebrow">REELDEAL · {season} SEPOLIA RELIEF</p>
         <h1>Relief status</h1>
-        <p>One plot → accepted evidence → on-chain allocation → payment or next action.</p>
       </div>
       <div class="relief-heading__actions">
         <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
-        <span class:list={['live-badge', chainUnavailable && 'offline']}><i></i>{chainUnavailable ? 'Some chain reads unavailable' : 'Live on Sepolia'}</span>
+        <span class:list={['live-badge', chainUnavailable && 'offline']}><i></i>{chainUnavailable ? 'Data unavailable' : 'Connected'}</span>
       </div>
     </header>
 
-    <p class="demo-banner">Historical replay · Sepolia test funds · public plot lookup, not proof of wallet ownership.</p>
+    <p class="demo-banner">Sepolia test funds · historical relief replay.</p>
+
+    <section class="relief-card fund-card" aria-labelledby="fund-title">
+      <div class="card-head"><h2 id="fund-title">Relief fund</h2><Badge label="JPYC" tone="blue" /></div>
+      <div class="fund-grid">
+        <div><span>Available for relief</span><strong>{toAmount(summary?.availableWei) ? <Amount value={toAmount(summary?.availableWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Reserved</span><strong>{toAmount(summary?.reservedWei) ? <Amount value={toAmount(summary?.reservedWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Pool balance</span><strong>{toAmount(summary?.balanceWei) ? <Amount value={toAmount(summary?.balanceWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Paid to farmers</span><strong>{toAmount(summary?.totals?.paidWei) ? <Amount value={toAmount(summary?.totals?.paidWei)!} /> : 'Unavailable'}</strong></div>
+      </div>
+      <details class="relief-details"><summary>Balance details</summary><p class="proof-note">Block {summary?.atBlock ?? 'unavailable'}. Available = pool balance − reserved allocations.</p></details>
+    </section>
+
 
     <form class="plot-picker" method="get">
       <input type="hidden" name="season" value={season} />
@@ -157,7 +171,7 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       <p>{selectedPlot.ensName}</p>
     </form>
 
-    {loadError && <p class="notice" role="status">ReliefPool could not be read. No eligibility or payment state is inferred while chain data is unavailable.</p>}
+    {loadError && <p class="notice" role="status">Relief data unavailable. <a href="">Retry</a></p>}
 
     <section class="relief-card relief-status" aria-labelledby="relief-outcome">
       <div class="card-head">
@@ -166,17 +180,9 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
       </div>
 
       {story ? <>
-        <dl class="facts">
-          <div><dt>Species</dt><dd>{selectedPlot.species}</dd></div>
-          <div><dt>ReliefPool enrolled</dt><dd>{story.enrolled === null ? 'Unavailable' : story.enrolled ? 'Yes' : 'No'}</dd></div>
-          <div><dt>{season} ENS slot</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.payoutTarget ? (slotActive ? 'Issued · active' : 'Issued · expired') : 'No farmer resolved'}</dd></div>
-          <div><dt>HumanRegistry</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.identity?.status === 'available' ? `Level ${story.identity.level}` : story.identity ? 'Unavailable' : 'No farmer'}</dd></div>
-        </dl>
 
-        {story.payoutTarget && <p class="address-row">Registered farmer <Address value={story.payoutTarget.farmer} compact /></p>}
-
-        {!settlement && story.settlementReadStatus === 'not-found' && <p class="notice">No settlement is recorded for this plot in the deployed relief events. This is not a statement about future eligibility.</p>}
-        {!settlement && story.settlementReadStatus === 'unavailable' && <p class="notice">Settlement or event reads are unavailable, so “no payment” is not asserted. Plot and slot reads above remain direct contract reads.</p>}
+        {!settlement && story.settlementReadStatus === 'not-found' && <p class="notice">No relief payment recorded for this plot and season.</p>}
+        {!settlement && story.settlementReadStatus === 'unavailable' && <p class="notice">Payment status unavailable. <a href="">Retry</a></p>}
 
         {settlement && <>
           <div class="payout">
@@ -185,8 +191,8 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
           </div>
 
           {settlement.state === 'held' && <div class="hold-box">
-            <strong>{settlement.holdReason ?? 'Held'}</strong>
-            <p>{holdCopy[settlement.holdReason ?? ''] ?? 'ReliefPool currently holds this allocation.'}</p>
+            <strong>Payment on hold</strong>
+            <p>{holdCopy[settlement.holdReason ?? ''] ?? 'This allocation is held for review.'}</p>
             {settlement.holdReason === 'UNVERIFIED' && story.identity?.status === 'available' && !identityVerified && <a class="button-link" href={`/liff?plot=${encodeURIComponent(selectedPlot.plotLabel)}`}>Verify identity in LINE / World ID</a>}
             {claimReady && story.payoutTarget && <ReliefClaimAction
               eventId={settlement.eventId}
@@ -199,29 +205,41 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
             {settlement.holdReason === 'UNVERIFIED' && identityVerified && !claimReady && <p>Identity is now verified, but the current slot or claim window does not permit a claim.</p>}
           </div>}
 
-          <dl class="facts">
+          <details class="relief-details"><summary>Event details</summary><dl class="facts">
             <div><dt>Event ID</dt><dd><code title={settlement.eventId}>{shortHash(settlement.eventId)}</code></dd></div>
             <div><dt>Attested</dt><dd>{formatUnix(settlement.attestedAt)} JST</dd></div>
             <div><dt>Claim deadline</dt><dd>{formatUnix(settlement.claimDeadline)} JST</dd></div>
             <div><dt>Eligible units</dt><dd>{settlement.eligibleUnits}</dd></div>
           </dl>
 
+          </details>
           {settlement.txHash && <div class="tx-proof">
             <strong>Settlement transaction</strong>
             <a href={txUrl(settlement.txHash)} target="_blank" rel="noreferrer">{shortHash(settlement.txHash)}</a>
             {settlementProof
               ? <span>Block {settlementProof.blockNumber} · {settlementProof.confirmations} confirmations · {settlementProof.status}</span>
-              : <span>Receipt confirmation unavailable from the current RPC.</span>}
+              : <span>Transaction confirmation unavailable.</span>}
           </div>}
         </>}
+        <details class="relief-details"><summary>Registration details</summary>
+        <dl class="facts">
+          <div><dt>Species</dt><dd>{selectedPlot.species}</dd></div>
+          <div><dt>Relief enrollment</dt><dd>{story.enrolled === null ? 'Unavailable' : story.enrolled ? 'Yes' : 'No'}</dd></div>
+          <div><dt>{season} registration</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.payoutTarget ? (slotActive ? 'Active' : 'Expired') : 'No farmer registered'}</dd></div>
+          <div><dt>Identity verification</dt><dd>{!story.targetReadAvailable ? 'Unavailable' : story.identity?.status === 'available' ? (story.identity.level > 0 ? 'Verified' : 'Unverified') : story.identity ? 'Unavailable' : 'No farmer registered'}</dd></div>
+        </dl>
+
+        {story.payoutTarget && <p class="address-row">Registered farmer <Address value={story.payoutTarget.farmer} compact /></p>}
+
+        </details>
       </> : <p class="notice">Live plot relief state is unavailable.</p>}
     </section>
 
-    {settlement && <section class="relief-card evidence-card" aria-labelledby="evidence-title">
-      <div class="card-head">
+    {settlement && <details class="relief-card evidence-card" aria-labelledby="evidence-title">
+      <summary class="card-head">
         <div><p class="eyebrow">EVENT EVIDENCE</p><h2 id="evidence-title">Why this event fired</h2></div>
-        {sourceEvidence ? <Badge label="Pinned source" tone="lime" /> : <Badge label="Source mapping unavailable" tone="ink" />}
-      </div>
+        {evidenceHashMatch === true ? <Badge label="Source matched" tone="lime" /> : <Badge label="Source unverified" tone="ink" />}
+      </summary>
 
       {sourceEvidence ? <>
         <p><strong>{sourceEvidence.peril}</strong> · {sourceEvidence.zone} · {sourceEvidence.species}</p>
@@ -252,22 +270,14 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
         <p>{sourceEvidence?.jev.explanation ?? 'JEV is off-chain and is not stored in ReliefPool. No JEV decision is inferred from chain state.'}</p>
         <p>JEV can stop a keeper run for co-op review before attestation. It cannot mark a plot paid or move JPYC.</p>
       </div>
-    </section>}
+    </details>}
 
-    <section class="relief-card fund-card" aria-labelledby="fund-title">
-      <div class="card-head"><div><p class="eyebrow">RELIEF FUND</p><h2 id="fund-title">Pool state</h2></div><Badge label="JPYC · Sepolia" tone="blue" /></div>
-      <div class="fund-grid">
-        <div><span>Spendable</span><strong>{toAmount(summary?.availableWei) ? <Amount value={toAmount(summary?.availableWei)!} /> : 'Unavailable'}</strong></div>
-        <div><span>Reserved</span><strong>{toAmount(summary?.reservedWei) ? <Amount value={toAmount(summary?.reservedWei)!} /> : 'Unavailable'}</strong></div>
-        <div><span>Pool balance</span><strong>{toAmount(summary?.balanceWei) ? <Amount value={toAmount(summary?.balanceWei)!} /> : 'Unavailable'}</strong></div>
-        <div><span>Paid / claimed</span><strong>{toAmount(summary?.totals?.paidWei) ? <Amount value={toAmount(summary?.totals?.paidWei)!} /> : 'Unavailable'}</strong></div>
-      </div>
-      <p class="proof-note">Snapshot block {summary?.atBlock ?? 'unavailable'}. Spendable = current JPYC balance − ReliefPool.reserved(). Held allocations remain reserved until claimed or swept.</p>
-    </section>
+
+    <MarketActivity activity={marketActivity} />
 
     <div class="relief-lower">
-      <section class="relief-card activity-card" aria-labelledby="activity-title">
-        <div class="card-head"><div><p class="eyebrow">CHAIN ACTIVITY</p><h2 id="activity-title">Recent fund events</h2></div></div>
+      <details class="relief-card activity-card" aria-labelledby="activity-title">
+        <summary class="card-head"><h2 id="activity-title">Fund activity</h2></summary>
         {summary?.eventsAvailable && summary.events.length ? <ul class="events">
           {summary.events.slice(0, 12).map((event) => <li>
             <Badge label={eventLabel[event.type]} tone={eventTone(event.type)} />
@@ -277,8 +287,8 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
             </div>
             {event.amountWei && <b>{toAmount(event.amountWei)} JPYC</b>}
           </li>)}
-        </ul> : <p class="notice">{summary?.eventsAvailable ? 'No events found in the scanned deployment range.' : 'Event indexing is unavailable; this is not presented as zero activity.'}</p>}
-      </section>
+        </ul> : <p class="notice">{summary?.eventsAvailable ? 'No fund events recorded.' : 'Fund activity unavailable.'}</p>}
+      </details>
 
       <aside class="donate-wrap"><DonateForm client:load /></aside>
     </div>
@@ -302,7 +312,7 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
 .plot-picker button { background:var(--color-listed); cursor:pointer; }.plot-picker p{margin:0;color:var(--color-ink-soft);font-size:.78rem;overflow-wrap:anywhere;}
 .facts,.timeline { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px; margin:0; border:1px solid var(--color-line); background:var(--color-line); }
 .facts>div,.timeline>div { min-width:0; padding:var(--space-3); background:var(--color-surface); }.facts dt,.timeline dt { color:var(--color-ink-soft); font-size:.7rem; font-weight:800; text-transform:uppercase; }.facts dd,.timeline dd { margin:3px 0 0; font-weight:800; overflow-wrap:anywhere; }
-.address-row { margin:0; font-size:.82rem; }.payout { display:flex; align-items:end; justify-content:space-between; gap:var(--space-3); padding:var(--space-4); border:2px solid var(--color-ink); background:var(--color-listed); }.payout span{font-size:.75rem;font-weight:800;text-transform:uppercase;}.payout strong{font-size:1.25rem;}
+.address-row { margin:0; font-size:.82rem; }.payout { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:var(--space-3); padding:var(--space-4); border:2px solid var(--color-ink); background:var(--color-listed); }.payout span{font-size:.75rem;font-weight:800;text-transform:uppercase;}.payout strong{font-size:1.25rem;}
 .hold-box,.jev-box { display:grid; gap:var(--space-2); padding:var(--space-3); border-left:5px solid var(--color-earth); background:var(--color-cream); }.hold-box p,.jev-box p{margin:0;font-size:.82rem;line-height:1.5;}
 .tx-proof { display:grid; gap:3px; padding:var(--space-3); border-top:1px solid var(--color-line); border-bottom:1px solid var(--color-line); font-size:.78rem; overflow-wrap:anywhere; }.tx-proof strong{font-family:var(--font-impact);text-transform:uppercase;}.tx-proof span{color:var(--color-ink-soft);}
 .evidence-card>p,.proof-note { margin:0; color:var(--color-ink-soft); font-size:.8rem; line-height:1.5; overflow-wrap:anywhere; }.hash{display:grid;gap:4px;}.hash code{font-size:.7rem;overflow-wrap:anywhere;}
@@ -310,15 +320,14 @@ const eventTone = (type: ReliefPoolEvent['type']) =>
 .relief-lower { display:grid; gap:var(--space-4); }.events{display:grid;gap:0;margin:0;padding:0;list-style:none;}.events li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-2);padding:var(--space-3) 0;border-top:1px solid var(--color-line);}.events li:first-child{border-top:0;}.events div{display:grid;min-width:0;}.events strong,.events span{font-size:.75rem;overflow-wrap:anywhere;}.events span{color:var(--color-ink-soft);}.events b{font-size:.75rem;white-space:nowrap;}
 .donate-wrap { min-width:0; }.donate-wrap :global(.donate-panel){max-width:none;}
 @media(min-width:900px){.relief-lower{grid-template-columns:minmax(0,1.5fr) minmax(300px,.8fr);align-items:start;}.relief-page{padding-block:var(--space-6);}}
-@media(max-width:420px){.facts,.timeline,.fund-grid{grid-template-columns:1fr;}.events li{grid-template-columns:auto minmax(0,1fr);}.events b{grid-column:2;}.relief-heading__actions{width:100%;}.relief-heading__actions>*{flex:1 1 auto;}}
+@media(max-width:420px){.facts,.timeline{grid-template-columns:1fr;}.events li{grid-template-columns:auto minmax(0,1fr);}.events b{grid-column:2;}.relief-heading__actions{width:100%;}.relief-heading__actions>*{flex:1 1 auto;}}
 </style>
-<style is:global>
-@media (min-width: 900px) {
-  .app-frame:has(.relief-page) {
-    width: min(calc(100% - 24px), 1120px);
-    height: calc(100dvh - 24px);
-    min-height: 720px;
-  }
-  .app-frame:has(.relief-page) .site-header__inner { width: calc(100% - 20px); }
-}
+<style>
+.relief-details summary,.evidence-card > summary,.activity-card > summary { cursor: pointer; min-height: 44px; align-content: center; }
+.evidence-card:not([open]),.activity-card:not([open]) { display: block; }
+.evidence-card[open] > :not(summary) { margin-top: 16px; }
+.relief-details > :not(summary) { margin-top: 12px; }
+.fund-grid > div { min-width: 0; }
+.fund-grid strong { overflow-wrap: anywhere; }
+@media(min-width:700px){.fund-grid{grid-template-columns:repeat(4,minmax(0,1fr));}}
 </style>

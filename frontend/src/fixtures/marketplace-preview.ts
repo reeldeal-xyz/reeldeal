@@ -1,3 +1,4 @@
+import { LISTINGS } from '@repo/shared';
 import { previewLots, type PreviewLot } from './preview-lots';
 import type { ContributionSplitProps } from '../components/molecules/relief/props';
 
@@ -11,12 +12,15 @@ export interface MarketplacePreviewItem {
   nameJa: string;
   englishName: string;
   availability: PreviewAvailability;
+  unit?: string;
 }
 
 const speciesNames = new Map([
   ['katsuo', { nameJa: 'カツオ', englishName: 'Skipjack tuna' }],
   ['sanma', { nameJa: 'サンマ', englishName: 'Pacific saury' }],
   ['saba', { nameJa: 'サバ', englishName: 'Chub mackerel' }],
+  ['hoya', { nameJa: 'ホヤ', englishName: 'Sea pineapple (hoya)' }],
+  ['oyster', { nameJa: 'カキ', englishName: 'Oyster' }],
   ['hotate', { nameJa: 'ホタテ', englishName: 'Scallop' }],
   ['mebachi', { nameJa: 'メバチマグロ', englishName: 'Bigeye tuna' }],
   ['awabi', { nameJa: 'アワビ', englishName: 'Abalone' }],
@@ -39,6 +43,11 @@ export function createMarketplacePreviewItems(lots: readonly PreviewLot[]): Mark
 }
 
 export const marketplacePreviewItems = createMarketplacePreviewItems(previewLots);
+export const marketplaceItems: MarketplacePreviewItem[] = LISTINGS.map(listing => ({
+  lot: { id: listing.slug.toUpperCase(), species: listing.species, priceJpy: listing.priceYen },
+  species: listing.species, ...speciesNames.get(listing.species)!,
+  availability: 'unknown', unit: listing.unit,
+}));
 
 export const marketplaceCopy = {
   en: {
@@ -127,20 +136,22 @@ export const checkoutPreviews: Record<CheckoutPreviewState, CheckoutPresentation
 export const marketplaceLiveCopy = {
   en: {
     ...marketplaceCopy.en,
-    preview: 'Live on Sepolia · pay in JPYC. 5% of every sale goes straight into the relief fund.',
-    count: 'lots for sale', empty: 'No lots match. Try another fish.',
+    searchHint: 'Scallop, hoya or oyster',
+    preview: 'Sepolia testnet · JPYC · 5% to the relief fund',
+    count: 'items', empty: 'No fish match your filters.',
     loading: 'Loading lots…', unavailable: 'Lots unavailable.', retry: 'Show lots',
-    details: 'Buy this lot', noReceipt: 'Illustration; each purchase is a real SaleRouter transaction.',
-    previewBadge: 'Live', sampleLanding: 'Kesennuma landing', view: 'Buy',
-    sharedCopy: 'Prices are signed by the co-op. One transaction pays the seller and donates 5% to ReliefPool.',
+    details: 'Review purchase', noReceipt: '',
+    previewBadge: '', sampleLanding: '', view: 'Review purchase',
+    sharedCopy: 'Generated seafood illustrations. Availability is checked at checkout.',
   },
   ja: {
     ...marketplaceCopy.ja,
-    preview: 'Sepolia で稼働中 · JPYC で支払い。売上の 5% がそのまま救済基金に入ります。',
-    count: '件の販売中ロット', empty: '該当するロットがありません。別の魚を選んでください。',
+    searchHint: 'ホタテ、ホヤ、カキ',
+    preview: 'Sepolia テストネット · JPYC · 売上の5%を救済基金へ',
+    count: '件の商品', empty: '条件に一致する商品がありません。',
     loading: 'ロットを読み込み中…', unavailable: 'ロットを読み込めません。', retry: 'ロットを表示',
-    details: 'このロットを購入', noReceipt: 'イラストです。購入は SaleRouter の実際の取引です。',
-    previewBadge: '販売中', sampleLanding: '気仙沼水揚げ', view: '購入',
-    sharedCopy: '価格は漁協が署名します。1 回の取引で売り手への支払いと救済基金への 5% 寄付を行います。',
+    details: '購入内容を確認', noReceipt: '',
+    previewBadge: '', sampleLanding: '', view: '購入内容を確認',
+    sharedCopy: '画像は生成イラストです。在庫は購入時に確認します。',
   },
 };

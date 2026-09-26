@@ -1,11 +1,11 @@
 export type PreviewLot = {
   id: string;
   species: string;
-  lengthMm: number;
-  weightG: number;
+  lengthMm?: number;
+  weightG?: number;
   priceJpy: number;
-  status: string;
-  note: string;
+  status?: string;
+  note?: string;
 };
 
 // Static preview content until RD-25's seed and RD-18's listing API arrive.

@@ -1,120 +1,99 @@
-// Client-side marketplace checkout: connect wallet -> POST /api/market/quote (a same-origin proxy to the web
-// app, which holds the co-op quote key) -> JPYC.approve(router, total) -> SaleRouter.checkout(quote, signature).
-// Broadcasts real Sepolia transactions from the connected wallet; never called from server code.
-import { createPublicClient, erc20Abi, fallback, http, parseUnits } from 'viem';
+import { createPublicClient, erc20Abi, fallback, http, recoverTypedDataAddress, type Address, type Hex } from 'viem';
 import { sepolia } from 'viem/chains';
-import { DEPLOYED, JPYC, SaleRouterAbi } from '@repo/shared';
+import { DEPLOYED, JPYC, QUOTE_EIP712_TYPES, SaleRouterAbi, getListing, saleRouterEip712Domain, serializeQuote, splitSale } from '@repo/shared';
 import { confirmTransaction, connectWallet } from '../../lib/chain/wallet.client';
+import { parseMarketQuote } from '../../lib/market-quote';
+import { hasMatchingCheckout } from '../../lib/market-proof';
 
-/** The co-op seller and relief share every quote must carry (web/src/lib/market/listings.ts). */
-export const MARKET_SELLER = '0xF0A306A21C44d32C83C4D6a357A4d512B1A48600';
-export const MARKET_RELIEF_BPS = 500;
-
-export interface MarketListingInput {
-  /** Storefront lot id, lowercased (e.g. "rd-lot-004"). */
-  slug: string;
-  priceJpy: number;
-}
-
-export interface QuoteResponseBody {
-  quote: {
-    orderId: `0x${string}`; listingId: `0x${string}`; buyer: `0x${string}`; seller: `0x${string}`;
-    total: string; reliefBps: number; nonce: string; expiry: string;
-  };
-  signature: `0x${string}`;
-  router: `0x${string}`;
-  lot: number;
-}
-
+export { MARKET_SELLER, MARKET_RELIEF_BPS } from '@repo/shared';
+export interface MarketListingInput { slug: string; priceJpy: number }
 export type CheckoutStep = 'connecting' | 'quoting' | 'approving' | 'waiting-approval' | 'checking-out' | 'waiting-checkout';
-
 export interface CheckoutResult {
-  address: string;
-  lot: number;
-  quote: QuoteResponseBody['quote'];
-  relief: bigint;
-  approveTxHash?: string;
-  checkoutTxHash: string;
+  address: string; lot: number; quote: ReturnType<typeof serializeQuote>; relief: bigint;
+  approveTxHash?: string; checkoutTxHash: string;
 }
-
-const QUOTE_ERRORS: Record<string, string> = {
-  sold_out: 'This lot has sold out. No payment was requested.',
-  quote_signer_not_configured: 'Checkout is unavailable right now. No payment was requested.',
-};
-
-async function fetchQuote(slug: string, buyer: string): Promise<QuoteResponseBody> {
-  const response = await fetch('/api/market/quote', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ listing: slug, buyer }),
-  });
-  const body = await response.json().catch(() => ({ error: 'quote_failed' }));
-  if (!response.ok) {
-    const code = typeof body?.error === 'string' ? body.error : 'quote_failed';
-    throw new Error(QUOTE_ERRORS[code] ?? 'Could not get a signed price. No payment was requested.');
-  }
-  return body as QuoteResponseBody;
+type Pending = { hash: Hex; response: unknown; buyer: Address; quotedAt: number; listing: string };
+const storageKey = 'reeldeal:pending-market-checkout';
+let pending: Pending | null = null;
+let busy = false;
+export function pendingPurchase(): Pending | null {
+  if (pending) return pending;
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+    const listing = saved && getListing(saved.listing);
+    if (listing && typeof saved.hash === 'string' && /^0x[0-9a-fA-F]{64}$/.test(saved.hash)
+      && Number.isFinite(saved.quotedAt) && saved.quotedAt <= Date.now() / 1000) {
+      parseMarketQuote(saved.response, listing, saved.buyer, saved.quotedAt);
+      pending = saved;
+    }
+  } catch { /* Recovery data never authorizes a new payment. */ }
+  return pending;
 }
+const clearPending = () => { pending = null; try { localStorage.removeItem(storageKey); } catch {} };
 
-export async function checkoutListing(listing: MarketListingInput, onStep?: (step: CheckoutStep) => void): Promise<CheckoutResult> {
-  onStep?.('connecting');
-  const { client, address } = await connectWallet();
-  const reader = createPublicClient({
-    chain: sepolia,
-    transport: fallback([http('https://sepolia.gateway.tenderly.co'), http('https://ethereum-sepolia-rpc.publicnode.com')]),
-  });
-
-  onStep?.('quoting');
-  const { quote, signature, router, lot } = await fetchQuote(listing.slug, address);
-  const expectedTotal = parseUnits(String(listing.priceJpy), 18);
-  if (quote.buyer.toLowerCase() !== address.toLowerCase()
-    || quote.seller.toLowerCase() !== MARKET_SELLER.toLowerCase()
-    || BigInt(quote.total) !== expectedTotal || quote.reliefBps !== MARKET_RELIEF_BPS
-    || router.toLowerCase() !== DEPLOYED.SaleRouter.toLowerCase()) {
-    throw new Error('The signed price does not match this lot. No payment was requested.');
-  }
-  const total = BigInt(quote.total);
-
-  const balance = await reader.readContract({ address: JPYC, abi: erc20Abi, functionName: 'balanceOf', args: [address] });
-  if (balance < total) throw new Error('Not enough JPYC in this wallet. No payment was requested.');
-
-  const allowance = await reader.readContract({
-    address: JPYC, abi: erc20Abi, functionName: 'allowance', args: [address, DEPLOYED.SaleRouter],
-  });
-  let approveTxHash: string | undefined;
-  if (allowance < total) {
-    onStep?.('approving');
-    approveTxHash = await client.writeContract({
-      account: address, chain: sepolia, address: JPYC, abi: erc20Abi, functionName: 'approve', args: [DEPLOYED.SaleRouter, total],
-    });
-    onStep?.('waiting-approval');
-    await confirmTransaction(reader, approveTxHash as `0x${string}`, 'JPYC approval failed on Sepolia. Checkout was not submitted.', 1);
-  }
-
-  onStep?.('checking-out');
-  const checkoutTxHash = await client.writeContract({
-    account: address,
-    chain: sepolia,
-    address: DEPLOYED.SaleRouter,
-    abi: SaleRouterAbi,
-    functionName: 'checkout',
-    args: [
-      {
-        orderId: quote.orderId,
-        listingId: quote.listingId,
-        buyer: quote.buyer,
-        seller: quote.seller,
-        total,
-        reliefBps: quote.reliefBps,
-        nonce: BigInt(quote.nonce),
-        expiry: BigInt(quote.expiry),
-      },
-      signature,
-    ],
-  });
-
-  onStep?.('waiting-checkout');
-  await confirmTransaction(reader, checkoutTxHash, 'Checkout failed on Sepolia. No purchase was confirmed.', 1);
-
-  return { address, lot, quote, relief: (total * BigInt(quote.reliefBps)) / 10_000n, approveTxHash, checkoutTxHash };
+export async function checkoutListing(input: MarketListingInput, onStep?: (step: CheckoutStep) => void): Promise<CheckoutResult> {
+  if (busy) throw new Error('Another purchase is in progress.');
+  const listing = getListing(input.slug);
+  if (!listing || listing.priceYen !== input.priceJpy) throw new Error('Listing price changed. Reload before purchasing.');
+  const retained = pendingPurchase();
+  if (retained && retained.listing !== listing.slug) throw new Error(`Check the pending ${getListing(retained.listing)?.name ?? 'purchase'} before buying another item.`);
+  busy = true;
+  const reader = createPublicClient({ chain: sepolia, transport: fallback([
+    http('https://sepolia.gateway.tenderly.co', { timeout: 10_000, retryCount: 0 }),
+    http('https://ethereum-sepolia-rpc.publicnode.com', { timeout: 10_000, retryCount: 0 }),
+  ]) });
+  const confirm = async (submitted: Pending): Promise<CheckoutResult> => {
+    const { quote, lot } = parseMarketQuote(submitted.response, listing, submitted.buyer, submitted.quotedAt);
+    onStep?.('waiting-checkout');
+    await confirmTransaction(reader, submitted.hash, 'Purchase reverted. No purchase completed.', 2);
+    const receipt = await reader.getTransactionReceipt({ hash: submitted.hash });
+    if (!hasMatchingCheckout(receipt, quote)) throw new Error('Purchase receipt could not be verified.');
+    clearPending();
+    return { address: submitted.buyer, lot, quote: serializeQuote(quote), relief: splitSale(quote.total, quote.reliefBps).relief, checkoutTxHash: submitted.hash };
+  };
+  try {
+    if (retained) return await confirm(retained);
+    onStep?.('connecting');
+    const wallet = await connectWallet();
+    onStep?.('quoting');
+    const response = await fetch('/api/market/quote', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ listing: listing.slug, buyer: wallet.address }), signal: AbortSignal.timeout(20_000), redirect: 'error' });
+    if (!response.ok) throw new Error(response.status === 409 ? 'This lot has sold out.' : 'Checkout unavailable. No payment sent.');
+    const raw = await response.text();
+    if (raw.length > 8192) throw new Error('Invalid quote response.');
+    const body: unknown = JSON.parse(raw), quotedAt = Date.now() / 1000;
+    const { quote, signature } = parseMarketQuote(body, listing, wallet.address, quotedAt);
+    const [signer, expectedSigner, balance, allowance] = await Promise.all([
+      recoverTypedDataAddress({ domain: saleRouterEip712Domain(DEPLOYED.SaleRouter), types: QUOTE_EIP712_TYPES, primaryType: 'Quote', message: quote, signature }),
+      reader.readContract({ address: DEPLOYED.SaleRouter, abi: SaleRouterAbi, functionName: 'quoteSigner' }),
+      reader.readContract({ address: JPYC, abi: erc20Abi, functionName: 'balanceOf', args: [wallet.address] }),
+      reader.readContract({ address: JPYC, abi: erc20Abi, functionName: 'allowance', args: [wallet.address, DEPLOYED.SaleRouter] }),
+    ]);
+    if (signer.toLowerCase() !== expectedSigner.toLowerCase()) throw new Error('Invalid quote signature. No payment sent.');
+    if (balance < quote.total) throw new Error('Not enough JPYC. No payment sent.');
+    let approveTxHash: Hex | undefined;
+    if (allowance < quote.total) {
+      onStep?.('approving');
+      approveTxHash = await wallet.client.writeContract({ account: wallet.address, chain: sepolia, address: JPYC, abi: erc20Abi,
+        functionName: 'approve', args: [DEPLOYED.SaleRouter, quote.total] });
+      onStep?.('waiting-approval');
+      await confirmTransaction(reader, approveTxHash, 'Approval reverted. No payment sent.', 2);
+    }
+    if (quote.expiry < BigInt(Math.floor(Date.now() / 1000) + 15)) throw new Error('Quote expired. Review the purchase again.');
+    const current = await connectWallet();
+    if (current.address.toLowerCase() !== wallet.address.toLowerCase()) throw new Error('Wallet changed. Review the purchase again.');
+    const { request } = await reader.simulateContract({ address: DEPLOYED.SaleRouter, abi: SaleRouterAbi, functionName: 'checkout', args: [quote, signature], account: current.address });
+    onStep?.('checking-out');
+    const hash = await current.client.writeContract(request);
+    pending = { hash, response: body, buyer: current.address, quotedAt, listing: listing.slug };
+    try { localStorage.setItem(storageKey, JSON.stringify(pending)); } catch {}
+    return { ...await confirm(pending), approveTxHash };
+  } catch (error) {
+    if (pending) {
+      const receipt = await reader.getTransactionReceipt({ hash: pending.hash }).catch(() => null);
+      if (receipt?.status === 'reverted') clearPending();
+      else throw new Error('Confirmation pending. Check this transaction before starting another purchase.');
+    }
+    throw error;
+  } finally { busy = false; }
 }

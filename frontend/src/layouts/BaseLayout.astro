@@ -46,9 +46,7 @@ const ja = lang === 'ja';
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{section === 'relief'
-        ? 'ReliefPool + ENS + HumanRegistry · Sepolia test funds · live contract state'
-        : ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
     </div>
   </body>
 </html>

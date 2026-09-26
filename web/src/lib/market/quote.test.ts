@@ -56,4 +56,14 @@ describe('buildQuote', () => {
     expect(splitSale(3800n * 10n ** 18n)).toEqual({ seller: 3610n * 10n ** 18n, relief: 190n * 10n ** 18n });
     expect(splitSale(19n)).toEqual({ seller: 19n, relief: 0n });
   });
+
+  test('aquaculture purchases retain their seller and relief allocation', async () => {
+    for (const [listing, price] of [['rd-lot-004', 3800], ['kesennuma-hoya', 1800], ['karakuwa-oysters', 4200]] as const) {
+      const result = await buildQuote({ listing, buyer: BUYER }, deps());
+      if (!result.ok) throw new Error(result.error);
+      expect(result.quote.total).toBe(BigInt(price) * 10n ** 18n);
+      expect(result.quote.reliefBps).toBe(500);
+      expect(result.quote.listingId).toBe(listingIdFor(listing, 1));
+    }
+  });
 });

@@ -6,6 +6,7 @@ import solid from '@astrojs/solid-js';
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
+  vite: { cacheDir: 'node_modules/.vite-astro' },
   integrations: [
     react({ include: ['**/react/**'] }),
     solid({ include: ['**/solid/**'] }),

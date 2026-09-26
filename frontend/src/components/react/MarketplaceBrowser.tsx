@@ -15,6 +15,7 @@ interface Props {
   initialState?: 'ready' | 'loading' | 'unavailable';
   /** Copy set; defaults to the sample-preview wording. The live storefront passes its own. */
   copy?: MarketplaceCopy;
+  live?: boolean;
 }
 
 export type MarketplaceCopy = Record<MarketplaceLocale, Record<keyof typeof marketplaceCopy.en, string>>;
@@ -22,7 +23,7 @@ export type MarketplaceCopy = Record<MarketplaceLocale, Record<keyof typeof mark
 /** Local preview controller. It never reads a wallet or calls a service. */
 export default function MarketplaceBrowser({
   items, children, initialLocale = 'en', initialQuery = '', initialSpecies = 'all',
-  initialAvailability = 'all', initialState = 'ready', copy = marketplaceCopy,
+  initialAvailability = 'all', initialState = 'ready', copy = marketplaceCopy, live = false,
 }: Props) {
   const [locale, setLocale] = useState(initialLocale);
   const [query, setQuery] = useState(initialQuery);
@@ -56,11 +57,31 @@ export default function MarketplaceBrowser({
       }
       const image = card.querySelector<HTMLImageElement>('.market-card__media img');
       if (image) image.alt = c.imageAlt;
+      card.querySelector('[data-market-close]')?.setAttribute('aria-label', locale === 'ja' ? '閉じる' : 'Close purchase');
     }
   }, [visible, locale, copy]);
 
+  useEffect(() => {
+    const openPurchase = () => {
+      const dialog = document.getElementById(location.hash.slice(1));
+      if (dialog instanceof HTMLDialogElement && cards.current?.contains(dialog) && !dialog.open) dialog.showModal();
+    };
+    openPurchase();
+    window.addEventListener('hashchange', openPurchase);
+    return () => window.removeEventListener('hashchange', openPurchase);
+  }, []);
+
   function revealDetail(event: MouseEvent<HTMLDivElement>) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-market-review]');
+    if (button && cards.current?.contains(button)) {
+      const dialog = document.getElementById(button.dataset.marketReview!);
+      if (dialog instanceof HTMLDialogElement && !dialog.open) {
+        button.focus({ preventScroll: true });
+        dialog.showModal();
+      }
+      return;
+    }
     const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#market-preview-detail-"]');
     if (!link || !cards.current?.contains(link)) return;
     const detail = cards.current.querySelector<HTMLDetailsElement>(link.hash);
@@ -74,14 +95,14 @@ export default function MarketplaceBrowser({
 
   return <section className="marketplace-preview" lang={locale} aria-label={t.title}>
     <div className="marketplace-preview__toolbar">
-      <span className="market-kicker">ReelDeal</span>
+      {live ? <p>{t.preview}</p> : <span className="market-kicker">ReelDeal</span>}
       <nav aria-label={t.language} className="marketplace-preview__languages">
         <button type="button" lang="en" aria-pressed={locale === 'en'} onClick={() => setLocale('en')}>EN</button>
         <button type="button" lang="ja" aria-pressed={locale === 'ja'} onClick={() => setLocale('ja')}>日本語</button>
       </nav>
     </div>
-    <header className="marketplace-preview__heading"><h1>{t.title}</h1><p>{t.subtitle}</p></header>
-    <p className="notice">{t.preview}</p>
+    {!live && <><header className="marketplace-preview__heading"><h1>{t.title}</h1><p>{t.subtitle}</p></header>
+    <p className="notice">{t.preview}</p></>}
     <fieldset className="marketplace-preview__filters" disabled={state !== 'ready'}>
       <legend className="marketplace-preview__sr-only">{t.species} · {t.availability}</legend>
       <label className="field" htmlFor={inputId}>{t.search}
@@ -90,21 +111,21 @@ export default function MarketplaceBrowser({
       <div className="marketplace-preview__selects">
         <label className="field">{t.species}<select className="input" value={species} onChange={event => setSpecies(event.target.value as PreviewSpecies | 'all')}>
           <option value="all">{t.allSpecies}</option>
-          {speciesOptions.map(item => <option key={item.species} value={item.species}>{locale === 'ja' ? item.nameJa : item.lot.species}</option>)}
+          {speciesOptions.map(item => <option key={item.species} value={item.species}>{locale === 'ja' ? item.nameJa : live ? item.englishName : item.lot.species}</option>)}
         </select></label>
-        <label className="field">{t.availability}<select className="input" value={availability} onChange={event => setAvailability(event.target.value as PreviewAvailability | 'all')}>
+        {!live && <label className="field">{t.availability}<select className="input" value={availability} onChange={event => setAvailability(event.target.value as PreviewAvailability | 'all')}>
           <option value="all">{t.allAvailability}</option>
           <option value="open">{t.open}</option><option value="reserved">{t.reserved}</option><option value="sold">{t.sold}</option>
           {items.some(item => item.availability === 'unknown') && <option value="unknown">{t.unknown}</option>}
-        </select></label>
+        </select></label>}
       </div>
     </fieldset>
     <div className="marketplace-preview__results" role="status" aria-live="polite">
-      {state === 'ready' ? `${visible.length} ${t.count}` : state === 'loading' ? t.loading : t.unavailable}
+      {state === 'ready' ? `${visible.length} ${live && locale === 'en' && visible.length === 1 ? 'item' : t.count}` : state === 'loading' ? t.loading : t.unavailable}
     </div>
     {state !== 'ready' && <button className="rd-ui-button rd-ui-button--yellow" type="button" onClick={() => setState('ready')}>{t.retry}</button>}
     {state === 'ready' && visible.length === 0 && <div className="market-empty"><p>{t.empty}</p><button className="rd-ui-button rd-ui-button--secondary" type="button" onClick={resetFilters}>{t.reset}</button></div>}
     <div ref={cards} hidden={state !== 'ready'} onClick={revealDetail}>{children}</div>
-    <p className="marketplace-preview__note">{t.sharedCopy}</p>
+    {t.sharedCopy && <p className="marketplace-preview__note">{t.sharedCopy}</p>}
   </section>;
 }

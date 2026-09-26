@@ -16,7 +16,7 @@ async function withServer(legacyOrigin, check) {
   const port = socket.address().port;
   await new Promise((resolve) => socket.close(resolve));
   const origin = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATABASE_URL: secret };
+  const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATABASE_URL: secret, SEPOLIA_RPC_URL: 'http://127.0.0.1:1' };
   delete env.LEGACY_WEB_ORIGIN;
   delete env.PIPELINE_API_URL;
   if (legacyOrigin) env.LEGACY_WEB_ORIGIN = legacyOrigin === 'self' ? origin : legacyOrigin;
@@ -68,7 +68,7 @@ await withServer(undefined, async (request) => {
   const marketHtml = await market.text();
   assert(!marketHtml.includes(secret), 'Server-only env leaked into HTML');
   assert.match(marketHtml, /data-market-preview-item="RD-LOT-004"/, 'Market lots missing');
-  assert.match(marketHtml, /Live on Sepolia/, 'Live market copy missing');
+  assert.match(marketHtml, /Sepolia testnet/, 'Testnet market label missing');
 
   for (const path of ['/workshop', '/market/checkout-demo']) {
     assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
