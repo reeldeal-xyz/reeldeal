@@ -1,8 +1,11 @@
-import type { Peril, Species } from './ids';
+import { z } from 'zod';
+import { PERILS, SPECIES, type Peril, type Species } from './ids';
+import speciesData from './species.data.json';
 
 /**
  * Provisional trigger rules (writeup v3, section 7.3). Thresholds are set with growers; do not tune to data.
- * Thresholds live here and on chain only. The pipeline publishes index values and never applies these.
+ * Canonical in pipeline/data/ref/species.json, which serves them at GET /species/{id}/rules for display; this package
+ * reads the generated copy (`bun run species:gen`). The app and chain apply them; the pipeline never does.
  */
 export interface Rule {
   species: Species;
@@ -16,15 +19,28 @@ export interface Rule {
   window?: { start: string; end: string };
 }
 
-export const HEAT_WINDOW = { start: '07-01', end: '09-30' } as const;
+const monthDay = z.string().regex(/^\d{2}-\d{2}$/);
+const rule = z.object({
+  species: z.enum(SPECIES),
+  tier: z.union([z.literal(1), z.literal(2)]),
+  peril: z.enum(PERILS),
+  tempC: z.number().int().min(0).max(255).optional(),
+  threshold: z.number().int().positive(),
+  window: z.object({ start: monthDay, end: monthDay }).strict().optional(),
+}).strict().refine((r) => r.peril === 'HEAT' ? r.tempC !== undefined && r.window !== undefined
+  : r.tempC === undefined && r.window === undefined,
+  'HEAT rules need tempC and window, other perils neither');
 
-export const RULES: readonly Rule[] = [
-  { species: 'scallop', tier: 1, peril: 'HEAT', tempC: 25, threshold: 14, window: HEAT_WINDOW },
-  { species: 'scallop', tier: 2, peril: 'HEAT', tempC: 26, threshold: 12, window: HEAT_WINDOW },
-  { species: 'hoya', tier: 1, peril: 'HEAT', tempC: 24, threshold: 30, window: HEAT_WINDOW },
-  { species: 'oyster', tier: 1, peril: 'BANWEEKS', threshold: 4 },
-  { species: 'scallop', tier: 1, peril: 'BANWEEKS', threshold: 4 },
-] as const;
+/** Version of the rule set, bumped in pipeline/data/ref/species.json whenever a threshold, tier or window changes. */
+export const RULES_VERSION: string = speciesData.rules_version;
+
+export const RULES: readonly Rule[] = z.array(rule).parse(speciesData.rules);
+
+const heatWindows = [...new Set(RULES.flatMap((r) => (r.window ? [`${r.window.start}/${r.window.end}`] : [])))];
+if (heatWindows.length !== 1) throw new Error(`HEAT rules must share one season window, got ${heatWindows.join(', ')}`);
+
+/** The season window every HEAT rule uses (07-01..09-30). */
+export const HEAT_WINDOW: { readonly start: string; readonly end: string } = RULES.find((r) => r.window)!.window!;
 
 /**
  * HEAT index for one rule: cumulative days with SST >= tempC inside the window, per day.

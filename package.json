@@ -12,6 +12,7 @@
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv",
     "abi": "bun scripts/export-abi.ts",
+    "species:gen": "bun packages/shared/scripts/gen-species.ts",
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
     "pipeline": "cd pipeline && uv run pipeline-serve",
