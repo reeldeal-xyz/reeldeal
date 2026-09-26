@@ -28,14 +28,21 @@ interface ITextResolverRead {
 ///         scoped to exactly the `zone` and `species` text keys (via `grantSetterRoles`) — then proves
 ///         `setText(area)` and `setAddress` still revert for that key.
 ///
-///         Out of scope (by design, see issue #10): per-plot registries and season slots. The branch
-///         registry deployed here is exactly what #10 registers plot subnames (`p1213-NNN`) into, and the
-///         branch resolver is what #11's `resolve(dnsName, text(...))` reads from — nothing here needs to
-///         change shape for either to land.
+///         Per-plot registries and season slots (issue #10) are `contracts/script/DeployEnsPlots.s.sol`,
+///         which subclasses this script to reuse `_commit`/`_finish` and reads `karakuwaRegistryAddr`/
+///         `karakuwaResolverAddr` (set below) for its own plot/slot registrations. Nothing here changed
+///         shape for that to land: the branch registry is exactly what #10 registers plot subnames
+///         (`p1213-NNN`) into, and the branch resolver is what #11's `resolve(dnsName, text(...))` reads
+///         from.
 ///
-///         `PARENT_LABEL` is a placeholder (default below) until the project picks a public name — see
-///         `MEMORY.md` ("never use 'Umi Relief'; neutral names until user picks one"). "karakuwa" is the
-///         zone/branch label already used throughout `docs/INTERFACE.md`, not a product name.
+///         `PARENT_LABEL` default is "umi" — the product's official name (see `MEMORY.md`: never "Umi
+///         Relief"; this label alone, with no suffix, is the product name, not a compound). Checked
+///         available via `isAvailable("umi")` on the real ETHRegistrar on Sepolia (2026-09-26): true.
+///         `getRegisterPrice("umi", 365 days, MockUSDC)` returned base+premium = 640000005 (MockUSDC has 6
+///         decimals: ~640.000005 USDC) — short (3-char) labels carry an ENSv2 premium, but MockUSDC is a
+///         free-mint testnet faucet token (see `register()`/`_finish` below: this script mints its own
+///         cost), so the price is irrelevant in practice. "karakuwa" is the zone/branch label already used
+///         throughout `docs/INTERFACE.md`, not a product name.
 ///
 ///         Addresses default to `contracts/script/ens/EnsV2Addresses.sol` (kept in sync with
 ///         `packages/shared/src/addresses.ts`) and can be overridden per-arg via `ENS_*` env vars if
@@ -82,6 +89,14 @@ contract DeployEnsBranch is Script {
     // `setText(area)`/`setAddress` calls a second time outside their `try/catch`. `commitParent()` and
     // `finishAfterCommit()` (the real two-step broadcast path) set this so the same helpers sign for real.
     bool internal broadcastMode;
+
+    // Populated by `_commit`/`_finish` (both `run()` and the two-step broadcast path) so a same-process
+    // subclass — `DeployEnsPlots.s.sol` (issue #10) — can read them back after calling `run()` without
+    // re-parsing console output. Not meaningful across separate `forge script` invocations (each is a fresh
+    // process); the two-step real broadcast still communicates via env vars/console logs as before.
+    address internal parentRegistryAddr;
+    address internal karakuwaRegistryAddr;
+    address internal karakuwaResolverAddr;
 
     function _startAsDeployer(uint256 deployerKey, address deployer) internal {
         if (broadcastMode) {
@@ -130,8 +145,13 @@ contract DeployEnsBranch is Script {
         return IMintableERC20(vm.envOr("ENS_MOCK_USDC", EnsV2Sepolia.MOCK_USDC));
     }
 
+    // Chosen 2026-09-26: "umi" (the product's official name) is available on ENSv2 Sepolia
+    // (ETHRegistrar.isAvailable("umi") == true, cast-checked against ETH_REGISTRAR above) at the standard
+    // MockUSDC price (base 640.000005 MockUSDC @ 6 decimals, premium 0 — MockUSDC is free-mint, so real cost
+    // is zero). No fallback to "umi-kesennuma"/"umi-jp" was needed. See issue #10/#11 final report for the
+    // availability check command.
     function _parentLabel() internal view returns (string memory) {
-        return vm.envOr("PARENT_LABEL", string("eth-global-tokyo-ens-demo"));
+        return vm.envOr("PARENT_LABEL", string("umi"));
     }
 
     function _commitSecret() internal view returns (bytes32) {
@@ -204,6 +224,7 @@ contract DeployEnsBranch is Script {
                 _userRegistryImpl(), uint256(keccak256(abi.encodePacked(parentLabel, "parent-registry"))), initData
             );
         _stopActing();
+        parentRegistryAddr = parentRegistry;
         console2.log("Deployed <parent>.eth's subregistry (holds \"karakuwa\"):", parentRegistry);
 
         bytes32 commitment = _ethRegistrar()
@@ -249,7 +270,9 @@ contract DeployEnsBranch is Script {
         console2.log("Registered <parent>.eth for label:", parentLabel);
         console2.log("  MockUSDC cost (base+premium):", cost);
 
-        (, address karakuwaResolver) = _deployBranch(deployerKey, deployer, parentLabel, parentRegistry);
+        (address karakuwaRegistry, address karakuwaResolver) = _deployBranch(deployerKey, deployer, parentLabel, parentRegistry);
+        karakuwaRegistryAddr = karakuwaRegistry;
+        karakuwaResolverAddr = karakuwaResolver;
 
         _grantScienceKey(deployerKey, deployer, karakuwaResolver, scienceKey);
         _demonstrateDeniedWrites(scienceKeyKey, scienceKey, karakuwaResolver, parentLabel);
@@ -272,6 +295,7 @@ contract DeployEnsBranch is Script {
             );
         _stopActing();
         console2.log("Deployed karakuwa branch UserRegistry (plot subnames land here, issue #10):", karakuwaRegistry);
+        console2.log("  export KARAKUWA_REGISTRY=", karakuwaRegistry);
 
         Grant[] memory resolverGrants = new Grant[](1);
         resolverGrants[0] = Grant({account: deployer, roleBitmap: _fullResolverAdminBitmap()});
@@ -287,6 +311,7 @@ contract DeployEnsBranch is Script {
             );
         _stopActing();
         console2.log("Deployed karakuwa branch PermissionedResolver (zone/species land here):", karakuwaResolver);
+        console2.log("  export KARAKUWA_RESOLVER=", karakuwaResolver);
 
         _startAsDeployer(deployerKey, deployer);
         IUserRegistryWrite(parentRegistry)
