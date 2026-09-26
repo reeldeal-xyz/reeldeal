@@ -234,7 +234,7 @@ async function ensureWebhook(existing: WebhookEndpoint[]): Promise<void> {
   if (!APPLY) return;
   const created = await mbFetch<WebhookEndpoint>('/webhooks', {
     method: 'POST',
-    body: JSON.stringify({ url, label: 'umi-relief-pool', subscriptions: ['event.emitted'] }),
+    body: JSON.stringify({ url, label: 'umi-webhook', subscriptions: ['event.emitted'] }),
   });
   console.log('');
   console.log('  MultiBaas generated a webhook secret. Set it now — it is shown only once here:');
