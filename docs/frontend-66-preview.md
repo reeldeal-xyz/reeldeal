@@ -33,6 +33,8 @@ The source PR's six seafood portraits and dockside hero are not ported. Cards co
 
 Combined integration review with the #67/#68 previews also passed 17 tests / 94 assertions, a 63-file frontend check, Astro build, built-server smoke checks and Storybook build. These combined counts include the other preview slices.
 
+Reviewed the Dotdog `Application` and `Documentation` observed scopes and ADR 0002 against this source diff. Their definitions remain accurate: these are Astro/Storybook previews, legacy routes still redirect to `web/`, and app-core/production service migration remains pending. No spec or ADR prose change was needed; only those two review baselines are refreshed for this branch.
+
 ## Review in Storybook
 
 At 320/390/1440px inspect `Marketplace Discovery / English`, `Japanese`, `Empty Search`, and the six `Marketplace Checkout` states. Run `Interactive Filters` and `Recover Samples`; check keyboard focus, visible imagery, no horizontal overflow, and readable split amounts. New styles use inline, uniquely prefixed rules because this static Astro adapter can omit extracted component CSS.
