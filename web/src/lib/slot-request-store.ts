@@ -19,13 +19,16 @@ export interface SlotRequest {
   plotLabel: string;
   farmerAddress: string;
   farmerName?: string;
+  /** LINE `sub` of the requester (issue #15's LIFF "request this season's slot" form). Optional because the
+   *  seed data and any pre-#15 caller never set it. */
+  lineUserId?: string;
   seasonLabel: string;
   requestedAt: string;
   status: SlotRequestStatus;
 }
 
 export type NewSlotRequest = Pick<SlotRequest, 'plotLabel' | 'farmerAddress' | 'seasonLabel'> &
-  Partial<Pick<SlotRequest, 'farmerName'>>;
+  Partial<Pick<SlotRequest, 'farmerName' | 'lineUserId'>>;
 
 export interface SlotRequestStore {
   list(): Promise<SlotRequest[]>;

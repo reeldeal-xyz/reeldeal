@@ -7,8 +7,11 @@ existing `/liff` app keeps ownership of real accounts and actions.
 
 ## Source and represented states
 
-Reviewed PR #31 at `2db9aeeb3b1b669b19e9ec20cd299d630d09b0ae`, particularly
-`liff-app.tsx`, `lib/liff/status.ts`, `lib/liff/claim.ts` and `held-reasons.ts`.
+Initially reviewed PR #31 at `2db9aeeb3b1b669b19e9ec20cd299d630d09b0ae`,
+particularly `liff-app.tsx`, `lib/liff/status.ts`, `lib/liff/claim.ts` and
+`held-reasons.ts`. Its LIFF implementation is now merged into main at
+`79315344b596900f4f10988421534867e82c09cb` and included in this branch.
+The Astro route and action migration remains pending.
 The five Held reason labels also match `ReliefPool.sol` at this branch's base
 `08c96cb`:
 
@@ -76,8 +79,9 @@ styles or molecules are changed.
   farm and selected `p1213-001` here do not establish a mapping.
 - #63 supplies the reviewed server action boundary; #69 supplies authoritative
   donor/relief state. These previews consume neither yet.
-- PR #31 remains the source for real LIFF session, QR/plot selection, World
-  binding, slot requests and claim behavior; port and verify those when ready.
+- The merged PR #31 implementation in `web/` supplies LIFF session, QR/plot
+  selection, World binding, slot requests and claim behavior. Port and verify
+  those in Astro when the server/domain boundaries are ready.
 - Real status must be event/season-specific, preserve exact JPYC base units and
   use the correct confirmed transaction receipt. Do not promote a request or
   the original Held transaction into payment evidence.
