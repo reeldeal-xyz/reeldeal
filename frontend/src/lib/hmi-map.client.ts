@@ -7,7 +7,6 @@ type Plot = {
   plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
   operation: string; areaM2: number; seaArea: string | null;
 };
-type Zone = { geometry: GeoJSON.Geometry | null; name: string; nameJa?: string | null };
 type HabSource = {
   url: string; bounds: L.LatLngBoundsLiteral; note: string; period: string;
   scale: { kind: 'linear' | 'log'; min: number; max: number; unit: string; colors: string[] } | null;
@@ -40,7 +39,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     hectares: 'ha', locale: 'en-US',
   };
   const lang = scene.dataset.lang === 'ja' ? 'ja' : 'en';
-  const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[],"zones":[]}') as { plots: Plot[]; zones: Zone[] };
+  const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[]}') as { plots: Plot[] };
   const dock = scene.querySelector<HTMLFormElement>('.coast-dock')!;
   const status = scene.querySelector<HTMLElement>('[data-view-status]')!;
   const seasonInput = dock.elements.namedItem('season') as HTMLInputElement;
@@ -118,9 +117,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     activeOverlays.forEach((overlay) => overlay.redraw());
   });
 
-  for (const zone of features.zones) {
-    if (zone.geometry) L.geoJSON(zone.geometry, { style: { color: '#f7f5df', weight: 1.5, fillColor: '#f7f5df', fillOpacity: 0.05 } }).addTo(map);
-  }
   for (const plot of features.plots) {
     const marker = L.circleMarker([plot.centroid[1], plot.centroid[0]], {
       radius: 4, weight: 1, color: '#fff', fillColor: '#f7a32f', fillOpacity: 1,
