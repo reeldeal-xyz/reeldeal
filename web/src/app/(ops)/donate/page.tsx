@@ -3,7 +3,7 @@ import { DonateScreen } from '@/components/donate/donate-screen';
 import { asAddress } from '@/lib/contracts';
 import { publicEnv } from '@/lib/env';
 
-export const metadata = { title: 'Donate · UMI' };
+export const metadata = { title: 'Donate · Real Deal' };
 
 export default function DonatePage() {
   const deployBlockRaw = publicEnv.reliefPoolDeployBlock();

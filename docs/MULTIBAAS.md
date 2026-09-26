@@ -1,6 +1,6 @@
 # Curvegrid MultiBaas (issue #23)
 
-UMI uses Curvegrid MultiBaas to index ReliefPool/HumanRegistry/JPYC contract events on Sepolia and push
+Real Deal uses Curvegrid MultiBaas to index ReliefPool/HumanRegistry/JPYC contract events on Sepolia and push
 `Paid`/`Held` payouts to farmers over LINE via an authenticated webhook, in place of a keeper-side event
 poller.
 

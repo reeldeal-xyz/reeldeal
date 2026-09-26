@@ -122,7 +122,7 @@ export interface HeldPushParams {
   reasonEn: string; // e.g. "Verify your identity to receive the payout."
 }
 
-const BRAND = 'UMI';
+const BRAND = 'Real Deal';
 const COLOR_PAID = '#0f9d58';
 const COLOR_HELD = '#e8a33d';
 const COLOR_MUTED = '#6b7280';

@@ -17,7 +17,7 @@ export function Nav() {
   return (
     <nav className={`${styles.nav} ${styles.noPrint}`}>
       <Link href="/" className={styles.brand}>
-        <span className={styles.brandMark}>UMI</span>
+        <span className={styles.brandMark}>Real Deal</span>
         <span className={styles.brandSub}>Kesennuma relief fund</span>
       </Link>
       <div className={styles.navLinks}>
