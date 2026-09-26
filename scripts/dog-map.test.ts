@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { mapRepository } from './dog-map';
 
 test('maps Solidity and every tracked source beyond Dotdog’s scan cap without secrets or generated churn', () => {
-  const root = mkdtempSync(join(tmpdir(), 'umi-dotdog-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'reeldeal-dotdog-test-'));
   const write = (file: string, text: string) => {
     mkdirSync(dirname(join(root, file)), { recursive: true });
     writeFileSync(join(root, file), text);
@@ -18,7 +18,7 @@ test('maps Solidity and every tracked source beyond Dotdog’s scan cap without 
     write('contracts/src/Pool.sol', 'import {I} from "./I.sol";\ncontract Pool {}');
     write('contracts/src/I.sol', 'interface I {}');
     write('pipeline/api.py', 'from fastapi import FastAPI');
-    write('frontend/src/pages/index.astro', '<h1>Umi</h1>');
+    write('frontend/src/pages/index.astro', '<h1>Reel Deal</h1>');
     write('deploy/compose.yml', 'services: {}');
     write('.env', 'SECRET_SENTINEL=do-not-map');
     write('.data/private.json', '{"name":"PRIVATE_SENTINEL"}');

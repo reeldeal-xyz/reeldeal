@@ -1,4 +1,4 @@
-# Repository map
+# Reel Deal repository map
 
 ```sh
 bun install --frozen-lockfile

@@ -12,14 +12,14 @@ export function mapRepository(root: string) {
   const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trimEnd();
   const tracked = git('ls-files', '-z').split('\0').filter(Boolean).sort();
   const files = tracked.filter((file) => !excluded.test(file) && lstatSync(join(root, file), { throwIfNoEntry: false })?.isFile());
-  const snapshot = mkdtempSync(join(tmpdir(), 'umi-dotdog-'));
+  const snapshot = mkdtempSync(join(tmpdir(), 'reeldeal-dotdog-'));
   try {
     for (const file of files) {
       const target = join(snapshot, file);
       mkdirSync(dirname(target), { recursive: true });
       copyFileSync(join(root, file), target);
     }
-    const result = JSON.parse(execFileSync(process.execPath, [cli, 'map', snapshot, '--project', 'umi', '--json'], { encoding: 'utf8' }));
+    const result = JSON.parse(execFileSync(process.execPath, [cli, 'map', snapshot, '--project', 'reeldeal', '--json'], { encoding: 'utf8' }));
     const graph = JSON.parse(readFileSync(result.dagFile, 'utf8'));
     const nodes = new Map(graph.nodes.filter((node: any) => node.properties?.path).map((node: any) => [node.properties.path, node]));
     const id = (file: string) => `file:${file}`;
