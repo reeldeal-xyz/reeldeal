@@ -287,9 +287,12 @@ Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml u
 
 ## Repository Structure
 
+Justin's [HMI contribution handoff](docs/HMI-HANDOFF.md) links #40, #46 → #68,
+and #47, with the relief demo scope, research evidence and product copy.
+
 - `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
 - `web/` Next.js: donor, co-op, holder screens, `/liff` farmer app, `/verify/[eventId]`, API routes
-- `pipeline/` Python (uv, FastAPI): risk API scaffold for heat, HAB and storm; domain routes remain stubs (501), with index values planned and no Triggers (owner: Jay). Spec: `pipeline/README.md`
+- `pipeline/` Python (uv, FastAPI): JAXA ingestion, heat indices and heat/HAB layers; restriction indices, storm and advisory routes remain incomplete (501). No Triggers (owner: Jay). Spec: `pipeline/README.md`
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
 - *Planned* (see Deployment & team plan): `frontend/` Astro app replacing `web/`; `packages/app-core/` server logic moved from `web/src/lib`; `deploy/` root Compose, Caddyfile, Postgres/PostGIS init.

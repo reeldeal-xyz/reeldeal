@@ -1,4 +1,4 @@
-# Pipeline API behind Caddy (automatic HTTPS). See DEPLOY.md.
+# Pipeline API behind Caddy (automatic HTTPS). See DEPLOY.md. Caddy also fronts the web app at app.<host>.
 services:
   api:
     build:
@@ -29,10 +29,19 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # A directory, not the file: git replaces files on checkout and a file mount would keep the old one.
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - default
+      - reeldeal   # reaches the web app (frontend/docker-compose.yml) as web:4321
 
 volumes:
   caddy_data:
   caddy_config:
+
+networks:
+  default:
+  reeldeal:
+    external: true   # shared with db/ and frontend/; created by their up scripts or the deploy

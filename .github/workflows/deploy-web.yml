@@ -1,19 +1,28 @@
-# Test the pipeline on PRs to main; on push to main, also deploy it to the EC2 instance via SSM Run Command
-# (pipeline/DEPLOY.md §5). Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID. No stored AWS or SSH keys:
-# GitHub OIDC, and the role only trusts refs/heads/main.
-name: deploy-pipeline
+# Build and smoke-test the Astro web app's container on PRs; on push to main, deploy it to the EC2 instance
+# via SSM Run Command (frontend/DEPLOY.md). Separate from the pipeline and database deploys; Caddy (pipeline/)
+# serves it at app.<SITE_ADDRESS>. Source checks (astro check, tests, Storybook) stay in frontend.yml.
+# Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID.
+name: deploy-web
 
 on:
   push:
     branches: [main]
     paths:
-      - "pipeline/**"
-      - ".github/workflows/deploy-pipeline.yml"
+      - "frontend/**"
+      - "package.json"
+      - "bun.lock"
+      - "packages/shared/package.json"
+      - "web/package.json"
+      - ".github/workflows/deploy-web.yml"
   pull_request:
     branches: [main]
     paths:
-      - "pipeline/**"
-      - ".github/workflows/deploy-pipeline.yml"
+      - "frontend/**"
+      - "package.json"
+      - "bun.lock"
+      - "packages/shared/package.json"
+      - "web/package.json"
+      - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
 permissions:
@@ -22,21 +31,28 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: pipeline
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --locked
-      - run: uv run pytest
+      - name: Build and start the container
+        run: |
+          echo "LEGACY_WEB_ORIGIN=https://legacy.example" > frontend/.env
+          GIT_SHA=${{ github.sha }} frontend/deploy/up.sh
+      - name: Smoke-test routes through the network, as Caddy sees them
+        run: |
+          probe() { docker run --rm --network reeldeal curlimages/curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://web:4321$1"; }
+          [ "$(probe /health)" = "200 " ]
+          [ "$(probe /workshop)" = "200 " ]
+          [ "$(probe '/map?x=1')" = "307 https://legacy.example/map?x=1" ]
+          [ "$(probe /api/world)" = "404 " ]
+          echo "routes ok"
+      - if: failure()
+        run: docker compose -f frontend/docker-compose.yml logs --no-color
 
   deploy:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Deploys are serialized with each other and with deploy-db.yml (same checkout on the instance);
-    # PR test runs are not held up by them.
+    # Shares the instance checkout with deploy-pipeline.yml and deploy-db.yml, so they queue behind each other.
     concurrency:
       group: deploy-ec2
       cancel-in-progress: false
@@ -55,30 +71,27 @@ jobs:
           SHA: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes;
-          # the last check fails it if /health isn't reporting the commit we just pushed.
+          # Runs on the instance as ubuntu. up.sh fails the deploy if the container never gets healthy or
+          # /health doesn't report the commit we just pushed.
           script="set -e
           cd /home/ubuntu/reeldeal
           git fetch -q origin $BRANCH
           git checkout -q -f -B $BRANCH $SHA
-          cd pipeline
-          docker network inspect reeldeal >/dev/null 2>&1 || docker network create reeldeal
-          GIT_SHA=$SHA docker compose up -d --build --wait
-          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
-          docker compose exec -T api python -c \"import json, urllib.request; c = json.load(urllib.request.urlopen('http://127.0.0.1:8787/health'))['commit']; assert c == '$SHA', c; print('health reports', c)\"
+          test -f frontend/.env
+          GIT_SHA=$SHA frontend/deploy/up.sh
           docker image prune -f"
           params=$(jq -nc --arg s "$script" '{commands: ["sudo -u ubuntu -H bash -c \(($s | @sh))"]}')
 
           cmd_id=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
-            --comment "deploy $BRANCH@${SHA::7}" \
+            --comment "deploy web $BRANCH@${SHA::7}" \
             --parameters "$params" \
             --query Command.CommandId --output text)
           echo "SSM command $cmd_id"
 
           status=Pending
-          for _ in $(seq 1 120); do
+          for _ in $(seq 1 180); do
             sleep 5
             status=$(aws ssm get-command-invocation --command-id "$cmd_id" --instance-id "$INSTANCE_ID" \
               --query Status --output text 2>/dev/null || echo Pending)
