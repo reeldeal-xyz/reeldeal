@@ -18,3 +18,9 @@ contracts/broadcast/*/31337/
 # Keeper (issue #17): JSON-file-backed payout directory (web/src/lib/payout-directory.ts), local runtime state.
 .data/
 .doghouse/
+
+# Astro and Storybook generated output
+frontend/.astro/
+frontend/dist/
+frontend/storybook-static/
+frontend/.storybook-cache/

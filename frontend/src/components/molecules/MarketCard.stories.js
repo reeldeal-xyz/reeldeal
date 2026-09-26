@@ -1,0 +1,7 @@
+import MarketCard from './MarketCard.astro';
+import { previewLots } from '../../fixtures/preview-lots';
+export default { title: 'ReelDeal/02 Molecules/Market Card', component: MarketCard, args: { lot: previewLots[0], first: true } };
+export const Katsuo = {};
+export const Sanma = { args: { lot: previewLots[1], index: 1 } };
+export const Saba = { args: { lot: previewLots[2], index: 2 } };
+export const LongLabel = { args: { lot: { ...previewLots[0], species: 'Karakuwa Pacific oyster / 唐桑の真牡蠣', priceJpy: 1234567 } } };

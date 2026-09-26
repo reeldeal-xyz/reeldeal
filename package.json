@@ -1,7 +1,12 @@
 {
   "name": "eth-global-tokyo",
   "private": true,
-  "workspaces": ["packages/*", "pipeline", "web"],
+  "workspaces": [
+    "packages/*",
+    "pipeline",
+    "web",
+    "frontend"
+  ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test && cd contracts && forge test",
@@ -15,7 +20,13 @@
     "dog:map": "bun scripts/dog-map.ts",
     "dog:query": "dotdog query --dag .doghouse/generated/repo.dag",
     "dog:trace": "dotdog trace --dag .doghouse/generated/repo.dag",
-    "dog:test": "bun test scripts/dog-map.test.ts"
+    "dog:test": "bun test scripts/dog-map.test.ts",
+    "frontend:dev": "bun run --cwd frontend dev",
+    "frontend:check": "bun run --cwd frontend check",
+    "frontend:build": "bun run --cwd frontend build",
+    "frontend:start": "bun run --cwd frontend start",
+    "storybook": "bun run --cwd frontend storybook",
+    "storybook:build": "bun run --cwd frontend build-storybook"
   },
   "devDependencies": {
     "@types/bun": "latest",

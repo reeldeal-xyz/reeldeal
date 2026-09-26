@@ -1,0 +1,36 @@
+{
+  "name": "@repo/frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev --host 127.0.0.1",
+    "check": "astro check && tsc --noEmit -p src/components/solid",
+    "typecheck": "astro check && tsc --noEmit -p src/components/solid",
+    "build": "astro build",
+    "start": "node dist/server/entry.mjs",
+    "storybook": "bun run build-storybook && python3 -m http.server 6008 --bind 127.0.0.1 --directory storybook-static",
+    "build-storybook": "STORYBOOK_DISABLE_TELEMETRY=1 storybook build -o storybook-static",
+    "test": "bun test scripts",
+    "smoke:built": "node scripts/smoke-built.mjs"
+  },
+  "dependencies": {
+    "astro": "7.3.5",
+    "@astrojs/node": "11.1.6",
+    "@astrojs/react": "7.0.0",
+    "@astrojs/solid-js": "7.0.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "solid-js": "1.9.15",
+    "cookie": "2.0.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@storybook-astro/framework": "1.12.0",
+    "@storybook/builder-vite": "10.6.0",
+    "storybook": "10.6.0",
+    "typescript": "^5.9.0"
+  }
+}
