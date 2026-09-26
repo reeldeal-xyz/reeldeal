@@ -1,6 +1,7 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
-import { MAX_RELIEF_BPS, parseQuoteRequest } from '../src/lib/chain/quote.server';
+import { MAX_RELIEF_BPS, matchesDemoListing, parseQuoteRequest } from '../src/lib/chain/quote.server';
+import { DEMO_LISTING } from '../src/fixtures/market-checkout-demo';
 
 const valid = () => ({
   listingId: `0x${'a'.repeat(64)}`,
@@ -8,6 +9,21 @@ const valid = () => ({
   seller: '0x2222222222222222222222222222222222222222',
   total: '12000000000000000000000',
   reliefBps: 500,
+});
+
+test('the signer only accepts the published Sepolia demo listing', () => {
+  const request = parseQuoteRequest({
+    listingId: DEMO_LISTING.listingId,
+    buyer: '0x1111111111111111111111111111111111111111',
+    seller: DEMO_LISTING.sellerAddress,
+    total: DEMO_LISTING.totalWei.toString(),
+    reliefBps: DEMO_LISTING.reliefBps,
+  });
+  expect(request.ok).toBe(true);
+  if (!request.ok) return;
+  expect(matchesDemoListing(request.value)).toBe(true);
+  expect(matchesDemoListing({ ...request.value, seller: '0x2222222222222222222222222222222222222222' })).toBe(false);
+  expect(matchesDemoListing({ ...request.value, total: 1n })).toBe(false);
 });
 
 describe('parseQuoteRequest', () => {

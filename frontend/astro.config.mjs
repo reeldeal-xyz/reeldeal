@@ -13,6 +13,8 @@ export default defineConfig({
   env: {
     schema: {
       PUBLIC_CHAIN_ID: envField.number({ context: 'client', access: 'public', default: 11155111 }),
+      // Same public Reown project ID as the existing /app wallet entry. Unset: injected wallets still work.
+      NEXT_PUBLIC_REOWN_PROJECT_ID: envField.string({ context: 'server', access: 'secret', optional: true }),
       LEGACY_WEB_ORIGIN: envField.string({ context: 'server', access: 'secret', optional: true, url: true }),
       PIPELINE_API_URL: envField.string({ context: 'server', access: 'secret', optional: true, url: true }),
       DATABASE_URL: envField.string({ context: 'server', access: 'secret', optional: true }),

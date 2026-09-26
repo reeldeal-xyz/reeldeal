@@ -77,4 +77,15 @@ export const MobileForecast = {
     await waitFor(() => expect(canvas.getByText('Forecast data is unavailable. The map and chart show observed conditions.')).toBeVisible());
   },
 };
+export const MobileMarket = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
+    await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Open the app to buy' })).toBeDisabled());
+  },
+};
 export const Desktop1440 = { globals: { viewport: { value: 'desktop1440', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };

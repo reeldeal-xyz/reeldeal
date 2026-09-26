@@ -1,7 +1,7 @@
 // Client-side marketplace checkout: connect wallet -> POST /api/market/quote -> JPYC.approve(router, total)
 // -> SaleRouter.checkout(quote, signature). Broadcasts real Sepolia transactions from the connected wallet;
 // never called from server code. See docs/SALE-ROUTER.md for the full flow this mirrors.
-import { erc20Abi } from 'viem';
+import { createPublicClient, erc20Abi, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { DEPLOYED, JPYC, SaleRouterAbi } from '@repo/shared';
 import { connectWallet } from '../../lib/chain/wallet.client';
@@ -24,12 +24,12 @@ export interface QuoteResponseBody {
   router: `0x${string}`;
 }
 
-export type CheckoutStep = 'connecting' | 'quoting' | 'approving' | 'checking-out';
+export type CheckoutStep = 'connecting' | 'checking-availability' | 'quoting' | 'approving' | 'waiting-approval' | 'checking-out' | 'waiting-checkout';
 
 export interface CheckoutResult {
   address: string;
   quote: QuoteResponseBody['quote'];
-  approveTxHash: string;
+  approveTxHash?: string;
   checkoutTxHash: string;
 }
 
@@ -49,26 +49,50 @@ async function fetchQuote(input: { listingId: string; buyer: string; seller: str
 export async function checkoutDemoListing(listing: DemoListingInput, onStep?: (step: CheckoutStep) => void): Promise<CheckoutResult> {
   onStep?.('connecting');
   const { client, address } = await connectWallet();
+  const reader = createPublicClient({ chain: sepolia, transport: http('https://ethereum-sepolia-rpc.publicnode.com') });
+
+  onStep?.('checking-availability');
+  const sold = await reader.readContract({
+    address: DEPLOYED.SaleRouter, abi: SaleRouterAbi, functionName: 'soldListings',
+    args: [listing.listingId as `0x${string}`],
+  });
+  if (sold) throw new Error('This demo item has already sold. No payment was requested.');
 
   onStep?.('quoting');
-  const { quote, signature } = await fetchQuote({
+  const { quote, signature, router } = await fetchQuote({
     listingId: listing.listingId,
     buyer: address,
     seller: listing.sellerAddress,
     total: listing.totalWei,
     reliefBps: listing.reliefBps,
   });
+  if (quote.listingId.toLowerCase() !== listing.listingId.toLowerCase()
+    || quote.buyer.toLowerCase() !== address.toLowerCase()
+    || quote.seller.toLowerCase() !== listing.sellerAddress.toLowerCase()
+    || quote.total !== listing.totalWei || quote.reliefBps !== listing.reliefBps
+    || router.toLowerCase() !== DEPLOYED.SaleRouter.toLowerCase()) {
+    throw new Error('The signed quote does not match this item. No payment was requested.');
+  }
   const total = BigInt(quote.total);
 
-  onStep?.('approving');
-  const approveTxHash = await client.writeContract({
-    account: address,
-    chain: sepolia,
-    address: JPYC,
-    abi: erc20Abi,
-    functionName: 'approve',
-    args: [DEPLOYED.SaleRouter, total],
+  const allowance = await reader.readContract({
+    address: JPYC, abi: erc20Abi, functionName: 'allowance', args: [address, DEPLOYED.SaleRouter],
   });
+  let approveTxHash: string | undefined;
+  if (allowance < total) {
+    onStep?.('approving');
+    approveTxHash = await client.writeContract({
+      account: address,
+      chain: sepolia,
+      address: JPYC,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [DEPLOYED.SaleRouter, total],
+    });
+    onStep?.('waiting-approval');
+    const approval = await reader.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}`, timeout: 180_000 });
+    if (approval.status !== 'success') throw new Error('JPYC approval failed on Sepolia. Checkout was not submitted.');
+  }
 
   onStep?.('checking-out');
   const checkoutTxHash = await client.writeContract({
@@ -91,6 +115,10 @@ export async function checkoutDemoListing(listing: DemoListingInput, onStep?: (s
       signature,
     ],
   });
+
+  onStep?.('waiting-checkout');
+  const receipt = await reader.waitForTransactionReceipt({ hash: checkoutTxHash, timeout: 180_000 });
+  if (receipt.status !== 'success') throw new Error('Checkout failed on Sepolia. No purchase was confirmed.');
 
   return { address, quote, approveTxHash, checkoutTxHash };
 }
