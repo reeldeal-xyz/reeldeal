@@ -65,7 +65,7 @@ curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker ubuntu && exit   # log back in for the group to apply
 
 ssh ubuntu@<elastic-ip>
-git clone -b pipeline <repo-url> eth-global-tokyo   # the deployed branch; private repo: use a read-only deploy key
+git clone -b main <repo-url> eth-global-tokyo   # main is the deployed branch; private repo: use a read-only deploy key
 cd eth-global-tokyo/pipeline
 mkdir -p data out                        # create before compose, or Docker creates them as root
 
@@ -84,8 +84,8 @@ The web app points at `https://<SITE_ADDRESS>`. CORS is open (`api.py`), so no e
 ```sh
 ssh ubuntu@<elastic-ip>
 cd eth-global-tokyo/pipeline
-git checkout pipeline && git pull --ff-only
-docker compose up -d --build             # rebuilds api; Caddy and its certificate stay
+git checkout main && git pull --ff-only
+GIT_SHA=$(git rev-parse HEAD) docker compose up -d --build   # rebuilds api; Caddy and its certificate stay
 docker image prune -f
 ```
 
@@ -93,10 +93,19 @@ Rebuilds after code-only changes take seconds, because dependencies are a separa
 
 ## 5. Automatic deploys from GitHub
 
-`.github/workflows/deploy-pipeline.yml` runs on every push to the **`pipeline` branch** that touches `pipeline/` (or manually: Actions → deploy-pipeline → Run workflow, on `pipeline`):
+`.github/workflows/deploy-pipeline.yml` is continuous deployment from **`main`**. Pipeline work goes on an issue branch and reaches `main` through a PR.
 
-1. **test:** `uv sync --locked && uv run pytest`. A failing test stops the deploy.
-2. **deploy:** assumes an AWS role via GitHub OIDC, then uses **SSM Run Command** to run, on the instance as `ubuntu`: `git checkout -f -B pipeline <pushed sha>`, then `docker compose up -d --build --wait`. `--wait` fails the job if the API never becomes healthy. The command's output shows in the Actions log.
+- **Pull requests into `main`** that touch `pipeline/`: only the **test** job runs, so a PR with failing tests shows red before merge.
+- **Every push to `main`** that touches `pipeline/` (i.e. every merge), or a manual run on `main` (Actions → deploy-pipeline → Run workflow):
+  1. **test:** `uv sync --locked && uv run pytest`. A failing test stops the deploy.
+  2. **deploy:** assumes an AWS role via GitHub OIDC, then uses **SSM Run Command** to run, on the instance as `ubuntu`:
+     - `git checkout -f -B main <pushed sha>`
+     - `GIT_SHA=<pushed sha> docker compose up -d --build --wait`. `--wait` fails the job if the API never becomes healthy.
+     - A check that `/health` reports `"commit": "<pushed sha>"`, so a stale container can't pass.
+
+     The command's output shows in the Actions log. The deploy job never runs on PRs or other branches.
+
+`/health` always answers 200 while the process is up. Its `status` is `ok` only when every route is implemented. It is `degraded` while some routes are still `@stub` (HTTP 501) and `unimplemented` when all of them are, with per-module `routes: {implemented, total}` counts.
 
 Why SSM and not SSH: port 22 is open only to your IP, and GitHub's runners use changing IPs. SSM needs no inbound port, and OIDC means no AWS keys or SSH keys are stored in GitHub.
 
@@ -110,7 +119,7 @@ One-time setup:
    If it doesn't show up, run `sudo snap restart amazon-ssm-agent` on the instance.
 2. **Add GitHub as an identity provider** (once per AWS account): IAM → Identity providers → Add provider → OpenID Connect, provider URL `https://token.actions.githubusercontent.com`, audience `sts.amazonaws.com`.
 3. **Create the deploy role** `pipeline-github-deploy`:
-   - Trust policy (only runs on the `pipeline` branch of this repo can assume it):
+   - Trust policy (only runs on the `main` branch of this repo can assume it):
      ```json
      {
        "Version": "2012-10-17",
@@ -120,12 +129,12 @@ One-time setup:
          "Action": "sts:AssumeRoleWithWebIdentity",
          "Condition": {
            "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-           "StringLike": { "token.actions.githubusercontent.com:sub": "repo:ss251/eth-global-tokyo:ref:refs/heads/pipeline" }
+           "StringLike": { "token.actions.githubusercontent.com:sub": "repo:ss251/reeldeal:ref:refs/heads/main" }
          }
        }]
      }
      ```
-     Manual runs (`workflow_dispatch`) also only work from `pipeline`. To deploy from another branch too (e.g. `main` later), add it to `on.push.branches` in the workflow and add its `sub` to this condition (it accepts a list).
+     The repo is `ss251/reeldeal` (renamed from `eth-global-tokyo`). The OIDC `sub` uses the **current** name, so the old name is rejected. Manual runs (`workflow_dispatch`) also only work from `main`; the workflow skips the deploy job anywhere else. To deploy another branch too, add it to `on.push.branches` in the workflow, relax the job's `if:`, and add its `sub` to this condition (it accepts a list).
    - Permissions (inline policy; it can run commands on this one instance, nothing else):
      ```json
      {
@@ -138,15 +147,15 @@ One-time setup:
        ]
      }
      ```
-4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/eth-global-tokyo && git fetch origin pipeline`.
+4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/eth-global-tokyo && git fetch origin main`. If the instance was set up from the old `pipeline` branch, switch it once: `git fetch origin main && git checkout -f -B main origin/main`. If its `origin` still points at `eth-global-tokyo`, update it to `reeldeal` (GitHub redirects renames, but a deploy key is tied to the repo).
 5. **Add the repo variables** in GitHub → Settings → Secrets and variables → Actions → **Variables** (not secrets; neither value is sensitive):
    - `AWS_DEPLOY_ROLE_ARN` = `arn:aws:iam::<account-id>:role/pipeline-github-deploy`
    - `EC2_INSTANCE_ID` = `i-…`
 
 Notes:
 - The deploy resets the server's checkout to the pushed commit, so **don't edit tracked files on the server**; they will be overwritten. Untracked and ignored files (`.env`, `data/`, `out/`) are kept.
-- Deploys are serialized (`concurrency: deploy-pipeline`), so two quick pushes deploy in order.
-- A manual deploy (§4) still works: `git checkout pipeline && git pull --ff-only && docker compose up -d --build`.
+- Deploys are serialized (`concurrency: deploy-pipeline` on the deploy job), so two quick merges deploy in order.
+- A manual deploy (§4) still works: `git checkout main && git pull --ff-only && GIT_SHA=$(git rev-parse HEAD) docker compose up -d --build`.
 
 ## 6. Daily build job
 

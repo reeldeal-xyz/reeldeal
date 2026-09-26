@@ -1,22 +1,23 @@
-# Test the pipeline, then deploy the pushed branch to the EC2 instance via SSM Run Command (pipeline/DEPLOY.md §5).
-# Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID. No stored AWS or SSH keys: GitHub OIDC.
+# Test the pipeline on PRs to main; on push to main, also deploy it to the EC2 instance via SSM Run Command
+# (pipeline/DEPLOY.md §5). Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID. No stored AWS or SSH keys:
+# GitHub OIDC, and the role only trusts refs/heads/main.
 name: deploy-pipeline
 
 on:
   push:
-    branches: [pipeline]
+    branches: [main]
+    paths:
+      - "pipeline/**"
+      - ".github/workflows/deploy-pipeline.yml"
+  pull_request:
+    branches: [main]
     paths:
       - "pipeline/**"
       - ".github/workflows/deploy-pipeline.yml"
   workflow_dispatch:
 
-concurrency:
-  group: deploy-pipeline
-  cancel-in-progress: false
-
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   test:
@@ -32,7 +33,15 @@ jobs:
 
   deploy:
     needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # Deploys are serialized; PR test runs are not held up by them.
+    concurrency:
+      group: deploy-pipeline
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -45,13 +54,15 @@ jobs:
           SHA: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes.
+          # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes;
+          # the last check fails it if /health isn't reporting the commit we just pushed.
           script="set -e
           cd /home/ubuntu/eth-global-tokyo
           git fetch -q origin $BRANCH
           git checkout -q -f -B $BRANCH $SHA
           cd pipeline
-          docker compose up -d --build --wait
+          GIT_SHA=$SHA docker compose up -d --build --wait
+          docker compose exec -T api python -c \"import json, urllib.request; c = json.load(urllib.request.urlopen('http://127.0.0.1:8787/health'))['commit']; assert c == '$SHA', c; print('health reports', c)\"
           docker image prune -f"
           params=$(jq -nc --arg s "$script" '{commands: ["sudo -u ubuntu -H bash -c \(($s | @sh))"]}')
 
