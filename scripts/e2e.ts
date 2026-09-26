@@ -48,6 +48,7 @@ import { ReliefPoolAbi, idOf, type Trigger } from '../packages/shared/src/index'
 import { TRIGGER_EIP712_TYPES } from '../packages/shared/src/trigger';
 import { runKeeper, type KeeperRunDeps, type KeeperRunResult } from '../web/src/lib/keeper/run';
 import type { KeeperPublicClient, KeeperWalletClient } from '../web/src/lib/keeper/chain-clients';
+import { getPlotReliefStory } from '../frontend/src/lib/chain/client.server';
 
 // ---------------------------------------------------------------------------
 // Shared constants (mirrors contracts/script/DeployReliefPoolV2.s.sol)
@@ -315,6 +316,57 @@ async function readAttestationPerUnit(publicClient: PublicClient, poolAddress: A
   return attestation[4]; // [zoneId, speciesId, seasonLabel, eligibleUnits, perUnit, reservedAmount, attestedAt, claimDeadline]
 }
 
+
+async function checkConfirmedTransactions(publicClient: PublicClient, result: KeeperRunResult): Promise<Check[]> {
+  const hashes = [result.attestTxHash, ...result.settleTxHashes].filter((hash): hash is Hex => Boolean(hash));
+  const head = await publicClient.getBlockNumber();
+  const checks: Check[] = [];
+  for (const hash of hashes) {
+    const receipt = await publicClient.getTransactionReceipt({ hash });
+    const confirmations = Number(head - receipt.blockNumber + 1n);
+    checks.push(check(
+      `tx ${hash.slice(0, 10)} confirmed`,
+      receipt.status === 'success' && confirmations >= 1,
+      `block=${receipt.blockNumber} confirmations=${confirmations} status=${receipt.status}`,
+    ));
+  }
+  return checks;
+}
+
+async function checkFrontendReliefModel(
+  publicClient: PublicClient,
+  poolAddress: Address,
+  deployBlock: bigint,
+  result: KeeperRunResult,
+  perUnit: bigint,
+): Promise<Check[]> {
+  const checks: Check[] = [];
+  const paid = await getPlotReliefStory(publicClient, DEMO_PLOT, '2026', {
+    poolAddress, fromBlock: deployBlock, eventIdHint: result.eventId,
+  });
+  checks.push(check(
+    'frontend relief model shows confirmed Paid',
+    paid.settlement?.state === 'paid'
+      && paid.settlement.amountWei === perUnit.toString()
+      && paid.identity?.status === 'available'
+      && paid.identity.level === 2,
+    `state=${paid.settlement?.state ?? 'none'} amount=${paid.settlement?.amountWei ?? 'none'} level=${paid.identity?.status === 'available' ? paid.identity.level : 'unavailable'}`,
+  ));
+
+  const heldPlot = result.plotOutcomes.find((outcome) => outcome.status === 'Held')?.plotLabel;
+  if (heldPlot) {
+    const held = await getPlotReliefStory(publicClient, heldPlot, '2026', {
+      poolAddress, fromBlock: deployBlock, eventIdHint: result.eventId,
+    });
+    checks.push(check(
+      'frontend relief model shows Held(UNVERIFIED)',
+      held.settlement?.state === 'held' && held.settlement.holdReason === 'UNVERIFIED',
+      `plot=${heldPlot} state=${held.settlement?.state ?? 'none'} reason=${held.settlement?.holdReason ?? 'none'}`,
+    ));
+  }
+  return checks;
+}
+
 /** Asserts the first (fresh-attest) keeper run: attested, DEMO_PLOT Paid to EXPECTED_FARMER for the
  *  attestation's own perUnit, and every other eligible plot Held(UNVERIFIED). */
 function checkFirstRun(result: KeeperRunResult, perUnit: bigint, farmerDelta: bigint): Check[] {
@@ -487,8 +539,11 @@ async function runForkMode(args: Args): Promise<boolean> {
     const farmerBefore = await readJpyc(publicClient as unknown as PublicClient, EXPECTED_FARMER);
     const result1 = await runKeeper({ referenceEventId: args.event, force: true }, deps);
     const farmerAfterFirst = await readJpyc(publicClient as unknown as PublicClient, EXPECTED_FARMER);
-    const perUnit = await readAttestationPerUnit(publicClient as unknown as PublicClient, deploy.poolAddress, result1.eventId);
+    const typedPublicClient = publicClient as unknown as PublicClient;
+    const perUnit = await readAttestationPerUnit(typedPublicClient, deploy.poolAddress, result1.eventId);
     checks.push(...checkFirstRun(result1, perUnit, farmerAfterFirst - farmerBefore));
+    checks.push(...await checkConfirmedTransactions(typedPublicClient, result1));
+    checks.push(...await checkFrontendReliefModel(typedPublicClient, deploy.poolAddress, deploy.deployBlock, result1, perUnit));
 
     const result2 = await runKeeper({ referenceEventId: args.event, force: true }, deps);
     const farmerAfterSecond = await readJpyc(publicClient as unknown as PublicClient, EXPECTED_FARMER);

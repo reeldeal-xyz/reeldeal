@@ -48,6 +48,34 @@ export const MIYAGI_SCALLOP_BAN_2026: ReliefEvidenceSource = {
   },
 };
 
+
+
+export interface DeployedReliefPlot {
+  plotLabel: string;
+  species: 'scallop' | 'hoya' | 'oyster';
+  ensName: string;
+}
+
+/** 15 ENS-backed 2026 demo plots deployed on Sepolia. ReliefPool itself is not iterable. */
+export const DEPLOYED_RELIEF_PLOTS: readonly DeployedReliefPlot[] = Array.from({ length: 15 }, (_, index) => {
+  const n = index + 1;
+  const plotLabel = `p1213-${String(n).padStart(3, '0')}`;
+  return {
+    plotLabel,
+    species: n <= 8 ? 'scallop' : n <= 12 ? 'hoya' : 'oyster',
+    ensName: `${plotLabel}.karakuwa.umi.eth`,
+  };
+});
+
+export function deployedEventHint(plotLabel: string, season: string): Hex | undefined {
+  const plot = DEPLOYED_RELIEF_PLOTS.find((item) => item.plotLabel === plotLabel);
+  return season === '2026' && plot?.species === 'scallop' ? MIYAGI_SCALLOP_BAN_2026.eventId : undefined;
+}
+
+export function evidenceForEvent(eventId: Hex): ReliefEvidenceSource | null {
+  return eventId.toLowerCase() === MIYAGI_SCALLOP_BAN_2026.eventId.toLowerCase() ? MIYAGI_SCALLOP_BAN_2026 : null;
+}
+
 export function evidenceForTrigger(eventId: Hex, dataHash: Hex | undefined): ReliefEvidenceSource | null {
   if (!dataHash) return null;
   return eventId.toLowerCase() === MIYAGI_SCALLOP_BAN_2026.eventId.toLowerCase()

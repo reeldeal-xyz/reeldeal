@@ -1,6 +1,6 @@
 // Browser-only wallet helper for the Donate and Checkout islands. It uses the HMI's
 // shared Wagmi connection when present and an injected wallet on standalone pages.
-import { createWalletClient, custom, type Address, type EIP1193Provider, type WalletClient } from 'viem';
+import { createWalletClient, custom, type Address, type EIP1193Provider, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { sepolia } from 'viem/chains';
 import { connect, getAccount, getWalletClient, switchChain } from 'wagmi/actions';
 import { currentWalletConfig } from './appkit.client';
@@ -61,4 +61,24 @@ export function shortAddress(value: string): string {
 
 export function sepoliaTxUrl(txHash: string): string {
   return `https://sepolia.etherscan.io/tx/${txHash}`;
+}
+
+export interface ConfirmedTransaction {
+  blockNumber: string;
+  confirmations: number;
+}
+
+export async function confirmTransaction(
+  reader: Pick<PublicClient, 'waitForTransactionReceipt' | 'getBlockNumber'>,
+  hash: Hex,
+  failureMessage: string,
+  minimumConfirmations = 2,
+): Promise<ConfirmedTransaction> {
+  const receipt = await reader.waitForTransactionReceipt({ hash, confirmations: minimumConfirmations, timeout: 180_000 });
+  if (receipt.status !== 'success') throw new Error(failureMessage);
+  const head = await reader.getBlockNumber();
+  return {
+    blockNumber: receipt.blockNumber.toString(),
+    confirmations: Math.max(1, Number(head - receipt.blockNumber + 1n)),
+  };
 }

@@ -19,13 +19,15 @@ export default function DonateForm() {
   const [amountError, setAmountError] = createSignal('');
   const [error, setError] = createSignal('');
   const [step, setStep] = createSignal<DonateStep | 'idle'>('idle');
-  const [result, setResult] = createSignal<{ address: string; approveTxHash: string; donateTxHash: string }>();
+  const [result, setResult] = createSignal<Awaited<ReturnType<typeof donate>>>();
   const busy = () => step() !== 'idle';
 
   const statusLabel = () => ({
     idle: '', connecting: 'ウォレットに接続しています… / Connecting wallet…',
     approving: 'JPYC の使用を承認しています… / Approving JPYC…',
+    'waiting-approval': '承認の確認を待っています… / Waiting for 2 approval confirmations…',
     donating: '寄付を送信しています… / Sending donation…',
+    'waiting-donation': '寄付の確認を待っています… / Waiting for 2 donation confirmations…',
   })[step()];
 
   async function submit(event: SubmitEvent) {
@@ -81,10 +83,12 @@ export default function DonateForm() {
       <Show when={result()}>
         {(r) => (
           <div class="donate-panel__success" role="status">
-            <strong>寄付が送信されました / Donation sent</strong>
+            <strong>寄付が確認されました / Donation confirmed</strong>
             <p>{shortAddress(r().address)} から / from {shortAddress(r().address)}</p>
+            <p>Block {r().donateBlockNumber} · {r().confirmations}+ confirmations</p>
             <p><a href={sepoliaTxUrl(r().donateTxHash)} target="_blank" rel="noreferrer">寄付トランザクションを表示 / View donate transaction</a></p>
-            <p><a href={sepoliaTxUrl(r().approveTxHash)} target="_blank" rel="noreferrer">承認トランザクションを表示 / View approve transaction</a></p>
+            <p><a href={sepoliaTxUrl(r().approveTxHash)} target="_blank" rel="noreferrer">承認トランザクションを表示 / View approval (block {r().approveBlockNumber})</a></p>
+            <button type="button" class="donate-panel__refresh" onClick={() => location.reload()}>基金残高を更新 / Refresh fund</button>
           </div>
         )}
       </Show>
