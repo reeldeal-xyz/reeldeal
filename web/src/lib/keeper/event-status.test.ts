@@ -54,6 +54,13 @@ const escalation = (referenceEventId: string): EscalatedRun => ({
 });
 
 describe('listEventStatuses', () => {
+  test('replays that share an on-chain eventId are shown once, as the latest data season', async () => {
+    const publicClient = fakeClient({ attested: new Set(), statuses: {} });
+    const refs = ['2023-scallop-tier1', '2024-scallop-tier1', '2025-scallop-tier1', '2023-scallop-tier2'].map(getReferenceEvent);
+    const out = await listEventStatuses({ publicClient, poolAddress: POOL, fromBlock: 0n, escalatedRuns: async () => [] }, refs);
+    expect(out.map((e) => e.id)).toEqual(['2025-scallop-tier1', '2023-scallop-tier2']);
+  });
+
   test('unattested events are not_fired, or awaiting_coop when Jev escalated them', async () => {
     const publicClient = fakeClient({ attested: new Set(), statuses: {} });
     const [ban, heat] = await listEventStatuses(
