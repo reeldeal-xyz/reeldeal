@@ -5,6 +5,16 @@ export const env = {
   worldAppId: () => need('WORLD_APP_ID'),
   worldRpId: () => need('WORLD_RP_ID'),
   worldRpSigningKey: () => need('WORLD_RP_SIGNING_KEY'),
+  worldAction: () => need('WORLD_ACTION'),
+  worldActionL2: () => need('WORLD_ACTION_L2'),
+  worldEnvironment: (): 'production' | 'staging' | 'sandbox' => {
+    const v = need('WORLD_ENVIRONMENT');
+    if (v !== 'production' && v !== 'staging' && v !== 'sandbox') {
+      throw new Error(`invalid WORLD_ENVIRONMENT ${v} (want production|staging|sandbox)`);
+    }
+    return v;
+  },
+  humanRegistryAddress: () => need('HUMAN_REGISTRY_ADDRESS'),
   binderKey: () => need('BINDER_PRIVATE_KEY'),
   // Messaging API channel: LINE_CHANNEL_SECRET both verifies webhook signatures and, as
   // client_secret, mints stateless channel access tokens (see lib/line.ts).
