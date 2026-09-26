@@ -1,0 +1,182 @@
+# Repository boundaries
+
+## Observed systems
+
+### Entity: Contracts
+
+Solidity contracts, ENS adapters/interfaces, tests, and deployment records. Records are not live-health evidence.
+
+```yaml
+entity: Contracts
+type: component
+properties:
+  adr:
+    default: docs/adrs/0005-trigger-and-settlement.md
+  paths:
+    default: contracts/
+states: [observed]
+```
+
+### Entity: Shared
+
+Shared feed and Trigger contracts, computation, exported ABIs, and deployment addresses. Review together with Solidity when their interface changes.
+
+```yaml
+entity: Shared
+type: component
+properties:
+  adr:
+    default: docs/adrs/0005-trigger-and-settlement.md
+  paths:
+    default: packages/shared/
+states: [observed]
+```
+
+### Entity: Pipeline
+
+Current TypeScript file-backed feed API, ingestion/computation, tests, and pinned buoy/toxin/geographic inputs. FastAPI is planned under #82.
+
+```yaml
+entity: Pipeline
+type: component
+properties:
+  adr:
+    default: docs/adrs/0003-risk-api-and-keeper.md
+  paths:
+    default: pipeline/
+states: [observed]
+```
+
+### Entity: Application
+
+Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration, plus the frontend/ Astro and Storybook foundation. Production route and service migration remains under #54.
+
+```yaml
+entity: Application
+type: component
+properties:
+  adr:
+    default: docs/adrs/0002-astro-and-app-core.md
+  paths:
+    default: web/ frontend/
+states: [observed]
+```
+
+### Entity: Tooling
+
+Bun workspace configuration, dependency lock, repository scripts, CI, and agent settings.
+
+```yaml
+entity: Tooling
+type: component
+properties:
+  adr:
+    default: docs/adrs/0001-observed-code-and-design-intent.md
+  paths:
+    default: scripts/ .github/ .claude/ package.json bun.lock tsconfig.base.json skills-lock.json .gitignore .gitmodules
+states: [observed]
+```
+
+### Entity: Documentation
+
+Product description, architecture, integration contracts, and repository instructions.
+
+```yaml
+entity: Documentation
+type: component
+properties:
+  adr:
+    default: docs/adrs/README.md
+  paths:
+    default: README.md CLAUDE.md docs/
+states: [observed]
+```
+
+## Planned systems
+
+### Entity: AstroApplication
+
+Completed Astro application and app-core migration, owned by #54/#63. The frontend/ foundation exists; production routes and server-service migration are still pending.
+
+```yaml
+entity: AstroApplication
+type: planned
+properties:
+  adr:
+    default: docs/adrs/0002-astro-and-app-core.md
+  status:
+    default: planned
+states: [planned]
+```
+
+### Entity: FastApiRisk
+
+Python/FastAPI risk API and producer schemas, owned by #82/#79. Verify live data through #36/#77.
+
+```yaml
+entity: FastApiRisk
+type: planned
+properties:
+  adr:
+    default: docs/adrs/0003-risk-api-and-keeper.md
+  status:
+    default: planned
+states: [planned]
+```
+
+### Entity: Postgres
+
+Separate app/risk schemas with agreed geographic ownership, planned under #57/#59/#62.
+
+```yaml
+entity: Postgres
+type: planned
+properties:
+  adr:
+    default: docs/adrs/0004-postgres-schema-ownership.md
+  status:
+    default: planned
+states: [planned]
+```
+
+## Relationships
+
+### Relationship: Contracts → Shared
+
+```yaml
+relationship: Contracts -> Shared
+verb: exports
+description: Contract ABI and Trigger agreement; coordinated review required.
+```
+
+### Relationship: Pipeline → Shared
+
+```yaml
+relationship: Pipeline -> Shared
+verb: depends_on
+description: Existing feed schemas and deterministic computation.
+```
+
+### Relationship: Application → Shared
+
+```yaml
+relationship: Application -> Shared
+verb: depends_on
+description: Existing consumer validation, ABI calls, and signing types.
+```
+
+### Relationship: AstroApplication → FastApiRisk
+
+```yaml
+relationship: AstroApplication -> FastApiRisk
+verb: depends_on
+description: Planned typed handoff under #55/#79; not observed runtime traffic.
+```
+
+### Relationship: AstroApplication → Postgres
+
+```yaml
+relationship: AstroApplication -> Postgres
+verb: depends_on
+description: Planned persistence under #62; not an existing database deployment claim.
+```
