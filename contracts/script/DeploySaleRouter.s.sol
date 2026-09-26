@@ -39,6 +39,11 @@ contract DeploySaleRouter is Script, StdCheats {
     address internal constant JPYC = 0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29;
     address internal constant RELIEF_POOL_V2 = 0x560E8404be74DCB7F3877835F374CF1B1B696D32;
 
+    /// @dev The live pool moves (fresh demo pools via `bun run e2e -- --live`), so read it from env.
+    function _reliefPool() internal view returns (address) {
+        return vm.envOr("RELIEF_POOL_ADDRESS", RELIEF_POOL_V2);
+    }
+
     uint16 internal constant DEFAULT_MAX_RELIEF_BPS = 1_000; // 10%
 
     // Dry-run-only demo actors/quote fixture.
@@ -77,7 +82,7 @@ contract DeploySaleRouter is Script, StdCheats {
 
         vm.startBroadcast(deployerKey);
         SaleRouter router = new SaleRouter(
-            IERC20(JPYC), IReliefPoolDonate(RELIEF_POOL_V2), deployer, quoteSigner, maxReliefBps
+            IERC20(JPYC), IReliefPoolDonate(_reliefPool()), deployer, quoteSigner, maxReliefBps
         );
         vm.stopBroadcast();
 
@@ -101,7 +106,7 @@ contract DeploySaleRouter is Script, StdCheats {
         vm.deal(deployer, 1 ether);
         vm.startPrank(deployer);
         SaleRouter router = new SaleRouter(
-            IERC20(JPYC), IReliefPoolDonate(RELIEF_POOL_V2), deployer, quoteSigner, maxReliefBps
+            IERC20(JPYC), IReliefPoolDonate(_reliefPool()), deployer, quoteSigner, maxReliefBps
         );
         vm.stopPrank();
 

@@ -40,7 +40,6 @@ export const DEPLOYED = {
   ReliefPoolDeployBlock: 11785698,
   EnsPlotResolver: '0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b',
   EnsSlotResolver: '0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec',
-  // SaleRouter (issue #65 / SP-11): not yet broadcast. contracts/script/DeploySaleRouter.s.sol's fork
-  // dryRun() has been verified end-to-end against this file's live JPYC + ReliefPool; run its real `run()`
-  // to broadcast, then record the address (and quoteSigner/maxReliefBps used) here.
+  // SaleRouter (issue #65 / SP-11): donates to the ReliefPool above. quoteSigner = co-op signer, maxReliefBps 1000.
+  SaleRouter: '0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd',
 } as const;
