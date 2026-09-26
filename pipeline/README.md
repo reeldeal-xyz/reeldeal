@@ -1,6 +1,13 @@
 # Satellite Imagery Analysis Pipeline for Aquaculture Risk
 
-Owner: Jay. Stack: Python 3.12, FastAPI, numpy, rasterio, shapely (xarray/Zarr when builds go national). Status: SPEC (draft; open questions are marked `Q#` and listed at the end). **Implemented:** the shared core (pin, JAXA Earth API client, grid, extraction, plots and sea areas), JAXA daily and monthly ingest for heat (SST) and HAB (chl-a), heat `SST` / `SST_ANOM` / `SST_MONTH` for the Miyagi region, and the `pipeline` CLI. Everything else is spec; unimplemented routes answer 501 and `/health` says so.
+Owner: Jay. Stack: Python 3.12, FastAPI, numpy, rasterio, shapely (xarray/Zarr when builds go national). Status: SPEC (draft; open questions are marked `Q#` and listed at the end). **Implemented:**
+- The shared core: pin, JAXA Earth API client, grid, extraction, plots and sea areas.
+- PostGIS-backed core routes: plot uploads, the station registry and series, and `POST /risk`.
+- Species reference data.
+- JAXA daily and monthly ingest for heat (SST) and HAB (chl-a).
+- Heat `SST` / `SST_ANOM` / `SST_MONTH` for the Miyagi region.
+- HAB `BANWEEKS` / `BAN_ACTIVE` from Miyagi's shellfish toxin bulletins.
+- The `pipeline` CLI. Everything else is spec; unimplemented routes answer 501 and `/health` says so.
 
 **Precedence:** this README is the source of truth for the pipeline and overrules `docs/` (`INTERFACE.md`, `ARCHITECTURE.md`). Where it diverges, `docs/` and `packages/shared` must be updated to match (see §13). This must be coordinated with the app owner, because the web app and contracts consume that code.
 
@@ -72,7 +79,10 @@ Principles:
 - **Plots:**
   - The national inventory comes from 海しる (MSIL, Japan Coast Guard) demarcated fishery-right (区画漁業権) polygons. Check licence and bulk-download terms (`Q3`).
   - Co-ops and farmers can also upload plot polygons through `POST /plots`.
-  - Plots, sea areas and stations will live in a separate PostGIS service that the pipeline reads as a client. Until it exists, `data/ref/plots.geojson` (15 synthetic demo plots `p1213-001…015` in `karakuwa-east`, matching the web app) and `data/ref/zones/*.geojson` (traced sea areas) are a read-only seed, and `POST /plots` stays 501.
+  - Plots, sea areas and stations live in the separate PostGIS service (`db/`), which the pipeline reaches as a client through `DATABASE_URL` (role `pipeline`).
+    - `POST /plots` stores uploads in `geo.plots` as `upload:<plotCode>`, the prefix the database requires.
+    - `data/ref/plots.geojson` (15 synthetic demo plots `p1213-001…015` in `karakuwa-east`, matching the web app) and `data/ref/zones/*.geojson` (traced sea areas) stay a reviewed seed that is served without a database.
+    - `GET /plots` lists the seed, then the uploads. While the database is unavailable it lists the seed alone, and `POST /plots` answers 503.
   - The pipeline stores geometry, species, operation type (longline, raft, cage) and plot code. **No owner names or personal data.**
 - **Sea areas:** the prefectures' toxin/red-tide monitoring areas, digitized as polygons, are how bulletins map onto plots. Sea-area indices are what an on-chain zone consumes (`Q1`).
 - **Pixel vs plot:** plots are 10²–10³ m across, while grids are 300 m–20 km and often land-masked inside bays. Extraction uses the following order and records which one was used and how many pixels (the value is their median):
@@ -117,9 +127,14 @@ JAXA says Earth API specifications "may change or publication may cease without 
 
 ## 5. Station registry (shared core)
 
-`stations.parquet` is one national catalogue of every in-situ point we ingest:
+One national catalogue of every in-situ point we ingest, stored in PostGIS `geo.stations`, with observations in `risk.station_observations`:
 
 `{station_id, name, source, type (buoy|tide|shore|research), lat, lon, prefecture, sea_area, variables, cadence, url, first_obs, last_obs}`
+
+- **Registry:** `data/ref/stations.json` is the reviewed list.
+- **Loading:** `pipeline stations build` (also part of `pipeline all build`) upserts every station that has a published position, and loads its pinned observations through the station's adapter.
+- **Positions are never guessed.** A station without lat/lon is reported and skipped. The Miyagi Futatsune (二ツ根) buoy is registered this way: its operator gives only "気仙沼湾内二ツ根" and no coordinates. Its 3 m water temperature (`WT`, 30-min) loads as soon as a published position is added.
+- **Routes:** `GET /stations?bbox=&type=` and `GET /stations/{id}/series?var=&start=&end=&depth=` read the database. A series carries its depth and the sha256 of every pinned input behind it.
 
 Modules read from the registry but own their own observation series (e.g. heat reads buoy water temperature, storm reads tide-station sea level). Uses:
 - Satellite-vs-station offsets per region and season (generalizes the old `buoy-<month>.json`).
@@ -197,9 +212,20 @@ Harmful algal blooms: shellfish toxin (PSP/DSP) shipment bans for shellfish, red
 | `REDTIDE_DAYS` | days | Red-tide exposure days in the sea area (finfish) |
 | `CHL` | mg/m³ | Daily chlorophyll-a from JAXA GCOM-C SGLI (null under cloud) |
 | `CHL_Z` | z-score | chl-a anomaly vs the SGLI day-of-year climatology (2018–). Satellite proxy, not toxin |
-
-Built so far: daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`). The indices above are not computed yet (#80).
 | `MLD` | m | Mixed-layer depth from Copernicus physics (stratification) |
+
+**Built so far:**
+- Daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`).
+- `BANWEEKS` / `BAN_ACTIVE` for Miyagi (#80). `REDTIDE_DAYS`, `CHL`, `CHL_Z` and `MLD` are not computed yet.
+
+**Ban index conventions** (#80, `hazards/hab/indices.py`):
+- **Season:** a HAB season `YYYY` is the calendar year.
+- **Restricted days:** on each day from `restricted_from` up to (not including) `lifted_on`, `BAN_ACTIVE` = 1 and `BANWEEKS` = (day − `restricted_from`) // 7 + 1. Tests are weekly, so the count steps up on each test date: Miyagi's karakuwa-east scallop PSP restriction from 2026-05-12 reaches 4 on 2026-06-02, as the app's `BANWEEKS` rule expects.
+- **Lift day:** the published lift date gets 0 / 0.
+- **Open restrictions** run to today (JST).
+- **Days outside every published interval are omitted, not 0.** A bulletin says when a ban starts and lifts, not that a sea area tested clear on every other day.
+- **Scope:** series exist per species and toxin with a published restriction. Plots inherit their sea area's series for their own species.
+- **Provenance:** each value's `source` is the reviewed bulletin it came from: `{product: "<pref>-shellfish-toxin-bulletin", sha256: <bulletin sha256>}`. This is the hash the app signs as `Trigger.dataHash` for a `BANWEEKS` payout.
 
 **Bulletin extraction (national):**
 
@@ -210,8 +236,12 @@ Built so far: daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`). Th
    - Normalize wareki dates (令和) and full-width characters.
 3. **Normalize:** one row per restriction interval: `{pref, sea_area, species, toxin (PSP|DSP), level, restricted_from, lifted_on, source_url, sha256}`. `level` is the prefecture's own restriction category as published, not a pipeline grade.
 4. **Map:** sea-area names become polygons via a reviewed lookup table.
-5. **Pin:** the normalized `hab-bans.csv` (per season) is the input whose sha256 goes into the provenance of `BANWEEKS` / `BAN_ACTIVE`.
+5. **Pin:** each row keeps the URL and sha256 of the pinned bulletin it was extracted from. That sha256 is the provenance of every `BANWEEKS` / `BAN_ACTIVE` value the row produces.
 6. **Review:** extraction diffs need a human sign-off before publication, because consumers act on these values. Rows get a confidence flag. OCR or LLM-assisted extraction is allowed but always goes to review.
+   - The reviewed table is `data/ref/hab/bans.csv`. It changes only through a reviewed commit, and a test fails if it drifts from the adapters' output.
+   - `pipeline hab build` (daily) upserts it into PostGIS `risk.restrictions`, which the routes read.
+
+Adapters so far: **Miyagi**. `data/toxin/scallop-ban-2026.json` is hand-transcribed from the prefecture's 令和8年度 PSP table (`miyagi-mahi-kaidoku-2026-09-15.pdf`). It holds scallop restrictions in karakuwa-east (2026-05-12 → 2026-09-15) and kesennuma-bay (2026-05-26 → 2026-09-08). An earlier kesennuma-bay episode whose start isn't in the pinned table is not used.
 
 **Models (advisory):**
 - `hab-onset`: probability of a toxin ban or red tide in the next 1–4 weeks per sea area, from JAXA SST and chl-a, Copernicus stratification (MLD, salinity, currents), season and past bans. Labels come from decades of national bulletins; satellite features exist from 2018 (SGLI).
@@ -221,8 +251,8 @@ Built so far: daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`). Th
 ```
 POST /hab/risk                          GeoJSON Feature + species + date range → HAB indices, sources
 GET  /hab/plots/{plot}/risk?season=     same, for an inventoried plot
-GET  /hab/indices/{zone}/{season}       per-day ban/red-tide indices for a sea area
-GET  /hab/bans?pref=&season=            normalized toxin restrictions
+GET  /hab/indices/{zone}/{season}       per-day ban (and, later, red-tide) indices for a sea area
+GET  /hab/bans?pref=&season=            normalized toxin restrictions in force during the season
 GET  /hab/redtides?pref=&season=        normalized red-tide events
 GET  /hab/forecast/{zone}               hab-onset probabilities (advisory)
 GET  /hab/layers/{date}                 chl-a layer metadata / tile URL
@@ -328,7 +358,9 @@ Module response envelope (`POST /heat/risk`; `/hab/risk` and `/storm/risk` use t
 - `GET /<module>/indices/{zone}/{season}` returns `{ module, module_version, zone, season, series: [{ index, unit, species?, toxin?, points: [{ date, value, source, pixels, event? }] }] }`. `species`/`toxin` are set for HAB ban indices; `event` for per-event storm indices.
 - `GET /<module>/layers/{date}` lists every built layer covering the date (daily, daily-normal, and the half-month/month composite containing it) with `cadence`, `region`, `product`, `validFraction` and `sha256`.
 
-`POST /risk` returns `{ "plot": …, "heat": <heat response>, "hab": <hab response>, "storm": <storm response> }`. A module whose required field is missing from the request (`species` for HAB, `gear` for storm) is `null`.
+`POST /risk` returns `{ "plot": …, "heat": <heat response>, "hab": <hab response>, "storm": <storm response> }`. A module is `null` when its required field is missing from the request (`species` for HAB, `gear` for storm), or when it has nothing to give: not built (404), not implemented (501) or database unavailable. Invalid input still fails the whole request with 422.
+
+Routes that need PostGIS (`POST /plots`, `/stations*`, the HAB ban routes) answer **503** while `DATABASE_URL` is unset or the database is unreachable.
 
 ## 12. Layout
 
@@ -398,6 +430,9 @@ uv run pipeline-serve                                 # all modules on :8787
 uv run pipeline-serve --module storm                  # one module alone
 uv run pytest                                         # hermetic (fake JAXA store); includes the Kesennuma regression snapshot
 uv run pytest tests/hab                               # one module's tests
+scripts/testdb.sh up                                  # throwaway PostGIS (production bootstrap + migrations); prints
+                                                      #   export PIPELINE_TEST_DATABASE_URL=…, which enables tests/db
+scripts/testdb.sh down
 ```
 
 ## 15. Open questions
