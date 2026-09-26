@@ -2,6 +2,7 @@
 import Button from '../atoms/Button.astro';
 import type { Detail } from '../../lib/lot-detail';
 import { auditActionLabel } from '../../lib/audit-label';
+import { fishIllustration } from '../../lib/fish-illustration';
 
 interface Props {
   detail?: Detail;
@@ -26,6 +27,7 @@ const decision = detail?.typed_decision;
 const corrections = detail?.corrections ?? [];
 const correctedFields = new Set(corrections.map((correction) => correction.field));
 const hasPhoto = !!observation && /^data:image\/(?:jpeg|png|webp|avif);base64,[a-z0-9+/=]+$/i.test(observation.image_ref);
+const illustration = fishIllustration(facts?.species_label ?? undefined);
 const decisionAnswer = decision?.kind === 'choice' ? decision.choice ?? 'No answer'
   : decision?.kind === 'score' ? `${Math.round((decision.score ?? 0) * 100)}% recorded score`
     : decision?.kind === 'noul' ? decision.noul_value ? 'Yes' : 'No' : '';
@@ -48,8 +50,7 @@ const checkSummary = detail && (corrections.length > 0
       {hasPhoto ? (
         <img src={observation?.image_ref} width="960" height="720" alt={`Landing photograph for ${facts?.species_label ?? 'this lot'}`} data-lot-image />
       ) : (
-        <img src="/images/landing-placeholder.png" width="960" height="720"
-          alt="Illustrated fish silhouette; no landing photograph" loading="eager" data-lot-image />
+        <img {...illustration} width="960" height="640" loading="eager" data-lot-image />
       )}
       <span class="rd-ui-badge rd-ui-badge--lime market-detail__photo-badge">
         <span class="rd-ui-badge__dot" aria-hidden="true"></span>

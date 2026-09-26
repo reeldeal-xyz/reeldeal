@@ -2,15 +2,16 @@
 import Badge from '../atoms/Badge.astro';
 import Button from '../atoms/Button.astro';
 import type { PreviewLot } from '../../fixtures/preview-lots';
+import { fishIllustration } from '../../lib/fish-illustration';
 
 const { lot, first = false, href = '#offer', index = 0 } = Astro.props as { lot: PreviewLot; first?: boolean; href?: string; index?: number };
 const tones = ['lime', 'pink', 'yellow', 'blue'];
+const illustration = fishIllustration(lot.species);
 ---
 
 <article class={`market-card market-card--${tones[index % tones.length]} market-card--preview`} aria-labelledby={`market-${lot.id}`}>
   <div class="market-card__media">
-    <img src="/images/landing-placeholder.png" width="480" height="360"
-      alt="Illustrated fish silhouette; no landing photograph" loading={first ? 'eager' : 'lazy'} />
+    <img {...illustration} width="480" height="320" loading={first ? 'eager' : 'lazy'} />
     <div class="market-card__image-copy">
       <Badge label="Preview" tone="yellow" class="market-card__status" />
       <div class="market-card__image-facts">

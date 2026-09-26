@@ -52,6 +52,16 @@ export const ProofOpen = {
 
 export const Loading = { args: { initialState: 'loading' } };
 
+export const UnknownSpecies = {
+  args: {
+    initialDetail: {
+      ...demoDetail,
+      effective_facts: { ...demoDetail.effective_facts, species_label: 'Unknown species' },
+    },
+    initialMessage: 'Synthetic demo lot · no landing photo or real sale.',
+  },
+};
+
 export const Unavailable = {
   args: {
     initialState: 'unavailable',
