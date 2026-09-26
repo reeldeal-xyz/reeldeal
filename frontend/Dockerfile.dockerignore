@@ -6,6 +6,9 @@
 !packages/shared/src/
 !packages/shared/src/**
 !web/package.json
+!docs/
+!docs/assets/
+!docs/assets/reeldeal-logo.svg
 !frontend/
 frontend/node_modules
 frontend/dist
