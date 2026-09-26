@@ -59,7 +59,7 @@ stays the source of truth for season-slot ownership regardless of where the demo
 Migrate, in order (the `app` migration's FK needs `geo.plots` to already exist):
 
 ```sh
-bun run db:migrate:geo              # dbmate-style geo bootstrap (db/migrations/, interim runner: db/scripts/migrate.ts)
+bun run db:migrate:geo              # dbmate-style geo bootstrap (interim seed in db/interim/, runner db/scripts/migrate.ts; Jay's #114 dbmate migrations in db/migrations/ supersede it)
 bun run --filter web db:migrate     # drizzle-orm/bun-sql migrator, web/drizzle/
 # or both, in order:
 bun run db:migrate

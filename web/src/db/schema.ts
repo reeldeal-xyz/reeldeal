@@ -43,7 +43,7 @@ export const walletLinks = app.table(
 // Replaces web/src/lib/payout-directory.ts's `plotWallet` map (recordPlotWallet). One current payout
 // wallet per plot; `updated_at` tracks the keeper's last attest+settle write.
 export const plotWallets = app.table('plot_wallets', {
-  // References geo.plots.plot_code -- FK added by hand in the migration SQL (see header comment).
+  // References geo.plots.plot_code -- no FK: #114 keeps plot_code unique only among live rows, so it cannot back a foreign key.
   plotId: text('plot_id').primaryKey(),
   wallet: text('wallet').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

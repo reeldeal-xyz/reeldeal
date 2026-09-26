@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const migrationsDir = join(here, '..', 'migrations');
+const migrationsDir = join(here, '..', 'interim');
 
 function extractUpSection(sql: string): string {
   const upIdx = sql.indexOf('-- migrate:up');
