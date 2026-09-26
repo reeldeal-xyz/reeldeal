@@ -1,0 +1,25 @@
+# Astro web app, deployed separately from the pipeline and the database (frontend/DEPLOY.md).
+# Caddy (pipeline/caddy/Caddyfile) serves it at app.<SITE_ADDRESS> over the shared reeldeal network,
+# where it also reaches the database at db:5432.
+name: reeldeal-web
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-}   # set by the deploy workflow; /health reports it
+    image: reeldeal-web
+    restart: unless-stopped
+    # Runtime secrets for astro:env/server (LEGACY_WEB_ORIGIN, PIPELINE_API_URL, DATABASE_URL).
+    env_file:
+      - path: .env
+        required: false
+    expose:
+      - "4321"
+
+networks:
+  default:
+    name: reeldeal
+    external: true

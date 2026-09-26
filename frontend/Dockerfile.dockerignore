@@ -1,0 +1,14 @@
+# Context is the repo root; send only what frontend/Dockerfile copies.
+*
+!package.json
+!bun.lock
+!packages/shared/package.json
+!web/package.json
+!frontend/
+frontend/node_modules
+frontend/dist
+frontend/.astro
+frontend/storybook-static
+frontend/.storybook-cache
+frontend/.env
+frontend/.env.*
