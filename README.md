@@ -1,30 +1,119 @@
-# Umi
+Umi is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
 
-Umi is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone. 
+## **What is insurance / relief?**
 
-## What is insurance / relief? 
-Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event. 
+Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event.
 
-The policyholder pays the fund, the fund manages the money and pays the beneficiaries in the case of event. 
+The policyholder pays the fund, the fund manages the money and pays the beneficiaries in the case of event.
 
-Types of insurance: 
-1. Conventional, damages-based insurance: In this form of insurance, the policyholder pays the fund regularly. When event defined by the policy occurs (ex. car accident), the insurance company evaluates the damages and pays out depending on the value of damages. The beneficiary receives the fund after the damage is estimated. 
-2. Parametric insurance: In this form of insurance the policyholder pays the fund regularly. When the event defined by the policy occurs, the payout is triggered by event thresholds rather than the damages that occured. For example, in wildfire scenario, the insurance payout is triggered by the property reaching excessive temperature (ex. above 200 deg C). Benefit is that this insurance does not require someone to assess damages and funds are released sooner, so can be used for responding to the triggered event. 
+Types of insurance:
 
-We are working with parametric insurance model, with thresholds crossed leading to release of funds. 
+1. Conventional, damages-based insurance: In this form of insurance, the policyholder pays the fund regularly. When event defined by the policy occurs (ex. car accident), the insurance company evaluates the damages and pays out depending on the value of damages. The beneficiary receives the fund after the damage is estimated.  
+2. Parametric insurance: In this form of insurance the policyholder pays the fund regularly. When the event defined by the policy occurs, the payout is triggered by event thresholds rather than the damages that occured. For example, in wildfire scenario, the insurance payout is triggered by the property reaching excessive temperature (ex. above 200 deg C). Benefit is that this insurance does not require someone to assess damages and funds are released sooner, so can be used for responding to the triggered event.
 
-The thresholds are defined by the species and equipment used for farming, since each species (finfish, shellfish, seaweed) has different tolerances to threats, like heat stress, storm energy damage, toxins from harmful algal blooms. 
+We are working with parametric insurance model, with thresholds crossed leading to release of funds.
 
-Avoiding the full "insurance" claim, since that comes with substantial legal burden. Instead, this is a relief fund that is a social good. 
+The thresholds are defined by the species and equipment used for farming, since each species (finfish, shellfish, seaweed) has different tolerances to threats, like heat stress, storm energy damage, toxins from harmful algal blooms.
+
+Avoiding the full "insurance" claim, since that comes with substantial legal burden. Instead, this is a relief fund that is a social good.
 
 Fund the relief fund through range of mechanisms:
-1. Direct donations to the fund
-2. Collecting fees from fisherman / aquaculture farmers 
+
+1. Direct donations to the fund  
+2. Collecting fees from fisherman / aquaculture farmers  
 3. Selling the local products (ReelDeal)
 
-The data to inform whether the thresholds are crossed or not, comes from satellite imagery data (JAXA, NASA, ESA), deployed sensor networks with direct readings in-ocean, PDF reports from local government. The sensor networks and reports from local government is the ground truth, which we can calibrate / confidence on the satellite imagery derived results. 
+The data to inform whether the thresholds are crossed or not, comes from satellite imagery data (JAXA, NASA, ESA), deployed sensor networks with direct readings in-ocean, PDF reports from local government. The sensor networks and reports from local government is the ground truth, which we can calibrate / confidence on the satellite imagery derived results.
 
-We can understand / forecast / hindcast the occurrence of threshold triggering events from these data. This forms the spatial model for risk, model the distribution (where and how likely) thresholds are crossed (therefore cause damage to local fisherman, trigger payouts). 
+We can understand / forecast / hindcast the occurrence of threshold triggering events from these data. This forms the spatial model for risk, model the distribution (where and how likely) thresholds are crossed (therefore cause damage to local fisherman, trigger payouts).
+
+## **DataTypes**
+
+Farm
+
+- ID unique  
+- Location of the farm, GeoJSON polygon   
+- Specie (relation to Species)  
+- Equipment (relation to Equipments) 
+
+AquacultureFarmer
+
+- ID unique  
+- Farms (relation to Farm, one to many)   
+- Fund (relation)
+
+Species
+
+- Species name string  
+- Thresholds by RiskModel, numeric
+
+Equipments 
+
+- Equipment type string  
+- Description string 
+
+Event
+
+- Threshold  
+- Datetime  
+- Fund   
+- Farm
+
+Threshold
+
+- RiskModel  
+- Values for threshold (above, below, between these values) 
+
+Fund
+
+- Total value of fund  
+- Transactions 
+
+Buyer
+
+- ID  
+- Transactions (Buyer and Fund)
+
+Donor
+
+- ID  
+- Transactions ID 
+
+Transactions
+
+- ID  
+- Buyer  
+- Donor
+
+RiskDataProvider
+
+- Provider name, string  
+- Ex. NASA, ESA, JAXA  
+- DataLayer, relation to RiskDataLayers (one to many) 
+
+RiskDataLayers
+
+- Name string   
+  - Ex. NASA Chlorophyll A concentration, NASA Sea Surface Temperature  
+- Frequency numeric  
+  - 1 (daily)  
+  - 30 (monthly) 
+
+RiskModel
+
+- Name string  
+  - Ex. Harmful Algal Bloom Model v1, reading from set of variables from RiskDataInput  
+    - Random Forest model  
+  - Ex. Heat Stress Model v2, reading from set of variables from RiskDataInput  
+    - Neural network   
+- Version string
+
+RiskType
+
+- Name string  
+  - Harmful Algal Bloom, Heat Stress, Storm Damage  
+- Units string  
+  - concentration ppm, degrees Celsius, wind speed km/h 
 
 ## Repository Structure
 
