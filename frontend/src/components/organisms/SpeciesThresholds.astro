@@ -1,0 +1,29 @@
+---
+import type { PipelineHeatRisk, PipelinePlotRecord, PipelineSpeciesDetail } from '@repo/shared';
+import { thresholdView } from '../../lib/hmi-thresholds';
+interface Props { species: string; season: string; plot?: PipelinePlotRecord; data: PipelineHeatRisk | null; profile?: PipelineSpeciesDetail | null; lang?: 'en' | 'ja' }
+const { species, season, plot, data, profile, lang = 'en' } = Astro.props;
+const ja = lang === 'ja';
+const view = thresholdView(species, season, data, plot, profile);
+const name = species === 'scallop' ? (ja ? 'ホタテ' : 'Scallop') : species === 'hoya' ? (ja ? 'ホヤ（マボヤ）' : 'Sea pineapple (hoya)') : profile ? (ja ? profile.nameJa : profile.name) : species;
+---
+<div class="species-thresholds" data-threshold-species={species}>
+  <p class="shelf-kicker">{name || (ja ? '魚種未選択' : 'No species selected')} · {season}</p>
+  <p class="threshold-reference">{ja ? '設定済みの補償ルール · 日ごとの海面水温（SST）。気温の基準ではありません。' : 'Configured relief rules · daily sea-surface temperature (SST), not air temperature.'}</p>
+  {view.drift && <p class="forecast-notice" role="status">{ja ? 'パイプラインとアプリのルールが一致しません。以下はアプリに固定された基準値です。判定を停止しています。' : 'Pipeline rules differ from the app. Showing pinned app thresholds; progress is unavailable until versions match.'}</p>}
+  {view.geometryMismatch && <p class="forecast-notice" role="status">{ja ? '観測値の区画形状が地図と一致しません。旧形状の値を集計しません。' : 'Observation geometry differs from the mapped plot. Old-geometry readings are not counted.'}</p>}
+  {view.invalidObservations && <p class="forecast-notice" role="status">{ja ? '観測日の重複または順序に問題があります。集計できません。' : 'Observation dates or values failed validation. Exposure cannot be counted.'}</p>}
+  {view.heat.map(({ rule, count, observedDays, missingDays, elapsedDays, asOf, reached }) => <section class="threshold-rule" data-threshold-temperature={rule.tempC}>
+    <header><strong>SST ≥ {rule.tempC}°C / {(rule.tempC! * 9 / 5 + 32).toFixed(1)}°F</strong><span>{ja ? `段階 ${rule.tier}` : `Tier ${rule.tier}`}</span></header>
+    <p class="threshold-limit">{ja ? `${rule.threshold}日以上` : `${rule.threshold} or more days`} · {rule.window!.start} – {rule.window!.end}</p>
+    <p class="threshold-progress">{count === null ? (ja ? '観測日数を確認できません' : 'Observed exposure unavailable') : `${count} / ${rule.threshold} ${ja ? '日' : 'days'}`}</p>
+    {count !== null && <progress max={rule.threshold} value={Math.min(count, rule.threshold)} aria-label={ja ? `${rule.tempC}℃以上の観測日数` : `Observed days at or above ${rule.tempC}°C`} />}
+    {count !== null && <p class="shelf-note">{ja ? `${observedDays}/${elapsedDays}経過日の観測値 · 欠測${missingDays}日` : `${observedDays}/${elapsedDays} elapsed days observed · ${missingDays} missing`}{asOf && ` · ${asOf}`}</p>}
+    {reached && <p class="threshold-reached">{ja ? '観測基準に到達 · 支払確認ではありません' : 'Observed threshold reached · not payment confirmation'}</p>}
+  </section>)}
+  {!view.heat.length && <p class="shelf-note">{ja ? 'この魚種の水温基準は設定されていません。' : 'No heat threshold is configured for this species.'}</p>}
+  {view.bans.map((rule) => <section class="threshold-rule"><strong>{ja ? '出荷規制' : 'Shipment restriction'}</strong><p>{ja ? `${rule.threshold}週間連続（BANWEEKS）` : `${rule.threshold} consecutive weeks (BANWEEKS)`}</p><p class="shelf-note">{ja ? '公的な規制情報が必要です。水温や天気予報から推定しません。' : 'Requires official restriction evidence. Not inferred from SST or weather forecasts.'}</p></section>)}
+  <p class="shelf-note">{view.rulesVersion} · {ja ? '暫定的な補償ルール。致死水温や飼育安全限界ではありません。欠測日は低温日として扱いません。' : 'Provisional relief rules, not lethal temperatures or husbandry safety limits. Missing days are not treated as cool days.'}</p>
+  {!profile && <p class="shelf-note">{ja ? 'オンライン魚種資料は利用できません。上記はアプリと共通の固定ルールです。' : 'Online species reference unavailable. The pinned app rules remain visible above.'}</p>}
+  {!!profile?.evidence.length && <details class="data-sources"><summary>{ja ? '研究資料と適用範囲' : 'Study evidence and limitations'}</summary>{profile.evidence.map((study) => <p><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a>{study.note && ` · ${study.note}`}</p>)}</details>}
+</div>

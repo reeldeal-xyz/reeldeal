@@ -1,0 +1,14 @@
+---
+interface Props { plotCode?: string; centroid?: [number, number]; lang?: 'en' | 'ja'; operational?: boolean }
+const { plotCode, centroid, lang = 'en', operational = false } = Astro.props;
+const ja = lang === 'ja';
+const location = centroid ? { latitude: centroid[1], longitude: centroid[0] } : null;
+---
+<div class="weather-forecast" data-weather-location={location ? JSON.stringify(location) : ''} data-weather-operational={String(operational)} data-weather-lang={lang}>
+  <p class="shelf-kicker">{plotCode ?? (ja ? '区画未選択' : 'No plot selected')} · {ja ? '今から72時間 · 日本時間' : 'Next 72 hours · JST'}</p>
+  <p class="shelf-note">{ja ? '現在の予報 · 補償判定には使用しません。' : 'Current forecast · excluded from relief calculations.'}</p>
+  <p class="forecast-status" data-weather-status role="status" aria-live="polite">{!operational ? (ja ? 'プレビューでは外部予報を取得しません。' : 'Forecast fetching is disabled in previews.') : !location ? (ja ? '区画を選択して予報を表示してください。' : 'Select a mapped plot to load its forecast.') : (ja ? '予報を開くと実データを取得します。' : 'Open this panel to load provider forecasts.')}</p>
+  <button type="button" class="forecast-refresh" data-weather-refresh disabled={!operational || !location}>{ja ? '予報を更新' : 'Refresh forecast'}</button>
+  <div data-weather-content></div>
+  <p class="shelf-note">{ja ? '海況モデルは沖合の粗い格子です。港内・沿岸航行の安全を保証するものではありません。気象庁の警報も確認してください。' : 'Marine models use offshore grid cells. They are not harbour conditions or navigation safety clearance. Check official JMA warnings.'} <a href="https://www.jma.go.jp/bosai/warning/" target="_blank" rel="noopener noreferrer">JMA</a></p>
+</div>

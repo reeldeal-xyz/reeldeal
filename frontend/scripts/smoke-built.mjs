@@ -24,7 +24,10 @@ async function withServer(legacyOrigin, check) {
   let spawnError;
   child.on('error', (error) => { spawnError = error; });
   const stopped = once(child, 'exit');
-  const request = (path, init = {}) => fetch(origin + path, { ...init, redirect: 'manual', signal: AbortSignal.timeout(3000) });
+  const request = async (path, init = {}) => {
+    try { return await fetch(origin + path, { ...init, redirect: 'manual', signal: AbortSignal.timeout(3000) }); }
+    catch (cause) { throw new Error(`Built smoke request failed: ${path}`, { cause }); }
+  };
   try {
     let ready = false;
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -86,6 +89,13 @@ await withServer(undefined, async (request) => {
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
   console.log('PASS relief selection rejects unknown plots and malformed/duplicate season/event without a payment fallback');
+
+  for (const query of ['latitude=0&longitude=0', 'latitude=38&longitude=141&latitude=39', 'latitude=38&longitude=141&origin=https://other.example', 'latitude=&longitude=141']) {
+    const response = await request(`/api/weather/forecast?${query}`);
+    assert.equal(response.status, 400, 'Weather query must reject invalid or duplicate coordinates');
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  console.log('PASS forecast input is bounded to validated coordinates and a fixed provider');
 
   const heat = await request('/api/risk/heat/p1213-001?season=2025');
   assert.equal(heat.status, 503);

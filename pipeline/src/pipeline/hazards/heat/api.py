@@ -13,7 +13,7 @@ from pipeline.core.schemas import IndicesResponse, LayerInfo
 from pipeline.core.tiles import add_tile_route
 
 from . import MODULE
-from .build import NotBuilt, read_plot_risk, read_zone_indices
+from .build import NotBuilt, cache_plot_risk, read_plot_risk, read_zone_indices
 from .build import plot_risk as build_plot_risk
 from .build import risk as compute_risk
 from .layers import season_window
@@ -62,12 +62,16 @@ def plot_risk(plot: str, season: str) -> HeatRiskResponse:
     """
     if (p := store.lookup(plot)) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"unknown plot {plot!r}")
-    if (resp := read_plot_risk(plot, _season(season))) is not None:
+    if (resp := read_plot_risk(plot, _season(season), p)) is not None:
         return resp
     region = region_for(MODULE, p.geometry)
     resp = build_plot_risk(p, season, region) if region else None
     if resp is None or not resp.indices:
         raise _not_built(f"heat season {season} for plot {plot}")
+    try:
+        cache_plot_risk(p, season, resp)
+    except OSError:
+        pass  # A read-only output volume may serve computed data without caching it.
     return resp
 
 

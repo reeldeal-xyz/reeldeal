@@ -73,7 +73,7 @@ export const MobileForecast = {
     await initMap(canvasElement);
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole('button', { name: 'Forecast' }));
-    await waitFor(() => expect(canvas.getByText('Forecast data is unavailable. The map and chart show observed conditions.')).toBeVisible());
+    await waitFor(() => expect(canvas.getByText('Forecast fetching is disabled in previews.')).toBeVisible());
   },
 };
 export const MobileMarket = {

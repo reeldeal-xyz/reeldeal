@@ -151,3 +151,71 @@ def test_errors(built):
     assert r.status_code == 404 and "no heat layers" in r.json()["detail"]
     backwards = {"feature": {"type": "Feature", "properties": {}, "geometry": P1.geojson}, "start": "2025-08-02", "end": "2025-08-01"}
     assert client.post("/heat/risk", json=backwards).status_code == 422
+
+
+def test_cached_risk_is_bound_to_exact_geometry_not_only_area_and_centroid(built, monkeypatch):
+    from dataclasses import replace
+
+    from shapely.affinity import scale
+    from shapely.geometry import mapping
+
+    from pipeline.hazards.heat import api as heat_api
+    from pipeline.hazards.heat.build import geometry_fingerprint, read_plot_risk
+
+    changed_geometry = scale(P1.geometry, xfact=2, yfact=0.5, origin="centroid")
+    changed = replace(P1, geometry=changed_geometry, geojson=mapping(changed_geometry), source="fishery_right")
+    assert changed.area_m2 == pytest.approx(P1.area_m2, abs=0.2)
+    assert changed.centroid == P1.centroid
+    assert geometry_fingerprint(changed.geometry) != geometry_fingerprint(P1.geometry)
+    assert read_plot_risk(P1.plot_code, "2025", P1) is not None
+    assert read_plot_risk(P1.plot_code, "2025", changed) is None
+    called = []
+    compute = heat_api.build_plot_risk
+
+    def recompute(plot, season, region):
+        called.append(plot.geometry)
+        return compute(plot, season, region)
+
+    monkeypatch.setattr(store, "lookup", lambda code: changed if code == P1.plot_code else None)
+    monkeypatch.setattr(heat_api, "build_plot_risk", recompute)
+    response = client.get(f"/heat/plots/{P1.plot_code}/risk?season=2025")
+    assert response.status_code == 200, response.text
+    assert called == [changed.geometry]
+    assert "_geometry_sha256" not in response.json()
+    repeated = client.get(f"/heat/plots/{P1.plot_code}/risk?season=2025")
+    assert repeated.status_code == 200
+    assert repeated.json() == response.json()
+    assert called == [changed.geometry]  # Verified geometry cache is reused after the first repair.
+
+
+def test_legacy_corrupt_or_wrong_identity_caches_are_not_trusted(built):
+    import json
+
+    from pipeline.core.config import out_dir
+    from pipeline.hazards.heat.build import MODULE, read_plot_risk
+
+    path = out_dir(MODULE) / "plots" / P1.plot_code / "2025.json"
+    original = json.loads(path.read_text())
+    legacy = dict(original)
+    legacy.pop("_geometry_sha256")
+    path.write_text(json.dumps(legacy))
+    assert read_plot_risk(P1.plot_code, "2025", P1) is None
+    wrong = dict(original)
+    wrong["plot"] = {**wrong["plot"], "plotCode": "another-plot"}
+    path.write_text(json.dumps(wrong))
+    assert read_plot_risk(P1.plot_code, "2025", P1) is None
+    path.write_text("broken json")
+    assert read_plot_risk(P1.plot_code, "2025", P1) is None
+
+
+def test_build_writes_authoritative_inventory_with_private_geometry_fingerprint(built, monkeypatch):
+    from dataclasses import replace
+
+    from pipeline.core.layers import region_for
+    from pipeline.hazards.heat.build import MODULE, read_plot_risk, write_outputs
+
+    authoritative = replace(P1, plot_code="04-ku-9000", source="fishery_right")
+    monkeypatch.setattr(store, "query_all", lambda bbox: [authoritative])
+    result = write_outputs("2025", region_for(MODULE, authoritative.geometry))
+    assert result["plots"] == 1
+    assert read_plot_risk(authoritative.plot_code, "2025", authoritative) is not None

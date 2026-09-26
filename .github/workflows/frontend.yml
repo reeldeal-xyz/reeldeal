@@ -1,10 +1,10 @@
 name: Frontend
 on:
   pull_request:
-    paths: ['frontend/**', 'package.json', 'bun.lock', '.github/workflows/frontend.yml']
+    paths: ['frontend/**', 'packages/shared/src/**', 'package.json', 'bun.lock', '.github/workflows/frontend.yml']
   push:
     branches: [main]
-    paths: ['frontend/**', 'package.json', 'bun.lock', '.github/workflows/frontend.yml']
+    paths: ['frontend/**', 'packages/shared/src/**', 'package.json', 'bun.lock', '.github/workflows/frontend.yml']
 permissions:
   contents: read
 jobs:

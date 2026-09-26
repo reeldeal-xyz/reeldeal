@@ -38,7 +38,7 @@ const ja = lang === 'ja';
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(4,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
+        <nav class="site-nav" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
           <a href="/market" aria-current={section === 'market' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
           <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>

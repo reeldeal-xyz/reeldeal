@@ -5,12 +5,15 @@
     out/heat/plots/<plot>/<season>.json          GET /heat/plots/{plot}/risk?season=
 """
 
+import hashlib
 import json
 import logging
 import os
+import tempfile
 from datetime import date
 from pathlib import Path
 
+from pydantic import ValidationError
 from shapely.geometry import box
 from shapely.geometry.base import BaseGeometry
 
@@ -76,11 +79,26 @@ def _summary(geom: BaseGeometry, plot_code: str | None = None, sea_area: str | N
     )
 
 
-def _write(path: Path, model) -> None:
+def geometry_fingerprint(geom: BaseGeometry) -> str:
+    return hashlib.sha256(geom.normalize().wkb).hexdigest()
+
+
+def _write(path: Path, model, geometry: BaseGeometry | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"{path.name}.{os.getpid()}.part")
-    tmp.write_text(json.dumps(model.model_dump(mode="json", by_alias=True), ensure_ascii=False) + "\n")
-    tmp.replace(path)
+    payload = model.model_dump(mode="json", by_alias=True)
+    if geometry is not None:
+        payload["_geometry_sha256"] = geometry_fingerprint(geometry)
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix=path.name, suffix=".part", delete=False) as output:
+            tmp = Path(output.name)
+            output.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            output.flush()
+            os.fsync(output.fileno())
+        tmp.replace(path)
+    finally:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
 
 
 def zone_indices(zone_id: str, season: str, region: Region) -> IndicesResponse:
@@ -105,13 +123,17 @@ def write_outputs(season: str, region: Region) -> dict[str, int]:
     area = box(*region.bbox)
     root = out_dir(MODULE)
     zones = [z for z in sea_areas().values() if area.contains(z.geometry)]
-    plots = [p for p in store.plots().values() if area.contains(p.geometry)]
+    plots = [p for p in store.query_all(region.bbox) if area.contains(p.geometry)]
     for z in zones:
         _write(root / "indices" / z.id / f"{season}.json", zone_indices(z.id, season, region))
     for p in plots:
-        _write(root / "plots" / p.plot_code / f"{season}.json", plot_risk(p, season, region))
+        _write(root / "plots" / p.plot_code / f"{season}.json", plot_risk(p, season, region), p.geometry)
     log.info("heat %s %s: %d zones, %d plots", region.id, season, len(zones), len(plots))
     return {"zones": len(zones), "plots": len(plots)}
+
+
+def cache_plot_risk(plot: store.PlotRecord, season: str, response: HeatRiskResponse) -> None:
+    _write(out_dir(MODULE) / "plots" / plot.plot_code / f"{season}.json", response, plot.geometry)
 
 
 def read_zone_indices(zone_id: str, season: str) -> IndicesResponse | None:
@@ -119,9 +141,26 @@ def read_zone_indices(zone_id: str, season: str) -> IndicesResponse | None:
     return IndicesResponse.model_validate_json(path.read_text()) if path.exists() else None
 
 
-def read_plot_risk(plot_code: str, season: str) -> HeatRiskResponse | None:
+def read_plot_risk(plot_code: str, season: str, plot: store.PlotRecord | None = None) -> HeatRiskResponse | None:
     path = out_dir(MODULE) / "plots" / plot_code / f"{season}.json"
-    return HeatRiskResponse.model_validate_json(path.read_text()) if path.exists() else None
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text())
+        if not isinstance(payload, dict):
+            return None
+        fingerprint = payload.pop("_geometry_sha256", None)
+        if plot is not None and fingerprint != geometry_fingerprint(plot.geometry):
+            return None
+        response = HeatRiskResponse.model_validate(payload)
+        start, end = season_window(season)
+        if response.plot.plot_code != plot_code or response.window.start != start or response.window.end != end:
+            return None
+        if plot is not None and response.plot != _summary(plot.geometry, plot.plot_code, plot.sea_area):
+            return None
+        return response
+    except (OSError, ValueError, ValidationError):
+        return None
 
 
 class NotBuilt(LookupError):

@@ -50,3 +50,12 @@ A Caddyfile change is deployed by the pipeline workflow, which reloads Caddy.
 docker network create reeldeal 2>/dev/null; cp frontend/.env.example frontend/.env
 frontend/deploy/up.sh    # then e.g. docker compose -f pipeline/docker-compose.yml up -d caddy for https://app.localhost
 ```
+
+
+## Weather forecast configuration
+
+See [HMI forecast and thresholds](../docs/hmi-forecast-thresholds.md). Set `OPEN_METEO_API_KEY` only in the server-side `frontend/.env` to use the commercial customer hosts. Without a key, the provider endpoints are noncommercial-only. Provider quotas are process-local, not a shared multi-replica quota manager.
+
+### Weather forecast configuration (#161)
+
+Set `OPEN_METEO_API_KEY` in the server-only `frontend/.env` for a commercial provider subscription. The API uses customer hosts when a key is configured; no key is exposed to the browser. Without one, only noncommercial public endpoint usage is permitted. Process-local request budgets do not replace shared account quotas in a multi-replica deployment. See [HMI forecast and thresholds](../docs/hmi-forecast-thresholds.md).

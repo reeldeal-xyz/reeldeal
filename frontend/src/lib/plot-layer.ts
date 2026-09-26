@@ -1,4 +1,3 @@
-// Pure helpers for the HMI farm-plots layer: styling, hover facts and which plot a view shows.
 export const OPERATION_COLORS: Record<string, string> = {
   longline: '#f7a32f', raft: '#e56b6f', cage: '#39b7a5', other: '#c9c9c9',
 };
@@ -21,17 +20,4 @@ export function plotFacts(plot: PlotFacts, labels: PlotLabels): string[] {
     plot.species.length ? plot.species.map((item) => labels.species[item] ?? item).join(', ') : labels.noSpecies,
     plot.seaArea ?? labels.noSeaArea,
   ];
-}
-
-/**
- * The plot and species a page view shows, shared by the /hmi route (which fetches that plot's heat) and HmiScene
- * (which renders it), so both always agree. A species drives every panel, and most fishery-right plots have none
- * recorded: a requested plot without species, or none, falls back to the first plot that has one.
- */
-export function selectHmiView<P extends { plotCode: string; species: string[] }>(plots: readonly P[], plotCode: string, requestedSpecies: string) {
-  const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
-  const requestedPlot = plots.find((item) => item.plotCode === plotCode && item.species.length) ?? plots.find((item) => item.species.length);
-  const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-  const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
-  return { supportedSpecies, species, plot };
 }
