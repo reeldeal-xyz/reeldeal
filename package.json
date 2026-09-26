@@ -11,10 +11,15 @@
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
     "pipeline": "bun run --filter pipeline start",
-    "keeper": "bun run --filter web keeper --"
+    "keeper": "bun run --filter web keeper --",
+    "dog:map": "bun scripts/dog-map.ts",
+    "dog:query": "dotdog query --dag .doghouse/generated/repo.dag",
+    "dog:trace": "dotdog trace --dag .doghouse/generated/repo.dag",
+    "dog:test": "bun test scripts/dog-map.test.ts"
   },
   "devDependencies": {
-    "typescript": "^5.9.0",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "dotdog": "0.9.0",
+    "typescript": "^5.9.0"
   }
 }
