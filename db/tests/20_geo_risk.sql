@@ -30,6 +30,20 @@ BEGIN
   EXCEPTION WHEN unique_violation THEN NULL;
   END;
 
+  -- plot_code is unique across retired rows too, so the app can FK it.
+  UPDATE geo.plots SET retired_at = now() WHERE id = p.id;
+  BEGIN
+    INSERT INTO geo.plots (plot_code, origin, geom) VALUES ('test-001', 'msil', p.geom);
+    RAISE EXCEPTION 'retired plot_code reused';
+  EXCEPTION WHEN unique_violation THEN NULL;
+  END;
+  UPDATE geo.plots SET retired_at = NULL WHERE id = p.id;
+
+  -- Demo plots for the deployed ReliefPool (README §4.1): 15 synthetic polygons in karakuwa-east.
+  ASSERT (SELECT count(*) FROM geo.plots WHERE plot_code LIKE 'p1213-%') = 15, 'demo plots p1213-001..015';
+  ASSERT NOT EXISTS (SELECT 1 FROM geo.plots WHERE plot_code LIKE 'p1213-%' AND sea_area_id IS DISTINCT FROM 'karakuwa-east'),
+    'demo plots in karakuwa-east';
+
   -- Uploaded plots carry an upload: code.
   BEGIN
     INSERT INTO geo.plots (plot_code, origin, geom) VALUES ('test-002', 'upload', p.geom);
