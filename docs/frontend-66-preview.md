@@ -43,6 +43,6 @@ At 320/390/1440px inspect `Marketplace Discovery / English`, `Japanese`, `Empty 
 
 The #61 molecule foundation is on main through #89. Reviewed domain fixtures still depend on #59, and backend prerequisites #62/#65 remain external. This preview adds no API endpoint, authentication, reservation, quote signing, wallet access, approval, transaction submission, reconciliation or persistent pending-order recovery.
 
-This branch merged main at `2be5a1295a6430ef5d0d196444b198542288615d`, including #89 and #91's JPYC base-unit display helper. Preview amounts remain human-readable decimal strings; a later chain adapter must use the helper when converting raw 18-decimal token amounts. The draft PR targets main.
+This branch merged main at `79315344b596900f4f10988421534867e82c09cb`, including #89, #91's JPYC base-unit display helper, and the LIFF flows from #31. The combined Application/Documentation review baselines were regenerated after reviewing those existing `web/` flows alongside the marketplace previews. Preview amounts remain human-readable decimal strings; a later chain adapter must use the helper when converting raw 18-decimal token amounts. The draft PR targets main.
 
 Real checkout still needs server-owned exact quotes and inventory reservations, matching receipt/router/pool-event confirmation, duplicate/reload recovery, rejected/expired/tampered quote handling and competing-buyer verification. Japanese checkout copy, source portraits, production discovery/detail routes and live data integration remain outside this slice. Keep #66 open.

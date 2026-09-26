@@ -14,6 +14,12 @@ export const HELD_REASON_TEXT: Record<string, HeldReasonText> = {
   PLOT_EXPIRED: { reasonJa: '今季の区画登録の期限が切れています', reasonEn: 'The season slot for this plot has expired.' },
   CAP: { reasonJa: '今回の上限口数に達しました', reasonEn: 'You have reached the unit cap for this event.' },
   ZONE_MISMATCH: { reasonJa: '区画の海域が一致しません', reasonEn: "The plot's zone does not match this event." },
+  // Not an on-chain REASON_* constant -- a client-side label (issue #15's LIFF status screen) for a Held
+  // plot whose `claimHeld` window has elapsed (ReliefPool.sol's `sweep` already moved it to Swept on-chain).
+  CLAIM_WINDOW_ELAPSED: {
+    reasonJa: '受け取り期限が過ぎました。組合にお問い合わせください',
+    reasonEn: 'The claim window for this payout has closed. Please contact the co-op.',
+  },
   default: { reasonJa: '確認中です。組合にお問い合わせください', reasonEn: 'Under review. Please contact the co-op.' },
 };
 
