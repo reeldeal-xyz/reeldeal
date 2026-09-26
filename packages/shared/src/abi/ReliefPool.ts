@@ -168,6 +168,11 @@ export const ReliefPoolAbi = [
             "internalType": "uint32"
           },
           {
+            "name": "tempC",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
             "name": "dataHash",
             "type": "bytes32",
             "internalType": "bytes32"
@@ -411,6 +416,11 @@ export const ReliefPoolAbi = [
             "name": "threshold",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "tempC",
+            "type": "uint8",
+            "internalType": "uint8"
           },
           {
             "name": "dataHash",
@@ -1139,6 +1149,11 @@ export const ReliefPoolAbi = [
             "name": "threshold",
             "type": "uint32",
             "internalType": "uint32"
+          },
+          {
+            "name": "tempC",
+            "type": "uint8",
+            "internalType": "uint8"
           },
           {
             "name": "dataHash",
