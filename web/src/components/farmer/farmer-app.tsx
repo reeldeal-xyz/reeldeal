@@ -17,7 +17,7 @@ import { WorldVerify, type WorldVerifyOutcome } from '@/components/WorldVerify';
 import { WalletPanel } from '@/components/liff/wallet-panel';
 import { heldReasonText } from '@/lib/held-reasons';
 import { formatJpyc } from '@/lib/format';
-import { DEMO_PLOTS, SEASON_LABEL } from '@/lib/plots';
+import { DEMO_PLOTS, SEASON_LABEL, ensNameForPlot } from '@/lib/plots';
 import { fetchLiffStatus, fetchWorldLevel, fetchWorldSchema, type StatusPath } from '@/lib/liff/status';
 import { LEVEL2_LABEL_BILINGUAL, LEVEL2_LABEL_EN, LEVEL2_LABEL_JA } from '@/lib/world/schema';
 import type { SlotRequest } from '@/lib/slot-request-store';
@@ -308,6 +308,9 @@ export function FarmerApp({
             <div style={styles.badgeRow}>
               <span style={{ ...styles.badge, ...styles.badgeMuted }}>{plotLabel}</span>
             </div>
+            <p style={{ ...styles.smallMuted, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+              {ensNameForPlot(plotLabel)}
+            </p>
             <button type="button" style={styles.linkButton} onClick={() => setPlotLabel(null)}>
               区画を変更 / Change plot
             </button>
