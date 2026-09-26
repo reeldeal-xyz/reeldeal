@@ -37,3 +37,13 @@ export const liffPlotUrl = (plotLabel: string): string => `https://liff.line.me/
 
 /** Base LIFF deep link with no plot param, for generic prompts (e.g. Jev intent-routing replies, docs/JEV.md). */
 export const LIFF_BASE_URL = 'https://liff.line.me/2011749457-SgvM5ahH';
+
+// ENS display names (sponsor-polish task): the real registered hierarchy, confirmed in docs/INTERFACE.md
+// and contracts/script/DeployEnsBranch.s.sol/DeployReelDeal.s.sol -- `umi.eth` (parent, ETHRegistrar) ->
+// `karakuwa.umi.eth` (branch registry/resolver, issue #7) -> `p1213-NNN.karakuwa.umi.eth` (per-plot, x15).
+// Display-only: web/src/lib/ens-adapter.ts's getPlotDnsName (the DNS-wire encoding used by setText/
+// setAddress writes) still carries its own TODO(#7) placeholder name and is intentionally untouched here
+// -- changing the write path's node encoding is out of scope for this UI-polish task.
+export const ENS_PARENT_NAME = 'umi.eth';
+export const ENS_BRANCH_NAME = `karakuwa.${ENS_PARENT_NAME}`;
+export const ensNameForPlot = (plotLabel: string): string => `${plotLabel}.${ENS_BRANCH_NAME}`;

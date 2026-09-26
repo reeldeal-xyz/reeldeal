@@ -6,8 +6,21 @@
 // lives in components/farmer/farmer-app.tsx, shared with components/app/wallet-app.tsx's wallet-only path.
 import { useCallback, useEffect, useState } from 'react';
 import liff from '@line/liff';
+<<<<<<< HEAD
 import type { Address } from 'viem';
 import { FarmerApp } from '@/components/farmer/farmer-app';
+=======
+import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { sepolia } from 'viem/chains';
+import { WorldVerify, type WorldVerifyOutcome } from '@/components/WorldVerify';
+import { WalletPanel } from '@/components/liff/wallet-panel';
+import { heldReasonText } from '@/lib/held-reasons';
+import { formatJpyc } from '@/lib/format';
+import { DEMO_PLOTS, SEASON_LABEL, ensNameForPlot } from '@/lib/plots';
+import { fetchLiffStatus, fetchWorldLevel, fetchWorldSchema, type StatusPath } from '@/lib/liff/status';
+import { LEVEL2_LABEL_BILINGUAL, LEVEL2_LABEL_EN, LEVEL2_LABEL_JA } from '@/lib/world/schema';
+import type { SlotRequest } from '@/lib/slot-request-store';
+>>>>>>> 53c4e6a (feat(web): sponsor-polish — MultiBaas fund panel, ENS names, push de-dup, co-op review)
 import { getOrCreateWalletAddress } from '@/lib/wallet';
 
 type BootStatus = 'loading' | 'redirecting' | 'ready' | 'error';
@@ -223,6 +236,226 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
             initialPlotLabel={plotFromQuery}
             lineFriendPrompt={{ isFriend, onAddFriend: handleAddFriend, error: friendPromptError }}
           />
+<<<<<<< HEAD
+=======
+
+          {/* --- Plot selection ---------------------------------------------------------------- */}
+          <div style={styles.card}>
+            <p style={styles.cardTitleJa}>区画</p>
+            <p style={styles.cardTitleEn}>Plot</p>
+            {plotLabel ? (
+              <>
+                <div style={styles.badgeRow}>
+                  <span style={{ ...styles.badge, ...styles.badgeMuted }}>{plotLabel}</span>
+                </div>
+                <p style={{ ...styles.smallMuted, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                  {ensNameForPlot(plotLabel)}
+                </p>
+                <button type="button" style={styles.linkButton} onClick={() => setPlotLabel(null)}>
+                  区画を変更 / Change plot
+                </button>
+              </>
+            ) : (
+              <>
+                <p style={styles.smallMuted}>
+                  組合の画面のQRコードをスキャンするか、下から区画を選んでください。
+                  <br />
+                  Scan the QR code from the co-op screen, or pick a plot below.
+                </p>
+                <select style={styles.select} value={pickerValue} onChange={(e) => setPickerValue(e.target.value)}>
+                  {DEMO_PLOTS.map((p) => (
+                    <option key={p.plotLabel} value={p.plotLabel}>
+                      {p.plotLabel} ({p.species})
+                    </option>
+                  ))}
+                </select>
+                <button type="button" style={styles.button} onClick={() => setPlotLabel(pickerValue)} disabled={!pickerValue}>
+                  この区画を使う / Use this plot
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* --- Slot request -------------------------------------------------------------------- */}
+          {plotLabel && (
+            <div style={styles.card}>
+              <p style={styles.cardTitleJa}>今季の区画をリクエスト</p>
+              <p style={styles.cardTitleEn}>Request this season&rsquo;s slot ({SEASON_LABEL})</p>
+
+              {activeRequest ? (
+                <div style={styles.badgeRow}>
+                  <span
+                    style={{
+                      ...styles.badge,
+                      ...(activeRequest.status === 'issued' ? styles.badgeSuccess : styles.badgeHeld),
+                    }}
+                  >
+                    {activeRequest.status === 'issued' ? '発行済み / Issued' : 'リクエスト中 / Pending'}
+                  </span>
+                </div>
+              ) : (
+                <button type="button" style={styles.button} onClick={submitSlotRequest} disabled={slotRequestBusy}>
+                  {slotRequestBusy ? '送信中… / Sending…' : 'リクエストする / Request slot'}
+                </button>
+              )}
+              {slotRequestError && <p style={styles.error}>{slotRequestError}</p>}
+            </div>
+          )}
+
+          {/* --- World ID bind / upgrade ---------------------------------------------------------- */}
+          <div style={styles.card}>
+            <p style={styles.cardTitleJa}>本人確認 (World ID)</p>
+            <p style={styles.cardTitleEn}>Identity verification</p>
+
+            <div style={styles.badgeRow}>
+              <span style={{ ...styles.badge, ...(worldLevel && worldLevel > 0 ? styles.badgeSuccess : styles.badgeMuted) }}>
+                {worldLevel === null
+                  ? '確認中… / Checking…'
+                  : worldLevel === 0
+                    ? '未確認 / Not verified'
+                    : worldLevel === 2
+                      ? LEVEL2_LABEL_BILINGUAL
+                      : 'レベル1:セルフィーチェック / Level 1: Selfie Check'}
+              </span>
+            </div>
+
+            {!addresses.humanRegistry ? (
+              <NotDeployedInline text="HumanRegistry is not deployed yet — verification will be enabled once it is. / HumanRegistryが未デプロイです。" />
+            ) : address ? (
+              <>
+                {(worldLevel ?? 0) === 0 && (
+                  <WorldVerify
+                    wallet={address}
+                    level="level1"
+                    label="World IDで確認する (かんたん本人確認) / Verify with World ID (Selfie Check)"
+                    onComplete={handleWorldComplete}
+                  />
+                )}
+                {worldLevel === 1 && (
+                  <WorldVerify
+                    wallet={address}
+                    level="level2"
+                    label={`「${LEVEL2_LABEL_JA}」にアップグレード / Upgrade to ${LEVEL2_LABEL_EN}`}
+                    onComplete={handleWorldComplete}
+                  />
+                )}
+                {worldLevel === 2 && <p style={styles.smallMuted}>{LEVEL2_LABEL_BILINGUAL}で確認済みです。 / Fully verified at {LEVEL2_LABEL_BILINGUAL}.</p>}
+              </>
+            ) : null}
+
+            {worldBanner && (
+              <div style={{ ...styles.banner, ...(worldBanner.kind === 'success' ? styles.bannerSuccess : styles.bannerError) }}>
+                {worldBanner.message}
+              </div>
+            )}
+          </div>
+
+          {/* --- Status ---------------------------------------------------------------------------- */}
+          {plotLabel && (
+            <div style={styles.card}>
+              <p style={styles.cardTitleJa}>ステータス</p>
+              <p style={styles.cardTitleEn}>Status — {plotLabel}</p>
+
+              {!addresses.reliefPool || !sepoliaRpcUrl ? (
+                <NotDeployedInline text="ReliefPool is not deployed yet — status will show once it is. / ReliefPoolが未デプロイです。" />
+              ) : statusLoading && !statusPath ? (
+                <p style={styles.smallMuted}>読み込み中… / Loading…</p>
+              ) : statusError ? (
+                <p style={styles.error}>{statusError}</p>
+              ) : statusPath?.kind === 'paid' ? (
+                <>
+                  <div style={styles.badgeRow}>
+                    <span style={{ ...styles.badge, ...styles.badgeSuccess }}>受け取り済み / Paid</span>
+                  </div>
+                  <p style={{ fontSize: 20, fontWeight: 700, marginTop: 8 }}>{formatJpyc(statusPath.amountWei)}</p>
+                  <a
+                    href={`https://sepolia.etherscan.io/tx/${statusPath.txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ fontSize: 12, color: '#2563eb' }}
+                  >
+                    Etherscanで見る / View on Etherscan
+                  </a>
+                </>
+              ) : statusPath?.kind === 'held_unverified' ? (
+                <>
+                  <div style={styles.badgeRow}>
+                    <span style={{ ...styles.badge, ...styles.badgeHeld }}>保留中 / Held</span>
+                  </div>
+                  <p style={styles.smallMuted}>{heldReasonText('UNVERIFIED').reasonJa}</p>
+                  <p style={styles.smallMuted}>{heldReasonText('UNVERIFIED').reasonEn}</p>
+                  {(worldLevel ?? 0) > 0 ? (
+                    <button
+                      type="button"
+                      style={styles.button}
+                      onClick={() => handleClaim(statusPath)}
+                      disabled={claimBusy}
+                    >
+                      {claimBusy ? '受け取り中… / Claiming…' : '受け取る / Claim now'}
+                    </button>
+                  ) : (
+                    <p style={styles.smallMuted}>上の「World IDで確認する」を完了してから戻ってきてください。 / Verify with World ID above, then come back here.</p>
+                  )}
+                  {claimError && <p style={styles.error}>{claimError}</p>}
+                  {claimTxHash && (
+                    <div style={{ ...styles.banner, ...styles.bannerSuccess }}>
+                      受け取りました / Claimed —{' '}
+                      <a href={`https://sepolia.etherscan.io/tx/${claimTxHash}`} target="_blank" rel="noreferrer">
+                        Etherscan
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : statusPath?.kind === 'held_other' ? (
+                <>
+                  <div style={styles.badgeRow}>
+                    <span style={{ ...styles.badge, ...styles.badgeHeld }}>保留中 / Held</span>
+                  </div>
+                  <p style={styles.smallMuted}>{heldReasonText(statusPath.reason).reasonJa}</p>
+                  <p style={styles.smallMuted}>{heldReasonText(statusPath.reason).reasonEn}</p>
+                </>
+              ) : statusPath?.kind === 'no_slot' ? (
+                <>
+                  <div style={styles.badgeRow}>
+                    <span style={{ ...styles.badge, ...styles.badgeMuted }}>未発行 / No slot yet</span>
+                  </div>
+                  {statusPath.currentFarmer === null ? (
+                    <p style={styles.smallMuted}>
+                      まだ誰もこの区画の担い手ではありません。上のリクエストを送信してください。
+                      <br />
+                      No one holds this plot&rsquo;s season slot yet — submit the request above.
+                    </p>
+                  ) : address && statusPath.currentFarmer.toLowerCase() === address.toLowerCase() ? (
+                    <p style={styles.smallMuted}>
+                      あなたがこの区画の担い手です。まだ支払いイベントはありません。
+                      <br />
+                      You hold this plot&rsquo;s slot. No relief event has settled it yet.
+                    </p>
+                  ) : (
+                    <p style={styles.smallMuted}>
+                      この区画は別のウォレットの担い手です。
+                      <br />
+                      This plot&rsquo;s slot currently belongs to a different wallet.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={styles.smallMuted}>読み込み中… / Loading…</p>
+              )}
+            </div>
+          )}
+
+          {isFriend === false && (
+            <div style={styles.card}>
+              <p style={styles.cardTitleJa}>お知らせを受け取るには友だち追加してください</p>
+              <p style={styles.cardTitleEn}>Add Reel Deal as a friend to receive payout notifications</p>
+              <button type="button" style={styles.button} onClick={handleAddFriend}>
+                友だち追加 / Add friend
+              </button>
+              {friendPromptError && <p style={styles.error}>{friendPromptError}</p>}
+            </div>
+          )}
+>>>>>>> 53c4e6a (feat(web): sponsor-polish — MultiBaas fund panel, ENS names, push de-dup, co-op review)
         </>
       )}
 

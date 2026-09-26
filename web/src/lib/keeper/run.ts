@@ -19,6 +19,8 @@ import { ReliefPoolAbi, idOf, eventIdOf, triggerEventId, type Trigger } from '@r
 import { env } from '@/lib/env';
 import { zoneLabelFor, heldReasonText } from '@/lib/held-reasons';
 import { pushHeld, pushPaid, type HeldPushParams, type PaidPushParams } from '@/lib/line';
+import { claimNotification } from '@/lib/notification-log';
+import { recordEscalatedRun } from '@/lib/keeper-runs';
 import { decideAttest as decideAttestGate, type AttestGateResult, type AttestGateState } from '@/lib/jev-gate';
 import { payoutDirectory, recordPlotWallet } from '@/lib/payout-directory';
 import {
@@ -88,6 +90,11 @@ export interface KeeperRunDeps {
   recordPlotWallet: (plotLabel: string, wallet: string) => void | Promise<void>;
   /** Jev data-quality gate (docs/JEV.md), asked right before attest. Injectable so tests never hit the network. */
   decideAttest: (state: AttestGateState) => Promise<AttestGateResult>;
+  /** Durable push de-dup (sponsor-polish task, web/src/lib/notification-log.ts). Returns true exactly
+   *  once per chain event id -- false means some other run/webhook delivery already pushed it. */
+  claimNotification: (txHash: Hex, logIndex: number, kind: 'Paid' | 'Held') => Promise<boolean>;
+  /** Persists an escalated run for the co-op screen's "Needs co-op review" card (web/src/lib/keeper-runs.ts). */
+  recordEscalatedRun: (result: KeeperRunResult) => void | Promise<void>;
 }
 
 export function defaultKeeperRunDeps(): KeeperRunDeps {
@@ -114,6 +121,8 @@ export function defaultKeeperRunDeps(): KeeperRunDeps {
     lineUserIdForPlot: payoutDirectory.lineUserIdForPlot,
     recordPlotWallet,
     decideAttest: (state) => decideAttestGate(state),
+    claimNotification,
+    recordEscalatedRun,
   };
 }
 
@@ -246,7 +255,7 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
       );
       if (jevGate.decision === 'co_op_review') {
         console.log(`[keeper] ${ref.id}: Jev gate held this event for co-op review -- not attesting (pass force:true to override)`);
-        return {
+        const escalated: KeeperRunResult = {
           referenceEventId: ref.id,
           eventId,
           trigger,
@@ -261,6 +270,12 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
           status: 'escalated',
           jevGate,
         };
+        try {
+          await deps.recordEscalatedRun(escalated);
+        } catch (err) {
+          console.warn(`[keeper] ${ref.id}: failed to persist escalated run (non-fatal)`, err);
+        }
+        return escalated;
       }
     }
 
@@ -340,10 +355,10 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
 
           const lineUserId = await deps.lineUserIdForWallet(farmer);
           let sent = false;
-          if (lineUserId) {
+          if (lineUserId && (await deps.claimNotification(txHash, log.logIndex ?? 0, 'Paid'))) {
             await deps.pushPaid(lineUserId, { plotCode: plotLabel, zoneLabel: zoneLabelFor(plotLabel), amountWei: amount, txHash });
             sent = true;
-          } else {
+          } else if (!lineUserId) {
             console.warn(`[keeper] Paid ${plotLabel}: no LINE mapping yet for wallet ${farmer} (see issue #15)`);
           }
           plotOutcomes.push({ plotLabel, status: 'Paid', farmer, amount, txHash });
@@ -368,11 +383,11 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
 
           const lineUserId = await deps.lineUserIdForPlot(plotLabel);
           let sent = false;
-          if (lineUserId) {
+          if (lineUserId && (await deps.claimNotification(txHash, log.logIndex ?? 0, 'Held'))) {
             const text = heldReasonText(reasonLabel);
             await deps.pushHeld(lineUserId, { plotCode: plotLabel, zoneLabel: zoneLabelFor(plotLabel), ...text });
             sent = true;
-          } else {
+          } else if (!lineUserId) {
             console.warn(`[keeper] Held ${plotLabel} (${reasonLabel}): no LINE mapping yet for plot (see issue #15)`);
           }
           plotOutcomes.push({ plotLabel, status: 'Held', reason: reasonLabel, txHash });

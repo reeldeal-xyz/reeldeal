@@ -167,6 +167,9 @@ function baseDeps(chain: ReturnType<typeof buildFakeChain>, overrides: Partial<K
       probabilities: { attest_now: 0.95, co_op_review: 0.05 },
       reason: 'jev_choice' as const,
     })),
+    // Defaults to "always claim" (never blocks a push) -- see notification-log.test.ts for dedup itself.
+    claimNotification: mock(async () => true),
+    recordEscalatedRun: mock(async () => {}),
     ...overrides,
   };
 }
@@ -422,6 +425,59 @@ describe('runKeeper', () => {
       expect(decideAttest).not.toHaveBeenCalled();
       expect(result.status).toBe('ok');
       expect(result.jevGate).toBeUndefined();
+    });
+  });
+
+  describe('durable push de-dup + escalated run persistence (sponsor-polish task)', () => {
+    test('claimNotification returning false skips the LINE push but still records the plot outcome', async () => {
+      const chain = buildFakeChain({
+        registeredSigners: [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address],
+        enrolledPlots: ['p1'],
+      });
+      const lineUserIdForWallet = mock(async () => 'U-FARMER-A');
+      const pushPaid = mock(async () => {});
+      const claimNotification = mock(async () => false); // "someone already pushed this"
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { lineUserIdForWallet, pushPaid, claimNotification }));
+
+      expect(claimNotification).toHaveBeenCalled();
+      expect(pushPaid).not.toHaveBeenCalled();
+      const paidOutcome = result.pushes.find((p) => p.kind === 'Paid');
+      expect(paidOutcome?.sent).toBe(false);
+      expect(paidOutcome?.lineUserId).toBe('U-FARMER-A'); // mapping existed; the push was just deduped
+    });
+
+    test('an escalated run calls recordEscalatedRun with the full result', async () => {
+      const chain = buildFakeChain({ registeredSigners: [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address] });
+      const decideAttest = mock(async () => ({
+        decision: 'co_op_review' as const,
+        confidence: 0.4,
+        probabilities: { attest_now: 0.6, co_op_review: 0.4 },
+        reason: 'low_confidence' as const,
+      }));
+      const recordEscalatedRun = mock(async () => {});
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { decideAttest, recordEscalatedRun }));
+
+      expect(result.status).toBe('escalated');
+      expect(recordEscalatedRun).toHaveBeenCalledTimes(1);
+      expect(recordEscalatedRun).toHaveBeenCalledWith(expect.objectContaining({ status: 'escalated', eventId: result.eventId }));
+    });
+
+    test('a failure in recordEscalatedRun does not crash the run (best-effort, like recordPlotWallet)', async () => {
+      const chain = buildFakeChain({ registeredSigners: [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address] });
+      const decideAttest = mock(async () => ({
+        decision: 'co_op_review' as const,
+        confidence: 0.4,
+        probabilities: { attest_now: 0.6, co_op_review: 0.4 },
+        reason: 'low_confidence' as const,
+      }));
+      const recordEscalatedRun = mock(async () => {
+        throw new Error('db unreachable');
+      });
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { decideAttest, recordEscalatedRun }));
+      expect(result.status).toBe('escalated');
     });
   });
 });
