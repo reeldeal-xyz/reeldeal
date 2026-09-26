@@ -1,0 +1,120 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Amount from '../components/atoms/Amount.astro';
+import Status from '../components/atoms/Status.astro';
+import Badge from '../components/atoms/Badge.astro';
+import DonateForm from '../components/solid/DonateForm.tsx';
+import { SEPOLIA_RPC_URL } from 'astro:env/server';
+import { jpycFromBaseUnits } from '../lib/format-amount';
+import { createSepoliaClient, getFundSummary, type ReliefPoolEvent } from '../lib/chain/client.server';
+
+let summary: Awaited<ReturnType<typeof getFundSummary>> | null = null;
+let loadError = false;
+try {
+  const client = createSepoliaClient(SEPOLIA_RPC_URL);
+  summary = await getFundSummary(client);
+} catch {
+  loadError = true;
+}
+
+const toAmount = (wei: string | null | undefined) => jpycFromBaseUnits(wei ?? undefined) ?? '0';
+const sepoliaTx = (hash: string) => `https://sepolia.etherscan.io/tx/${hash}`;
+const eventLabel: Record<ReliefPoolEvent['type'], string> = {
+  Donated: '寄付 · Donated', Attested: '認定 · Attested', Paid: '支払済 · Paid',
+  Held: '保留 · Held', Claimed: '請求済 · Claimed', Swept: '回収 · Swept',
+};
+const eventState = (type: ReliefPoolEvent['type']): 'pending' | 'paid' | 'held' | 'loading' | 'unavailable' | 'advisory' => {
+  if (type === 'Paid' || type === 'Claimed') return 'paid';
+  if (type === 'Held') return 'held';
+  if (type === 'Attested') return 'pending';
+  return 'advisory';
+};
+---
+
+<BaseLayout title="Relief fund" description="Live JPYC relief fund dashboard for ReelDeal's coastal aquaculture co-op.">
+  <div class="relief-page shell">
+    <header class="relief-heading">
+      <div>
+        <p class="eyebrow">REELDEAL · RELIEF FUND</p>
+        <h1>救済基金 / Relief fund</h1>
+        <p>ReliefPool contract <code>{summary?.poolAddress ?? '—'}</code> on Sepolia. Live on-chain data, refreshed on every page load.</p>
+      </div>
+      <span class:list={['live-badge', loadError && 'offline']}><i></i>{loadError ? 'Chain data unavailable' : 'Live on Sepolia'}</span>
+    </header>
+
+    {loadError && <p class="notice" role="status">Live fund data is unavailable right now (RPC unreachable). Try again shortly.</p>}
+
+    <section class="relief-totals" aria-label="Fund totals">
+      <div class="relief-stat">
+        <p class="eyebrow">利用可能残高 / Available</p>
+        <p class="relief-stat__value"><Amount value={toAmount(summary?.availableWei)} /></p>
+      </div>
+      <div class="relief-stat">
+        <p class="eyebrow">確保済み / Reserved</p>
+        <p class="relief-stat__value"><Amount value={toAmount(summary?.reservedWei)} /></p>
+      </div>
+      <div class="relief-stat">
+        <p class="eyebrow">累計寄付 / Donated (scanned range)</p>
+        <p class="relief-stat__value"><Amount value={toAmount(summary?.totals.donatedWei)} /></p>
+      </div>
+      <div class="relief-stat">
+        <p class="eyebrow">累計支払 / Paid (scanned range)</p>
+        <p class="relief-stat__value"><Amount value={toAmount(summary?.totals.paidWei)} /></p>
+        {!!summary?.totals.heldCount && <Badge label={`${summary.totals.heldCount} held`} tone="pink" />}
+      </div>
+    </section>
+
+    <div class="relief-body">
+      <section class="relief-events" aria-label="Recent fund activity">
+        <h2>最近の取引 / Recent activity</h2>
+        {summary && summary.events.length ? (
+          <ul class="relief-events__list">
+            {summary.events.map((event) => (
+              <li class="relief-event">
+                <div class="relief-event__head">
+                  <Status state={eventState(event.type)} />
+                  <span class="relief-event__label">{eventLabel[event.type]}</span>
+                  {event.isMarketplaceSale && <Badge label="Marketplace sale" tone="blue" />}
+                </div>
+                {event.amountWei && <p class="relief-event__amount"><Amount value={jpycFromBaseUnits(event.amountWei) ?? '0'} /></p>}
+                {event.plotLabel && <p class="relief-event__detail">Plot {event.plotLabel}</p>}
+                {event.memo && <p class="relief-event__detail">Memo: {event.memo}</p>}
+                <p class="relief-event__detail"><a href={sepoliaTx(event.txHash)} target="_blank" rel="noreferrer">Tx {event.txHash.slice(0, 10)}…{event.txHash.slice(-6)}</a> · block {event.blockNumber}</p>
+              </li>
+            ))}
+          </ul>
+        ) : <p class="notice">No fund events found in the scanned range yet.</p>}
+      </section>
+
+      <aside class="relief-donate">
+        <DonateForm client:load />
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .relief-page { display: grid; gap: var(--space-6); padding-block: var(--space-6); }
+  .relief-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-4); }
+  .relief-heading h1 { margin: var(--space-2) 0 var(--space-2); font: 900 clamp(1.6rem, 5vw, 2.4rem)/1.05 var(--font-impact); letter-spacing: -.03em; text-transform: uppercase; }
+  .relief-heading p { margin: 0; color: var(--color-ink-soft); font-size: .88rem; max-width: 60ch; overflow-wrap: anywhere; }
+  .relief-heading code { font-size: .82rem; }
+  .eyebrow { margin: 0; font-family: var(--font-impact); font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--color-ink-soft); }
+  .live-badge { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-listed); font-family: var(--font-impact); font-size: .72rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
+  .live-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ink); }
+  .live-badge.offline { background: var(--color-cream); }
+  .notice { margin: 0; padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-cream); font-size: .85rem; }
+  .relief-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
+  .relief-stat { display: grid; gap: var(--space-2); padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); }
+  .relief-stat__value { margin: 0; font-family: var(--font-impact); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+  .relief-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-5); align-items: start; }
+  .relief-events h2 { margin: 0 0 var(--space-3); font: 900 1.15rem/1.1 var(--font-impact); text-transform: uppercase; }
+  .relief-events__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+  .relief-event { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); }
+  .relief-event__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .relief-event__label { font-family: var(--font-impact); font-size: .8rem; font-weight: 900; text-transform: uppercase; }
+  .relief-event__amount { margin: 0; font-size: 1.05rem; font-weight: 800; }
+  .relief-event__detail { margin: 0; font-size: .78rem; color: var(--color-ink-soft); overflow-wrap: anywhere; }
+  .relief-event__detail a { color: var(--color-ink); }
+  @media (max-width: 900px) { .relief-body { grid-template-columns: 1fr; } }
+</style>
