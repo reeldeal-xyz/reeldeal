@@ -11,7 +11,7 @@ const mono = JetBrains_Mono({ subsets: ['latin'], weight: ['400', '500'], variab
 
 export default function OpsLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`${styles.shell} ${display.variable} ${body.variable} ${mono.variable}`}>
+    <div data-ops-shell className={`${styles.shell} ${display.variable} ${body.variable} ${mono.variable}`}>
       <Nav />
       {children}
     </div>

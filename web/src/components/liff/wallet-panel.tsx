@@ -178,6 +178,7 @@ export function WalletPanel({
   const [copied, setCopied] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [jpycBalance, setJpycBalance] = useState<bigint | null>(null);
+  const [balanceFailed, setBalanceFailed] = useState(false);
   const [ethBalance, setEthBalance] = useState<bigint | null>(null);
   const [activity, setActivity] = useState<WalletActivityItem[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
@@ -228,8 +229,10 @@ export function WalletPanel({
       ]);
       setJpycBalance(jpyc);
       setEthBalance(eth);
+      setBalanceFailed(false);
     } catch (err) {
       console.warn('[wallet] balance read failed', err);
+      setBalanceFailed(true);
     }
   }, [client, identityAddress]);
 
@@ -252,8 +255,11 @@ export function WalletPanel({
     }
   }, [client, identityAddress, reliefPoolAddress, reliefPoolDeployBlock]);
 
+  // Poll so a payout shows up on its own, and so one failed RPC read never leaves "Loading…" on screen.
   useEffect(() => {
     refreshBalances();
+    const id = setInterval(refreshBalances, 10_000);
+    return () => clearInterval(id);
   }, [refreshBalances]);
 
   useEffect(() => {
@@ -472,7 +478,7 @@ export function WalletPanel({
 
       {/* --- Balances -------------------------------------------------------------------------- */}
       <p style={{ ...styles.label, marginTop: 16 }}>JPYC残高 / JPYC balance</p>
-      <p style={{ fontSize: 22, fontWeight: 700, margin: '2px 0 0' }}>{jpycBalance !== null ? formatJpyc(jpycBalance) : '読み込み中… / Loading…'}</p>
+      <p style={{ fontSize: 22, fontWeight: 700, margin: '2px 0 0' }}>{jpycBalance !== null ? formatJpyc(jpycBalance) : balanceFailed ? '取得できませんでした(再試行中) / Couldn’t load, retrying…' : '読み込み中… / Loading…'}</p>
       <p style={styles.smallMuted}>
         Sepolia ETH（参考情報）/ Sepolia ETH (informational): {ethBalance !== null ? `${(Number(ethBalance) / 1e18).toFixed(5)} ETH` : '…'}
       </p>

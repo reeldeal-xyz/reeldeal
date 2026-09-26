@@ -11,7 +11,7 @@
 // publicClient against NEXT_PUBLIC_SEPOLIA_RPC_URL -- no secrets. Every address comes from the caller's
 // server-rendered parent; an unset one renders a "not deployed yet" state instead of crashing.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, fallback, http, type Address, type Hex } from 'viem';
 import { sepolia } from 'viem/chains';
 import { WorldVerify, type WorldVerifyOutcome } from '@/components/WorldVerify';
 import { WalletPanel } from '@/components/liff/wallet-panel';
@@ -137,7 +137,9 @@ export function FarmerApp({
 
   const publicClient = useMemo(() => {
     if (!sepoliaRpcUrl) return null;
-    return createPublicClient({ chain: sepolia, transport: http(sepoliaRpcUrl) });
+    // NEXT_PUBLIC_SEPOLIA_RPC_URL may list several comma-separated RPCs; fail over when one rate-limits.
+    const urls = sepoliaRpcUrl.split(',').map((u) => u.trim()).filter(Boolean);
+    return createPublicClient({ chain: sepolia, transport: fallback(urls.map((u) => http(u, { retryCount: 1 })), { retryCount: 2 }) });
   }, [sepoliaRpcUrl]);
 
   const fromBlock = useMemo(() => {
