@@ -14,6 +14,7 @@
     "smoke:built": "node scripts/smoke-built.mjs"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "astro": "7.3.5",
     "@astrojs/node": "11.1.6",
     "@astrojs/react": "7.0.0",

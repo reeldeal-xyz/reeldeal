@@ -18,6 +18,7 @@ async function withServer(legacyOrigin, check) {
   const origin = `http://127.0.0.1:${port}`;
   const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATABASE_URL: secret };
   delete env.LEGACY_WEB_ORIGIN;
+  delete env.PIPELINE_API_URL;
   if (legacyOrigin) env.LEGACY_WEB_ORIGIN = legacyOrigin === 'self' ? origin : legacyOrigin;
   const child = spawn('node', ['dist/server/entry.mjs'], { cwd: frontend, env, stdio: 'ignore' });
   let spawnError;
@@ -50,6 +51,11 @@ await withServer(undefined, async (request) => {
   assert.equal(workshop.status, 200);
   const html = await workshop.text();
   assert(!html.includes(secret), 'Server-only env leaked into HTML');
+  const heat = await request('/api/risk/heat/p1213-001?season=2025');
+  assert.equal(heat.status, 503);
+  assert.equal(heat.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(await heat.json(), { status: 'not-configured', data: null });
+  assert.equal((await request('/api/risk/heat/p1213-001?season=invalid')).status, 400);
   assert.match(html, /component-url="[^\"]*BidWorkshop\./);
   assert.match(html, /component-url="[^\"]*WalletPreview\./);
   for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {

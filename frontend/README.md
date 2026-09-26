@@ -27,6 +27,20 @@ provided by the host; it does not automatically read `frontend/.env` at startup.
 
 `GET /health` reports the frontend process only, not database or pipeline health.
 
+`GET /api/risk/heat/{plotCode}?season=YYYY` reads the configured pipeline's
+observed heat response. It enforces a five-second deadline, a 2 MiB response
+limit, exact plot/season matching, finite Celsius values, calendar dates,
+ordered unique observations and per-value source/pixel metadata. Upstream
+errors never activate fixtures. `fetchedAt` records this app's fetch, not the
+provider's retrieval time. Coverage distinguishes missing days from null and
+zero values; no freshness cutoff is invented for a historical season.
+
+The current parser accepts `SST`, `SST_ANOM` and `SST_MONTH` from the merged
+Python heat implementation. New indices/advisory envelopes fail validation
+until reviewed. #79's Python-produced conformance fixtures and OpenAPI drift
+check, a deployed response and #55's signed evidence manifest remain release
+gates. This endpoint makes no eligibility decision and cannot sign or pay.
+
 ## Island boundaries
 
 - Astro owns layouts, routes and server composition.
