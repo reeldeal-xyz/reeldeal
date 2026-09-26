@@ -15,6 +15,9 @@ services:
       - ./out:/app/out
     expose:
       - "8787"
+    networks:
+      - default
+      - reeldeal   # reaches PostGIS (db/docker-compose.yml) as db:5432; see DATABASE_URL in .env.example
 
   caddy:
     image: caddy:2

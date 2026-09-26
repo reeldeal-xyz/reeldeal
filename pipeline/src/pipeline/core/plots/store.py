@@ -1,10 +1,10 @@
-"""Plot inventory (README §3), read-only.
+"""Plot inventory (README §3).
 
 Plots carry code, geometry, species, operation and sea area only. No owner names or personal data.
 
-Spatial data is moving to a separate PostGIS service that the pipeline reads as a client (decided 2026-09-26).
-Until that service exists, the inventory is the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo
-plots), and uploads (`POST /plots`) stay unimplemented. Swapping the backend only changes this module.
+Two sources: the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo plots, served even without a
+database), and uploads (`POST /plots`) stored in PostGIS (`uploads.py`). `lookup` and `query_all` merge them; when
+the database is unset or down they fall back to the seed alone.
 """
 
 import json
@@ -18,6 +18,7 @@ from shapely.geometry.base import BaseGeometry
 
 from pipeline.core.config import ref_dir
 from pipeline.core.regions import sea_area_of
+from pipeline.core.schemas import PlotSummary
 
 KM_PER_DEG = 111.32
 
@@ -47,6 +48,17 @@ def area_m2(geom: BaseGeometry) -> float:
     """Area of a lon/lat geometry in m² (local equirectangular)."""
     k = (KM_PER_DEG * 1000) ** 2 * math.cos(math.radians(geom.centroid.y))
     return round(geom.area * k, 1)
+
+
+def summary(geom: BaseGeometry, plot_code: str | None = None, sea_area: str | None = None) -> PlotSummary:
+    """The plot as echoed in a module response."""
+    c = geom.centroid
+    return PlotSummary(
+        plot_code=plot_code,
+        area_m2=area_m2(geom),
+        centroid=(round(c.x, 6), round(c.y, 6)),
+        sea_area=sea_area or sea_area_of(geom),
+    )
 
 
 def _record(f: dict) -> PlotRecord:
@@ -85,3 +97,30 @@ def query(bbox: tuple[float, float, float, float] | None = None, species: str | 
         for p in sorted(plots().values(), key=lambda p: p.plot_code)
         if (area is None or area.intersects(p.geometry)) and (species is None or species in p.species)
     ]
+
+
+def lookup(plot_code: str) -> PlotRecord | None:
+    """A seeded plot, or an uploaded one when the database is reachable."""
+    from pipeline.core import db
+
+    from . import uploads
+
+    if (p := get(plot_code)) is not None:
+        return p
+    try:
+        return uploads.get(plot_code)
+    except db.NoDatabase:
+        return None
+
+
+def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
+    """Seeded plots, then uploaded ones when the database is reachable."""
+    from pipeline.core import db
+
+    from . import uploads
+
+    try:
+        uploaded = uploads.query(bbox, species)
+    except db.NoDatabase:
+        uploaded = []
+    return query(bbox, species) + uploaded
