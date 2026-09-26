@@ -24,7 +24,7 @@ async function withServer(legacyOrigin, check) {
   let spawnError;
   child.on('error', (error) => { spawnError = error; });
   const stopped = once(child, 'exit');
-  const request = (path) => fetch(origin + path, { redirect: 'manual', signal: AbortSignal.timeout(3000) });
+  const request = (path, init = {}) => fetch(origin + path, { ...init, redirect: 'manual', signal: AbortSignal.timeout(3000) });
   try {
     let ready = false;
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -44,6 +44,14 @@ async function withServer(legacyOrigin, check) {
 }
 
 await withServer(undefined, async (request) => {
+  const root = await request('/');
+  assert.equal(root.status, 302);
+  assert.equal(root.headers.get('location'), '/hmi');
+  const hmi = await request('/hmi');
+  assert.equal(hmi.status, 200);
+  assert.match(await hmi.text(), /Coastal map · ReelDeal/);
+  const hmiJa = await request('/hmi?lang=ja');
+  assert.match(await hmiJa.text(), /<html lang="ja"[\s\S]*沿岸マップ · ReelDeal/);
   const health = await request('/health');
   assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await health.json(), { status: 'ok', service: 'umi-frontend' });
@@ -56,6 +64,13 @@ await withServer(undefined, async (request) => {
   assert.equal(heat.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await heat.json(), { status: 'not-configured', data: null });
   assert.equal((await request('/api/risk/heat/p1213-001?season=invalid')).status, 400);
+  const area = (coordinates, start = '2025-06-01', end = '2025-10-31') => request('/api/risk/heat/area', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ feature: { type: 'Feature', properties: null, geometry: { type: 'Polygon', coordinates } }, start, end }),
+  });
+  assert.equal((await area([[[141, 38], [142, 39], [141, 39], [142, 38], [141, 38]]])).status, 400);
+  assert.equal((await area([[[141, 38], [142, 38], [142, 39], [141, 39], [141, 38]]], '2025-01-01', '2026-01-02')).status, 400);
+  assert.equal((await area([[[141, 38], [142, 38], [142, 39], [141, 39], [141, 38]]])).status, 503);
   assert.match(html, /component-url="[^\"]*BidWorkshop\./);
   assert.match(html, /component-url="[^\"]*WalletPreview\./);
   for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
