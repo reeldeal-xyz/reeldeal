@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import MarketplaceDiscovery from '../../components/organisms/marketplace/MarketplaceDiscovery.astro';
+import WalletConnect from '../../components/react/WalletConnect';
+import { NEXT_PUBLIC_REOWN_PROJECT_ID } from 'astro:env/server';
+---
+
+<BaseLayout title="Fish market" description="Buy Kesennuma seafood in JPYC; 5% of every sale goes to the ReelDeal relief fund." section="market">
+  <div class="shell market-page">
+    <header class="market-page__heading">
+      <div><p>REELDEAL · MIYAGI COAST</p><h1>Fish market</h1></div>
+      <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
+    </header>
+  </div>
+  <MarketplaceDiscovery live />
+</BaseLayout>
+
+<style>
+  .market-page { padding-block: clamp(30px, 6vw, 68px) 0; }
+  .market-page__heading { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+  .market-page__heading p { margin: 0 0 8px; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+  .market-page__heading h1 { margin: 0; font: 900 clamp(34px, 7vw, 64px)/1 var(--font-impact); }
+  :global(.marketplace-canvas) { min-height: 0; }
+  :global(.marketplace-preview__grid) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 359px) { :global(.marketplace-preview__grid) { grid-template-columns: 1fr; } }
+</style>

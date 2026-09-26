@@ -63,10 +63,14 @@ await withServer(undefined, async (request) => {
   const hmiJa = await request('/hmi?lang=ja');
   assert.match(await hmiJa.text(), /<html lang="ja"[\s\S]*沿岸マップ · ReelDeal/);
 
-  // /market is served by the web app's live SaleRouter market (#160); without a legacy origin it's unavailable.
-  assert.equal((await request('/market')).status, 503);
+  const market = await request('/market');
+  assert.equal(market.status, 200);
+  const marketHtml = await market.text();
+  assert(!marketHtml.includes(secret), 'Server-only env leaked into HTML');
+  assert.match(marketHtml, /data-market-preview-item="RD-LOT-004"/, 'Market lots missing');
+  assert.match(marketHtml, /Live on Sepolia/, 'Live market copy missing');
 
-  for (const path of ['/workshop', '/market/checkout-demo', '/api/market/quote']) {
+  for (const path of ['/workshop', '/market/checkout-demo']) {
     assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
   }
 
@@ -123,7 +127,7 @@ await withServer(undefined, async (request) => {
     assert(!page.includes(secret), `Server-only env leaked into ${path}`);
     previewHtml += page;
   }
-  const html = hmiHtml + previewHtml;
+  const html = hmiHtml + marketHtml + previewHtml;
   const assets = [...new Set([...html.matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
   assert(assets.length >= 6, 'Expected CSS, the wallet island, renderers, the brand logo and preview images');
   for (const asset of assets) {
@@ -148,9 +152,6 @@ await withServer('https://legacy.example.test/ignored-base', async (request) => 
   assert.equal(response.status, 307);
   assert.equal(response.headers.get('location'), 'https://legacy.example.test/verify/event-1?view=proof&next=%2Fmap');
   assert.equal((await request('/api/world')).status, 404);
-  const market = await request('/market');
-  assert.equal(market.status, 307);
-  assert.equal(market.headers.get('location'), 'https://legacy.example.test/market');
   console.log('PASS legacy redirect preserves path/query and excludes API routes');
 });
 

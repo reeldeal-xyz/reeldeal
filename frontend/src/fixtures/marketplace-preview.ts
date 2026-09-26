@@ -122,3 +122,25 @@ export const checkoutPreviews: Record<CheckoutPreviewState, CheckoutPresentation
     split: { ...split, state: 'unavailable', explanation: 'No authoritative quote or transfer status is available.' },
   },
 };
+
+// Live storefront copy: the same catalogue, sold through SaleRouter with 5% to the relief fund.
+export const marketplaceLiveCopy = {
+  en: {
+    ...marketplaceCopy.en,
+    preview: 'Live on Sepolia · pay in JPYC. 5% of every sale goes straight into the relief fund.',
+    count: 'lots for sale', empty: 'No lots match. Try another fish.',
+    loading: 'Loading lots…', unavailable: 'Lots unavailable.', retry: 'Show lots',
+    details: 'Buy this lot', noReceipt: 'Illustration; each purchase is a real SaleRouter transaction.',
+    previewBadge: 'Live', sampleLanding: 'Kesennuma landing', view: 'Buy',
+    sharedCopy: 'Prices are signed by the co-op. One transaction pays the seller and donates 5% to ReliefPool.',
+  },
+  ja: {
+    ...marketplaceCopy.ja,
+    preview: 'Sepolia で稼働中 · JPYC で支払い。売上の 5% がそのまま救済基金に入ります。',
+    count: '件の販売中ロット', empty: '該当するロットがありません。別の魚を選んでください。',
+    loading: 'ロットを読み込み中…', unavailable: 'ロットを読み込めません。', retry: 'ロットを表示',
+    details: 'このロットを購入', noReceipt: 'イラストです。購入は SaleRouter の実際の取引です。',
+    previewBadge: '販売中', sampleLanding: '気仙沼水揚げ', view: '購入',
+    sharedCopy: '価格は漁協が署名します。1 回の取引で売り手への支払いと救済基金への 5% 寄付を行います。',
+  },
+};
