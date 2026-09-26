@@ -31,7 +31,10 @@ function clampToUint16(n: number): number {
 export function pickCredential(result: IDKitResult, level: WorldLevel, wallet: string): MatchedCredential | null {
   if (result.protocol_version !== '4.0' || 'session_id' in result) return null;
 
-  const expectedIdentifiers = identifiersForLevel(level);
+  // Simulator (staging/sandbox) proofs: there is no Selfie Check credential, so a level-1 bind accepts the
+  // simulator's Human (Orb) credential and binds it at its real level (2). Production is unchanged.
+  const simulator = (result as { environment?: string }).environment !== undefined && (result as { environment?: string }).environment !== 'production';
+  const expectedIdentifiers = simulator && level === 'level1' ? [...identifiersForLevel(level), 'proof_of_human'] : identifiersForLevel(level);
   const expectedNumericLevel = level === 'level1' ? 1 : 2;
   const expectedSignalHash = hashSignal(wallet).toLowerCase();
 
@@ -40,7 +43,8 @@ export function pickCredential(result: IDKitResult, level: WorldLevel, wallet: s
     if (!item.signal_hash || item.signal_hash.toLowerCase() !== expectedSignalHash) continue;
 
     const schemaLevel = levelForSchema(item.issuer_schema_id);
-    if (schemaLevel !== expectedNumericLevel) continue;
+    if (schemaLevel === null) continue;
+    if (schemaLevel !== expectedNumericLevel && !(simulator && schemaLevel > expectedNumericLevel)) continue;
 
     const sybilScore = item.identifier === 'selfie' && 'sybil_score' in item ? item.sybil_score : 0;
 

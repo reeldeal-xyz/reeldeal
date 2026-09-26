@@ -152,7 +152,7 @@ fork-based payout test and its recorded result.
 The deployed app reads the plot inventory, heat/HAB data, weather forecast and
 Sepolia relief events. Remaining release gaps are recorded in
 [submission status](docs/SUBMISSION.md#current-release): the legacy quote service
-needs the current hoya/oyster catalogue deployed; storm risk and heat/HAB onset
+must stay on the same shared catalogue revision; storm risk and heat/HAB onset
 forecasts are not implemented; imported polygons do not verify farmer ownership.
 This is a Sepolia submission, not a mainnet launch.
 

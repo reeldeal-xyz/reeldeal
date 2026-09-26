@@ -42,7 +42,7 @@ Data: a Python FastAPI risk API ingests JAXA SGLI/AMSR2 sea-surface temperature 
 
 Notable hacks: the keeper falls back to self-signing when the feed has no signed trigger; a fork-mode e2e harness (bun run e2e) replays the whole payout path against a local fork of live Sepolia in ~75 s; and Trigger v2 bumps the EIP-712 domain so v1 signatures can never verify against the new pool.
 
-**Release status:** Sepolia. The legacy quote service needs the current catalogue deployed for hoya/oyster checkout; see the verified checks and limitations in [SUBMISSION.md](SUBMISSION.md).
+**Release status:** Sepolia. Primary-species quotes and live data reads are verified; see the checks and remaining limitations in [SUBMISSION.md](SUBMISSION.md).
 
 **GitHub repository:** https://github.com/reeldeal-xyz/reeldeal (in the form, choose *Add GitHub Account* and grant ETHGlobal access to the reeldeal-xyz org)
 

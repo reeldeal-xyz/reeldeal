@@ -13,8 +13,8 @@ The project's name is **Reel Deal**. `umi.eth` remains the deployed ENS parent.
 - **App:** <https://app.13-196-78-137.sslip.io/hmi> — coastal map, fish market and relief dashboard in Astro.
 - **Market:** scallop, sea pineapple (hoya) and oyster first; signed checkout sends **95% to the seller and 5% to the relief fund** atomically through SaleRouter.
 - **Map:** PostGIS plot polygons, satellite imagery, sea temperature/anomaly, chlorophyll, species thresholds, polygon analysis and hourly forecast playback. EN/JP; mobile controls collapse.
-- **Verified live:** 467 plots at pipeline `/ready`; heat observations, HAB restriction indices, weather forecast, relief balances/events, and a scallop quote with `reliefBps: 500` (2026-09-27, 03:43–03:45 JST). No payment was sent during these checks.
-- **Release blocker:** the Railway quote service returns `unknown_listing` for hoya. Deploy current `packages/shared/src/market.ts` with the legacy `web/` service, then verify hoya and oyster quotes before treating all listings as purchasable. Astro and the signer must use the same catalogue.
+- **Verified live:** 467 plots at pipeline `/ready`; heat observations, HAB restriction indices, weather forecast, relief balances/events, and scallop/hoya/oyster quotes with `reliefBps: 500` (2026-09-27, 03:43–03:50 JST). No payment was sent during these checks.
+- **Catalogue deployment:** an initial hoya quote failed against the old backend; rechecking after its update returned valid-price quotes for all three primary species. Astro and the signer must stay on the same catalogue revision.
 
 LIFF, co-op, holder, verification and donation pages still use the legacy backend;
 Astro redirects those routes explicitly. Deployment details: [frontend/DEPLOY.md](../frontend/DEPLOY.md).
@@ -298,12 +298,11 @@ Roles as recorded in the issues/PRs, not job titles:
   discs. They are not farmer-verified registrations; ENS season-slot ownership and
   eligibility remain separate. Restrictions do not prove a farm's stock loss or yen loss.
 - **Backend deployment.** The native Astro UI is deployed, but signing and LINE services
-  still depend on `web/`. The quote catalogue mismatch above must be resolved.
+  still depend on `web/`. Both services must deploy the same shared catalogue.
 - **Identity.** My Number Card and passport credentials are not integrated or tested.
   The recorded level-2 proof used World ID Orb; simulator support is a staging path,
   not evidence of production identity verification (`docs/WORLD_DEBRIEF.md`).
 
-Before a real-money launch: resolve the quote deployment mismatch, independently
-review contracts and custody/signing operations, validate farmer enrolments and data
+Before a real-money launch: independently review contracts and custody/signing operations, validate farmer enrolments and data
 freshness, and provide production identity/provider configuration. Those checks are
 not satisfied by a successful testnet demo.
