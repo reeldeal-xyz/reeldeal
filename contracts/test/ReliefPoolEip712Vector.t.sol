@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {MockHumanRegistry} from "./mocks/MockHumanRegistry.sol";
 import {MockPlotResolver} from "./mocks/MockPlotResolver.sol";
+import {MockSlotResolver} from "./mocks/MockSlotResolver.sol";
 
 /// @notice Cross-checks ReliefPool.triggerDigest against an independently computed viem `hashTypedData` vector,
 ///         so the on-chain EIP-712 encoding is verified against the exact TRIGGER_EIP712_TYPES + eip712Domain
@@ -31,9 +32,10 @@ contract ReliefPoolEip712VectorTest is Test {
         ERC20Mock jpyc = new ERC20Mock();
         MockHumanRegistry humans = new MockHumanRegistry();
         MockPlotResolver resolver = new MockPlotResolver();
+        MockSlotResolver slotResolver = new MockSlotResolver();
 
         vm.prank(deployer);
-        ReliefPool pool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, address(this));
+        ReliefPool pool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, slotResolver, address(this));
         assertEq(address(pool), predictedPool, "pool address must match the offline CREATE(deployer, 0) prediction");
 
         IReliefPool.Trigger memory t;

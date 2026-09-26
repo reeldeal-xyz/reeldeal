@@ -18,6 +18,11 @@ export const ReliefPoolAbi = [
         "internalType": "contract IPlotResolver"
       },
       {
+        "name": "slotResolver_",
+        "type": "address",
+        "internalType": "contract ISlotResolver"
+      },
+      {
         "name": "admin_",
         "type": "address",
         "internalType": "address"
@@ -28,6 +33,71 @@ export const ReliefPoolAbi = [
   {
     "type": "function",
     "name": "DEFAULT_ADMIN_ROLE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REASON_CAP",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REASON_NO_FARMER",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REASON_PLOT_EXPIRED",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REASON_UNVERIFIED",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "REASON_ZONE_MISMATCH",
     "inputs": [],
     "outputs": [
       {
@@ -136,6 +206,21 @@ export const ReliefPoolAbi = [
     ],
     "outputs": [
       {
+        "name": "zoneId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "speciesId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seasonLabel",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
         "name": "eligibleUnits",
         "type": "uint32",
         "internalType": "uint32"
@@ -168,18 +253,18 @@ export const ReliefPoolAbi = [
     "name": "claimHeld",
     "inputs": [
       {
-        "name": "",
+        "name": "eventId",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "plotLabel",
         "type": "string",
         "internalType": "string"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -460,34 +545,34 @@ export const ReliefPoolAbi = [
     "name": "payoutTarget",
     "inputs": [
       {
-        "name": "",
+        "name": "plotLabel",
         "type": "string",
         "internalType": "string"
       },
       {
-        "name": "",
+        "name": "seasonLabel",
         "type": "string",
         "internalType": "string"
       }
     ],
     "outputs": [
       {
-        "name": "",
+        "name": "farmer",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "",
+        "name": "plotRegistry",
         "type": "address",
         "internalType": "address"
       },
       {
-        "name": "",
+        "name": "slotExpiry",
         "type": "uint64",
         "internalType": "uint64"
       }
     ],
-    "stateMutability": "pure"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -498,6 +583,35 @@ export const ReliefPoolAbi = [
         "name": "",
         "type": "address",
         "internalType": "contract IPlotResolver"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "plotSettlements",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum ReliefPool.PlotStatus"
+      },
+      {
+        "name": "holdReason",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -675,18 +789,18 @@ export const ReliefPoolAbi = [
     "name": "settle",
     "inputs": [
       {
-        "name": "",
+        "name": "eventId",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "plotLabels",
         "type": "string[]",
         "internalType": "string[]"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -735,6 +849,19 @@ export const ReliefPoolAbi = [
   },
   {
     "type": "function",
+    "name": "slotResolver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ISlotResolver"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       {
@@ -757,18 +884,18 @@ export const ReliefPoolAbi = [
     "name": "sweep",
     "inputs": [
       {
-        "name": "",
+        "name": "eventId",
         "type": "bytes32",
         "internalType": "bytes32"
       },
       {
-        "name": "",
+        "name": "plotLabel",
         "type": "string",
         "internalType": "string"
       }
     ],
     "outputs": [],
-    "stateMutability": "pure"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -902,6 +1029,30 @@ export const ReliefPoolAbi = [
   {
     "type": "function",
     "name": "unitsByZoneSpecies",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unitsPaid",
     "inputs": [
       {
         "name": "",
@@ -1392,6 +1543,38 @@ export const ReliefPoolAbi = [
   },
   {
     "type": "error",
+    "name": "ClaimWindowActive",
+    "inputs": [
+      {
+        "name": "claimDeadline",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "nowTs",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ClaimWindowElapsed",
+    "inputs": [
+      {
+        "name": "claimDeadline",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "nowTs",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "DuplicateSigner",
     "inputs": [
       {
@@ -1434,8 +1617,19 @@ export const ReliefPoolAbi = [
   },
   {
     "type": "error",
-    "name": "NotImplemented",
-    "inputs": []
+    "name": "NotHeld",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "plotLabel",
+        "type": "string",
+        "internalType": "string"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1461,6 +1655,27 @@ export const ReliefPoolAbi = [
         "name": "token",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StillIneligible",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "plotLabel",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "reason",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },
@@ -1509,6 +1724,17 @@ export const ReliefPoolAbi = [
         "name": "tier",
         "type": "uint8",
         "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownEvent",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },
