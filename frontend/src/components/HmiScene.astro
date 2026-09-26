@@ -37,7 +37,7 @@ const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.fi
 const speciesPlots = plots.filter((item) => item.species.includes(species));
 
 const copy = ja ? {
-  mapLabel: '宮城県沿岸のインタラクティブ地図', coast: '宮城県沿岸', online: '衛星・海洋観測', panels: '地図パネル', market: '魚市場',
+  mapLabel: '日本のインタラクティブ地図（宮城県を初期表示）', coast: '日本沿岸', online: '衛星・海洋観測', panels: '地図パネル', market: '魚市場',
   layers: 'レイヤー', thresholds: '基準値', forecast: '予報', area: '範囲', observations: '観測', close: '閉じる',
   plot: '養殖区画', noPlot: '区画データなし', language: '言語',
   satellite: '衛星写真', sst: '海面水温', anom: '水温偏差', chl: 'クロロフィル',
@@ -55,12 +55,12 @@ const copy = ja ? {
   noMapPlot: '地図上の区画なし', noSpecies: '魚種データなし', seasonLabel: 'データ年', prevSeason: '前の年', nextSeason: '次の年', show: '表示',
   tilesFailed: '地図タイルを読み込めませんでした。区画と観測データは引き続き利用できます。', retry: '再試行',
   loading: '観測値を読み込み中…', loaded: '読み込み完了', updateFailed: '観測値を更新できませんでした。再度お試しください。',
-  panelFailed: '観測値を更新できませんでした。', outlines: '輪郭のみ', satelliteNote: '衛星写真 · Esri',
+  panelFailed: '観測値を更新できませんでした。', outlines: '地図 · OpenStreetMap', satelliteNote: '衛星写真 · Esri',
   overlayUnavailable: '{layer}の画像は{time}には利用できません。',
   plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を集計中…',
   plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNone: '{season}年の海面水温データはありません',
 } : {
-  mapLabel: 'Interactive map of the Miyagi coast', coast: 'Miyagi coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
+  mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
   plot: 'Farm plot', noPlot: 'No plot data', language: 'Language',
   satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
@@ -78,7 +78,7 @@ const copy = ja ? {
   noMapPlot: 'No map plot yet', noSpecies: 'No species data', seasonLabel: 'Season', prevSeason: 'Previous season', nextSeason: 'Next season', show: 'Show selection',
   tilesFailed: 'Map tiles failed to load. Plot and observation data remain available.', retry: 'Retry',
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
-  panelFailed: 'Observations could not be updated.', outlines: 'Outlines only', satelliteNote: 'Satellite · Esri',
+  panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.',
   plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
   plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
@@ -300,7 +300,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
         {!supportedSpecies.length && <p class="shelf-note">{copy.noSpecies}</p>}
       </fieldset>
-      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2025}>›</button></div></div>
+      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2026}>›</button></div></div>
       <p class="dock-status sr-only" data-view-status role="status"></p>
       <noscript><button type="submit">{copy.show}</button></noscript>
     </form>

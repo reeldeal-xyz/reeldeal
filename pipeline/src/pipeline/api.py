@@ -8,11 +8,12 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+from psycopg import Error as DatabaseError
 from shapely.geometry import shape
 from starlette.routing import BaseRoute
 
 from pipeline import __version__
-from pipeline.core import stations as station_store
+from pipeline.core import db, stations as station_store
 from pipeline.core.db import NoDatabase
 from pipeline.core.errors import is_stub
 from pipeline.core.plots import store, uploads
@@ -137,11 +138,25 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
             modules=module_health,
         )
 
+    @router.get("/ready")
+    def ready() -> JSONResponse:
+        """Core database readiness, separate from liveness and risk-product coverage."""
+        try:
+            with db.connect() as conn:
+                row = conn.execute("SELECT count(*) AS plots FROM geo.plots WHERE retired_at IS NULL").fetchone()
+            count = row["plots"]
+            if not count:
+                return JSONResponse({"status": "not-ready", "database": "available", "plotCount": 0}, status_code=503)
+            return JSONResponse({"status": "ready", "database": "available", "plotCount": count})
+        except (db.NoDatabase, DatabaseError):
+            return JSONResponse({"status": "not-ready", "database": "unavailable"}, status_code=503)
+
     @router.get("/plots", response_model=list[Plot])
     def list_plots(bbox: str | None = None, species: Species | None = None) -> list[Plot]:
-        """Plot inventory (no personal data): the reviewed seed, then uploads. bbox = west,south,east,north.
+        """Plot inventory (no personal data): every live plot in the database. bbox = west,south,east,north.
 
-        Uploads come from the database; while it is unavailable only the seed is listed.
+        That covers uploads, loaded fishery rights and demo plots. Seed geometry is only available in DB-less
+        local development; a configured database outage returns 503.
         """
         return [_plot(p) for p in store.query_all(_bbox(bbox), species)]
 
@@ -225,7 +240,7 @@ def create_app(modules: Iterable[ModuleName] = MODULES) -> FastAPI:
 
     @app.exception_handler(NoDatabase)
     def no_database(request: Request, exc: NoDatabase) -> JSONResponse:
-        return JSONResponse({"detail": str(exc)}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return JSONResponse({"detail": "Database unavailable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     # Kept on app.state because FastAPI doesn't expose included routes as APIRoutes in app.routes (/health counts them).
     app.state.routers = [core_router(modules), species_router, *(MODULES[m][0] for m in modules)]

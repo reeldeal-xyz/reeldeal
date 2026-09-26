@@ -27,7 +27,7 @@ Species = Literal[
     "salmon",
     "bluefin-tuna",
 ]
-Operation = Literal["longline", "raft", "cage"]
+Operation = Literal["longline", "raft", "cage", "other"]
 
 # §3 pixel extraction order; `tide_station` is storm surge only.
 ExtractionStrategy = Literal["inside", "buffer_500m", "buffer_2km", "nearest_pixel", "tide_station"]

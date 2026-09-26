@@ -5,7 +5,7 @@ Plots carry code, geometry, species, operation and sea area only. No owner names
 Two sources: the reviewed seed in `data/ref/plots.geojson` (served without a database) and the live PostGIS
 inventory in `geo.plots`. When the database is reachable, its rows are authoritative for matching plot codes;
 this is how the HMI receives the fishery-right polygons that replaced the old p1213-* seed discs. When the
-database is unset or down, lookups and listings fall back to the reviewed seed.
+database is unset, local development falls back to the reviewed seed. A configured but unavailable database fails closed.
 """
 
 import json
@@ -107,15 +107,15 @@ def lookup(plot_code: str) -> PlotRecord | None:
     from . import inventory
 
     try:
-        if p := inventory.get(plot_code):
-            return p
+        return inventory.get(plot_code)
     except db.NoDatabase:
-        pass
-    return get(plot_code)
+        if db.configured():
+            raise
+        return get(plot_code)
 
 
 def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    """Current DB inventory when reachable; reviewed seed only when the database is unavailable."""
+    """Current DB inventory; seed only for explicitly DB-less local development."""
     from pipeline.core import db
 
     from . import inventory
@@ -123,4 +123,6 @@ def query_all(bbox: tuple[float, float, float, float] | None = None, species: st
     try:
         return inventory.query(bbox, species)
     except db.NoDatabase:
+        if db.configured():
+            raise
         return query(bbox, species)
