@@ -41,6 +41,8 @@
   line-height: 1.1;
   min-height: var(--tap-size);
   min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 0.65rem 1rem;
   text-align: center;
   text-decoration: none;

@@ -1,12 +1,8 @@
-import { weatherForecast, type WeatherForecast, type WeatherForecastPoint } from '@repo/shared';
+import { RULES, weatherForecast, type WeatherForecast } from '@repo/shared';
+import { forecastChart, type ForecastMetric } from './forecast-chart';
 
 const dateFormat = (lang: string, time: number, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-GB', { ...options, timeZone: 'Asia/Tokyo' }).format(new Date(time * 1000));
 const numeric = (value: number | null, unit: string) => value === null ? '—' : `${value.toFixed(1)} ${unit}`;
-const values = (hours: WeatherForecastPoint[], key: keyof WeatherForecastPoint) => hours.map((hour) => hour[key]).filter((value): value is number => typeof value === 'number');
-const range = (hours: WeatherForecastPoint[], key: keyof WeatherForecastPoint) => {
-  const data = values(hours, key);
-  return data.length ? `${Math.min(...data).toFixed(1)}–${Math.max(...data).toFixed(1)} °C${data.length < hours.length ? '*' : ''}` : '—';
-};
 const element = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '', className = '') => {
   const node = document.createElement(tag); node.textContent = text; if (className) node.className = className; return node;
 };
@@ -41,73 +37,136 @@ export async function parseForecastResponse(response: Response, signal: AbortSig
   }
 }
 
-export function renderForecast(target: HTMLElement, forecast: WeatherForecast, lang: 'en' | 'ja', now = Date.now() / 1000) {
+export type ForecastFrame = { time: number; value: number | null; unit: string; label: string };
+
+export function renderForecast(target: HTMLElement, forecast: WeatherForecast, lang: 'en' | 'ja', now = Date.now() / 1000,
+  options: { species?: string; onFrame?: (frame: ForecastFrame | null) => void } = {}) {
   const ja = lang === 'ja';
   const hours = forecast.hours.filter((hour) => hour.time >= Math.floor(now / 3600) * 3600);
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const play = element('button', ja ? '再生' : 'Play', 'forecast-play'); play.type = 'button'; play.setAttribute('aria-pressed', 'false');
+  const pause = () => {
+    clearInterval(timer); timer = undefined;
+    play.textContent = ja ? '再生' : 'Play'; play.setAttribute('aria-pressed', 'false');
+    document.removeEventListener('visibilitychange', pause);
+  };
+  const destroy = () => { pause(); options.onFrame?.(null); };
+  if (!hours.length) {
+    target.replaceChildren(element('p', ja ? '予報の有効期間が終了しました。更新してください。' : 'Forecast expired. Refresh to update.'));
+    return { pause, destroy, showFrame: () => {} };
+  }
   const body = document.createDocumentFragment();
-  if (!hours.length) { target.replaceChildren(element('p', ja ? '予報の有効期間が終了しました。更新してください。' : 'This forecast has expired. Refresh to request new data.')); return; }
-  body.append(element('p', `${ja ? '取得' : 'Retrieved'} ${dateFormat(lang, forecast.fetchedAt, { dateStyle: 'medium', timeStyle: 'short' })} JST`, 'shelf-note'));
-  body.append(element('p', `${dateFormat(lang, hours[0].time, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} → ${dateFormat(lang, hours.at(-1)!.time, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} JST`, 'shelf-note'));
-  const groups = new Map<string, WeatherForecastPoint[]>();
-  for (const hour of hours) {
-    const day = new Date((hour.time + 32400) * 1000).toISOString().slice(0, 10);
-    groups.set(day, [...(groups.get(day) ?? []), hour]);
-  }
-  const cards = element('div', '', 'forecast-days');
-  for (const group of groups.values()) {
-    const card = element('section', '', 'forecast-day');
-    card.append(element('h3', dateFormat(lang, group[0].time, { weekday: 'short', month: 'short', day: 'numeric' })));
-    card.append(element('p', `${dateFormat(lang, group[0].time, { hour: '2-digit', minute: '2-digit' })}–${dateFormat(lang, group.at(-1)!.time, { hour: '2-digit', minute: '2-digit' })} · ${group.length}${ja ? '時間' : ' hours'}`));
-    const list = element('dl');
-    const wind = values(group, 'windSpeedMs'), rain = values(group, 'precipitationMm'), waves = values(group, 'waveHeightM');
-    const fields = [
-      [ja ? '気温' : 'Air temperature', range(group, 'airTemperatureC')],
-      [ja ? '最大風速' : 'Max wind', numeric(wind.length ? Math.max(...wind) : null, 'm/s') + (wind.length && wind.length < group.length ? '*' : '')],
-      [ja ? '表示時間内の降水量' : 'Precipitation in shown hours', numeric(rain.length === group.length ? rain.reduce((a, b) => a + b, 0) : null, 'mm')],
-      [ja ? '海面水温（予報）' : 'Sea temperature', range(group, 'seaTemperatureC')],
-      [ja ? '最大有義波高' : 'Max significant wave', numeric(waves.length ? Math.max(...waves) : null, 'm') + (waves.length && waves.length < group.length ? '*' : '')],
-    ];
-    for (const [label, value] of fields) { const row = element('div'); row.append(element('dt', String(label)), element('dd', String(value))); list.append(row); }
-    card.append(list); cards.append(card);
-  }
-  body.append(cards, element('p', ja ? '— = 欠測。* = 利用可能な時間だけの集計。' : '— = missing. * = summary of available hours only.', 'shelf-note'));
-  const details = element('details', '', 'forecast-hourly'); details.append(element('summary', ja ? '6時間ごとの予報' : 'Forecast at 6-hour intervals'));
-  const wrap = element('div', '', 'forecast-table'); wrap.tabIndex = 0;
-  const table = element('table'); table.append(element('caption', ja ? '時刻はJST。降水量は各時刻の直前1時間の予報値。' : 'Times are JST. Precipitation is forecast for the hour ending at each timestamp.'));
-  const headings = element('tr');
-  for (const label of [ja ? '時刻' : 'Time', ja ? '気温 °C' : 'Air °C', ja ? '風 m/s' : 'Wind m/s', ja ? '降水 mm' : 'Precip. mm', ja ? '水温 °C' : 'Sea °C', ja ? '波高 m' : 'Wave m']) { const th = element('th', label); th.scope = 'col'; headings.append(th); }
-  const head = element('thead'); head.append(headings); table.append(head); const tbody = element('tbody');
-  hours.filter((_, index) => index % 6 === 0).forEach((hour) => {
-    const row = element('tr');
-    const time = element('th', dateFormat(lang, hour.time, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })); time.scope = 'row'; row.append(time);
-    for (const value of [hour.airTemperatureC, hour.windSpeedMs, hour.precipitationMm, hour.seaTemperatureC, hour.waveHeightM]) row.append(element('td', value === null ? '—' : value.toFixed(1)));
-    tbody.append(row);
+  const controls = element('div', '', 'forecast-chart-controls');
+  const metricLabel = element('label'); metricLabel.append(element('span', ja ? '予報項目' : 'Forecast metric', 'sr-only'));
+  const select = element('select');
+  const metrics = [
+    { value: 'seaTemperatureC', label: ja ? '海面水温' : 'Sea temperature', unit: '°C' },
+    { value: 'windSpeedMs', label: ja ? '風速' : 'Wind', unit: 'm/s' },
+    { value: 'waveHeightM', label: ja ? '有義波高' : 'Significant waves', unit: 'm' },
+    { value: 'airTemperatureC', label: ja ? '気温' : 'Air temperature', unit: '°C' },
+    { value: 'precipitationMm', label: ja ? '降水量' : 'Precipitation', unit: 'mm' },
+  ] satisfies { value: ForecastMetric; label: string; unit: string }[];
+  for (const metric of metrics) { const option = element('option', metric.label); option.value = metric.value; select.append(option); }
+  metricLabel.append(select);
+  const unitLabel = element('label'), unitSelect = element('select'); unitLabel.append(element('span', ja ? '単位' : 'Unit', 'sr-only'));
+  for (const unit of ['°C', '°F']) { const option = element('option', unit); option.value = unit; unitSelect.append(option); }
+  unitLabel.append(unitSelect); controls.append(metricLabel, unitLabel); body.append(controls);
+  const reading = element('div', '', 'forecast-reading');
+  const valueLabel = element('strong'), timeLabel = element('time'); reading.append(valueLabel, timeLabel);
+  const graph = element('div', '', 'forecast-graph');
+  const playback = element('div', '', 'forecast-playback');
+  const sliderLabel = element('label', '', 'forecast-hour-label');
+  sliderLabel.append(element('span', ja ? '予報時刻 · JST' : 'Forecast hour · JST', 'sr-only'));
+  const slider = element('input'); slider.type = 'range'; slider.min = '0'; slider.max = String(hours.length - 1); slider.value = '0'; slider.step = '1';
+  slider.disabled = hours.length < 2; play.disabled = hours.length < 2;
+  sliderLabel.append(slider); playback.append(play, sliderLabel);
+  const ends = element('div', '', 'forecast-time-ends');
+  for (const hour of [hours[0], hours.at(-1)!]) ends.append(element('span', dateFormat(lang, hour.time, { month: 'short', day: 'numeric', hour: '2-digit' })));
+  const reference = element('p', '', 'forecast-reference');
+  body.append(reading, graph, playback, ends, reference);
+  const svg = (name: string, attrs: Record<string, string | number>, text = '') => {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+    node.textContent = text; return node;
+  };
+  let frame: ForecastFrame;
+  const showFrame = () => { if (frame) options.onFrame?.(frame); };
+  const draw = () => {
+    const metric = metrics.find((item) => item.value === select.value)!;
+    const fahrenheit = metric.unit === '°C' && unitSelect.value === '°F';
+    const unit = fahrenheit ? '°F' : metric.unit;
+    unitLabel.hidden = metric.unit !== '°C';
+    const references = metric.value === 'seaTemperatureC'
+      ? [...new Set(RULES.filter((rule) => rule.species === options.species && rule.peril === 'HEAT').map((rule) => rule.tempC!))]
+        .map((temp) => fahrenheit ? temp * 9 / 5 + 32 : temp) : [];
+    const chart = forecastChart(hours, metric.value, fahrenheit, references);
+    const index = Number(slider.value), hour = hours[index];
+    const value = chart?.readings[index].value ?? null;
+    const time = dateFormat(lang, hour.time, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit' });
+    valueLabel.textContent = numeric(value, unit); timeLabel.textContent = `${time} JST`; timeLabel.dateTime = new Date(hour.time * 1000).toISOString();
+    slider.setAttribute('aria-valuetext', `${time} JST · ${numeric(value, unit)}`);
+    frame = { time: hour.time, value, unit, label: metric.label }; showFrame();
+    reference.textContent = references.length ? (ja ? '破線：補償の日ごとの水温基準' : 'Dashed: daily SST relief reference') : '';
+    if (!chart) { graph.replaceChildren(element('p', ja ? 'この項目の予報はありません。' : 'No forecast for this metric.', 'shelf-note')); return; }
+    const plot = svg('svg', { viewBox: '0 0 470 165', role: 'img', 'aria-label': `${metric.label} · ${chart.min.toFixed(1)}–${chart.max.toFixed(1)} ${unit}` });
+    for (const tick of chart.ticks) {
+      plot.append(svg('path', { d: `M44 ${tick.y}H456`, class: 'forecast-grid' }), svg('text', { x: 36, y: tick.y + 4, 'text-anchor': 'end' }, tick.value.toFixed(1)));
+    }
+    for (const threshold of references) {
+      plot.append(svg('path', { d: `M44 ${chart.y(threshold)}H456`, class: 'forecast-threshold' }),
+        svg('text', { x: 454, y: chart.y(threshold) - 5, 'text-anchor': 'end', class: 'forecast-threshold-label' }, `${threshold.toFixed(1)} ${unit}`));
+    }
+    for (const segment of chart.segments) plot.append(segment.length === 1
+      ? svg('circle', { cx: segment[0].x, cy: segment[0].y, r: 3, class: 'forecast-line-point' })
+      : svg('polyline', { points: segment.map((p) => `${p.x},${p.y}`).join(' '), class: 'forecast-line' }));
+    plot.append(svg('path', { d: `M${chart.x(hour.time)} 20V148`, class: 'forecast-cursor' }));
+    if (value !== null) plot.append(svg('circle', { cx: chart.x(hour.time), cy: chart.y(value), r: 5, class: 'forecast-line-point' }));
+    graph.replaceChildren(plot);
+  };
+  select.addEventListener('change', draw); unitSelect.addEventListener('change', draw);
+  slider.addEventListener('input', () => { pause(); draw(); });
+  play.addEventListener('click', () => {
+    if (timer !== undefined) { pause(); return; }
+    if (Number(slider.value) >= hours.length - 1) { slider.value = '0'; draw(); }
+    play.textContent = ja ? '停止' : 'Pause'; play.setAttribute('aria-pressed', 'true');
+    document.addEventListener('visibilitychange', pause);
+    timer = setInterval(() => {
+      if (!target.isConnected) { destroy(); return; }
+      slider.value = String(Math.min(Number(slider.value) + 1, hours.length - 1)); draw();
+      if (Number(slider.value) === hours.length - 1) pause();
+    }, 700);
   });
-  table.append(tbody); wrap.append(table); details.append(wrap); body.append(details);
-  const sources = element('div', '', 'forecast-sources');
-  for (const [key, source] of [['Weather', forecast.weather], ['Marine', forecast.marine]] as const) {
+  const sources = element('details', '', 'forecast-sources');
+  sources.append(element('summary', ja ? '予報の詳細' : 'Forecast details'));
+  sources.append(element('p', `${ja ? '取得' : 'Updated'} ${dateFormat(lang, forecast.fetchedAt, { dateStyle: 'medium', timeStyle: 'short' })} JST`));
+  for (const source of [forecast.weather, forecast.marine]) {
     const line = element('p'); const link = element('a', `${source.provider} · ${source.model}`); link.href = source.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; line.append(link);
     line.append(document.createTextNode(source.grid
-      ? ` · ${source.grid.latitude.toFixed(4)}, ${source.grid.longitude.toFixed(4)} · ${source.grid.distanceKm} km ${ja ? '区画から' : 'from plot'}`
-      : ` · ${key}: ${ja ? '利用不可' : source.status}`));
+      ? ` · ${source.grid.distanceKm} km ${ja ? '区画から' : 'from plot'}`
+      : ` · ${ja ? '利用不可' : 'Unavailable'}`));
     sources.append(line);
   }
-  body.append(sources); target.replaceChildren(body);
+  sources.append(element('p', ja ? '海況モデルは沖合の格子予報です。港内の実測値ではありません。予報では補償を判定しません。' : 'Marine forecasts use offshore grid cells, not harbour measurements. Forecasts do not trigger relief payments.'));
+  const warning = element('a', ja ? '気象庁の警報' : 'JMA warnings'); warning.href = 'https://www.jma.go.jp/bosai/warning/'; warning.target = '_blank'; warning.rel = 'noopener noreferrer'; sources.append(warning);
+  body.append(sources); target.replaceChildren(body); draw();
+  return { pause, destroy, showFrame };
 }
 
-export function initWeatherForecast(scene: HTMLElement) {
+export function initWeatherForecast(scene: HTMLElement, onFrame?: (frame: ForecastFrame | null) => void) {
+  let playback: ReturnType<typeof renderForecast> | undefined;
   let pending: AbortController | undefined;
   let last: { panel: HTMLElement; fetchedAt: number } | undefined;
   async function load(force = false) {
     const panel = scene.querySelector<HTMLElement>('.weather-forecast');
     if (!panel || panel.dataset.weatherOperational !== 'true') return;
     const status = panel.querySelector<HTMLElement>('[data-weather-status]')!;
-    const button = panel.querySelector<HTMLButtonElement>('[data-weather-refresh]')!;
+    const button = scene.querySelector<HTMLButtonElement>('[data-weather-refresh]')!;
     const target = panel.querySelector<HTMLElement>('[data-weather-content]')!;
     const lang = panel.dataset.weatherLang === 'ja' ? 'ja' : 'en', ja = lang === 'ja';
     if (!panel.dataset.weatherLocation) return;
     if (!force && last?.panel === panel && Date.now() / 1000 - last.fetchedAt < 900) return;
     pending?.abort(); const controller = new AbortController(); pending = controller;
+    playback?.pause();
     button.disabled = true; panel.setAttribute('aria-busy', 'true');
     status.textContent = ja ? '気象・海況予報を取得中…' : 'Loading weather and marine forecasts…';
     try {
@@ -121,12 +180,13 @@ export function initWeatherForecast(scene: HTMLElement) {
       if (!response.ok || result.status === 'unavailable') throw new Error('Forecast unavailable');
       status.textContent = result.status === 'stale' ? (ja ? '最新取得に失敗。以下は古い予報です。' : 'Refresh failed. Showing an explicitly stale forecast.')
         : result.status === 'partial' ? (ja ? '一部データが利用できません。欠測を表示しています。' : 'Partial forecast; missing fields remain unavailable.')
-          : (ja ? '予報取得済み · モデル予報、実測ではありません' : 'Forecast loaded · model guidance, not observations');
-      renderForecast(target, result, lang);
+          : '';
+      playback?.destroy();
+      playback = renderForecast(target, result, lang, Date.now() / 1000, { species: scene.dataset.species, onFrame: (frame) => onFrame?.(scene.querySelector('#forecast-shelf[data-open]') ? frame : null) });
       last = result.status === 'stale' ? undefined : { panel, fetchedAt: result.fetchedAt };
     } catch {
       if (pending !== controller || controller.signal.aborted || !panel.isConnected) return;
-      target.replaceChildren(); last = undefined;
+      playback?.destroy(); playback = undefined; target.replaceChildren(); last = undefined;
       status.textContent = ja ? '予報サービスに接続できません。更新で再試行できます。' : 'Forecast service unavailable. Use Refresh to retry.';
     } finally {
       if (pending === controller) { button.disabled = false; panel.removeAttribute('aria-busy'); }
@@ -136,7 +196,8 @@ export function initWeatherForecast(scene: HTMLElement) {
     if (event.target instanceof Element && event.target.closest('[data-weather-refresh]')) void load(true);
   });
   return {
-    open: () => { void load(); },
-    reset: () => { pending?.abort(); pending = undefined; last = undefined; if (scene.querySelector('#forecast-shelf[data-open]')) void load(); },
+    open: () => { playback?.showFrame(); void load(); },
+    close: () => { playback?.pause(); onFrame?.(null); },
+    reset: () => { playback?.destroy(); playback = undefined; pending?.abort(); pending = undefined; last = undefined; if (scene.querySelector('#forecast-shelf[data-open]')) void load(); },
   };
 }

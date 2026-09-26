@@ -1,4 +1,5 @@
-import HmiScene from '../../src/components/HmiScene.astro';
+import HmiScene from './HmiPageShowcase.astro';
+import forecast from '../fixtures/hmi-forecast.json';
 import plots from '../fixtures/hmi-plots.json';
 import heat from '../fixtures/hmi-heat.json';
 import species from '../fixtures/hmi-species.json';
@@ -41,8 +42,8 @@ export const Mobile390 = {
     await selectLayers(canvas);
     await userEvent.click(canvas.getByRole('button', { name: 'Close layers' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Thresholds' }));
-    await waitFor(() => expect(canvas.getByText('Species thresholds')).toBeVisible());
-    await expect(canvas.getByRole('radio', { name: 'Nori' })).toBeDisabled();
+    await waitFor(() => expect(canvas.getByText('Relief thresholds')).toBeVisible());
+    await expect(canvas.queryByRole('radio', { name: /^Nori/ })).toBeNull();
   },
 };
 export const MobileLayers = {
@@ -84,7 +85,7 @@ export const MobileMarket = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
     await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
-    await expect(canvas.getByRole('heading', { name: 'No catch listed yet.' })).toBeVisible();
+    await expect(canvas.getByRole('heading', { name: 'Skipjack tuna (katsuo)' })).toBeVisible();
     await expect(canvas.queryByRole('button', { name: /buy|checkout/i })).toBeNull();
   },
 };
@@ -113,5 +114,55 @@ export const MobileJapaneseHab = {
     await userEvent.click(canvas.getByRole('button', { name: '範囲' }));
     await userEvent.click(canvas.getByRole('button', { name: '範囲を描く' }));
     await expect(canvas.getByRole('button', { name: '描画を終了' })).toHaveAttribute('aria-pressed', 'true');
+  },
+};
+
+const fits = (canvasElement) => {
+  const panel = canvasElement.querySelector('.map-shelf[data-open]');
+  const map = canvasElement.querySelector('#hmi-map').getBoundingClientRect();
+  const rect = panel.getBoundingClientRect();
+  expect(rect.left).toBeGreaterThanOrEqual(map.left);
+  expect(rect.right).toBeLessThanOrEqual(map.right + 1);
+  expect(rect.bottom).toBeLessThanOrEqual(canvasElement.querySelector('.coast-dock').getBoundingClientRect().top);
+  expect(panel.scrollWidth).toBeLessThanOrEqual(panel.clientWidth + 1);
+};
+const playForecast = async ({ canvasElement }) => {
+  await initMap(canvasElement);
+  const canvas = within(canvasElement);
+  await userEvent.click(canvas.getByRole('button', { name: 'Forecast', exact: true }));
+  const { renderForecast } = await import('../../src/lib/weather-forecast.client');
+  const target = canvasElement.querySelector('[data-weather-content]');
+  const playback = renderForecast(target, forecast, 'en', forecast.fetchedAt, { species: 'scallop' });
+  canvasElement.querySelector('[data-weather-status]').textContent = 'Recorded forecast · 26 Sep 2026';
+  const slider = canvas.getByRole('slider', { name: 'Forecast hour · JST' });
+  await userEvent.click(canvas.getByRole('button', { name: 'Play', exact: true }));
+  await waitFor(() => expect(Number(slider.value)).toBeGreaterThan(0));
+  await userEvent.click(canvas.getByRole('button', { name: 'Pause', exact: true }));
+  slider.value = '24'; slider.dispatchEvent(new Event('input', { bubbles: true }));
+  await expect(slider).toHaveAttribute('aria-valuetext', expect.stringContaining('JST'));
+  await expect(canvas.getByRole('button', { name: 'Play', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  const unit = canvas.getByRole('combobox', { name: 'Unit' });
+  unit.value = '°F'; unit.dispatchEvent(new Event('change', { bubbles: true }));
+  await expect(slider).toHaveAttribute('aria-valuetext', expect.stringContaining('°F'));
+  fits(canvasElement);
+  playback.pause();
+};
+export const IPhoneForecastPlayer = { globals: { viewport: { value: 'iphone17', isRotated: false } }, play: playForecast };
+export const IPadForecastPlayer = { globals: { viewport: { value: 'ipad', isRotated: false } }, play: playForecast };
+export const IPadLandscape = { globals: { viewport: { value: 'ipadLandscape', isRotated: false } }, play: playForecast };
+export const PanelKeyboard = {
+  globals: { viewport: { value: 'iphone17', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement); const canvas = within(canvasElement);
+    for (const name of ['Layers', 'Thresholds', 'Forecast', 'Area', 'Observations ↑']) {
+      const button = canvas.getByRole('button', { name, exact: true });
+      await userEvent.click(button);
+      const panel = canvasElement.querySelector('.map-shelf[data-open]');
+      await expect(panel.querySelector('[data-close-shelf]')).toHaveFocus();
+      fits(canvasElement);
+      await userEvent.keyboard('{Escape}');
+      await expect(button).toHaveFocus();
+      await expect(button).toHaveAttribute('aria-expanded', 'false');
+    }
   },
 };

@@ -1,21 +1,25 @@
 .weather-forecast,.species-thresholds { min-width: 0; overflow-wrap: anywhere; }
 .forecast-notice,.threshold-reference { margin: 8px 0; padding: 9px 10px; border: 1px solid #ccd9cd; border-radius: 4px; background: #eef3e9; font-size: 12px; line-height: 1.5; }
 .forecast-status { margin: 8px 0; font-size: 12px; line-height: 1.5; }
+.forecast-status:empty { display: none; }
+.forecast-chart-controls { display: flex; align-items: end; gap: 8px; margin-top: 4px; }
+.forecast-chart-controls label { display: grid; gap: 4px; min-width: 0; font-size: 12px; color: #526b6e; }
+.forecast-chart-controls label:first-child { flex: 1; }
+.forecast-chart-controls select { appearance: none; width: 100%; min-width: 0; height: 44px; min-height: 44px; padding: 6px 24px 6px 8px; border: 1px solid #86aaa8; border-radius: 4px; color: var(--sea-ink); background: linear-gradient(45deg, transparent 50%, #526b6e 50%) right 12px center / 5px 5px no-repeat, linear-gradient(135deg, #526b6e 50%, transparent 50%) right 7px center / 5px 5px no-repeat, white; font: inherit; }
+.forecast-reading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 12px; }
+.forecast-reading strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.forecast-reading time { font-size: 12px; color: #526b6e; }
+.forecast-graph svg { display: block; width: 100%; height: auto; min-height: 90px; max-height: 125px; }
+.forecast-graph text { fill: #526b6e; font: 12px var(--font-body); }
+.forecast-grid { fill: none; stroke: #d0ddd5; }
+.forecast-line { fill: none; stroke: #216e73; stroke-width: 3; stroke-linejoin: round; }
+.forecast-line-point { fill: #216e73; }
+.forecast-cursor { fill: none; stroke: #526b6e; stroke-dasharray: 3 4; }
+.forecast-hour-label { display: grid; gap: 4px; font-size: 12px; }
+.forecast-hour-label input { width: 100%; min-width: 0; height: 44px; margin: 0; accent-color: #216e73; }
+.forecast-time-ends { display: flex; justify-content: space-between; gap: 12px; color: #526b6e; font-size: 11px; }
+.forecast-sources summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 12px; font-weight: 750; }
 .forecast-refresh { min-height: 44px; padding: 8px 12px; color: var(--sea-ink); background: white; border: 1px solid #86aaa8; border-radius: 4px; font-weight: 750 !important; }
-.forecast-days { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-top: 12px; }
-.forecast-day { min-width: 0; padding: 10px; background: #fff; border: 1px solid #d0ddd5; border-radius: 4px; }
-.forecast-day h3 { margin: 0; font: 800 14px/1.3 var(--font-body); }
-.forecast-day p { margin: 4px 0 8px; color: #526b6e; font-size: 11px; }
-.forecast-day dl { display: grid; gap: 7px; margin: 0; }
-.forecast-day dl > div { display: grid; gap: 1px; }
-.forecast-day dt { color: #526b6e; font-size: 11px; }
-.forecast-day dd { margin: 0; font-weight: 750; font-size: 13px; font-variant-numeric: tabular-nums; }
-.forecast-hourly { margin-top: 12px; }
-.forecast-hourly summary { display: flex; align-items: center; min-height: 44px; font-size: 13px; font-weight: 750; cursor: pointer; }
-.forecast-table { max-height: 250px; overflow: auto; }
-.forecast-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.forecast-table caption { text-align: start; padding-bottom: 8px; color: #526b6e; }
-.forecast-table th,.forecast-table td { padding: 8px; text-align: start; border-bottom: 1px solid #d0ddd5; white-space: nowrap; }
 .forecast-sources { margin-top: 10px; color: #526b6e; font-size: 11px; }
 .forecast-sources p { margin: 6px 0; }
 .threshold-rule { margin-top: 12px; padding-top: 12px; border-top: 1px solid #cdded6; }
@@ -27,4 +31,24 @@
 .threshold-progress { margin: 8px 0; font-weight: 750; font-size: 14px; }
 .threshold-rule progress { width: 100%; height: 10px; accent-color: #247457; }
 .threshold-reached { margin: 8px 0; padding: 7px; border-left: 3px solid #247457; background: #e9f4eb; font-size: 12px; }
-@media (max-width: 459px) { .forecast-days { grid-template-columns: minmax(0,1fr); } .forecast-day dl { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+
+.forecast-header-actions { display: flex; gap: 8px; }
+.forecast-playback { display: flex; align-items: center; gap: 12px; }
+.forecast-play { min-width: 64px; min-height: 44px; border: 1px solid #86aaa8; border-radius: 4px; color: var(--sea-ink); background: white; font: 750 13px var(--font-body); }
+.forecast-play[aria-pressed="true"] { background: #d5e9de; }
+.forecast-hour-label { flex: 1; min-width: 0; }
+.forecast-reference { margin: 8px 0 0; font-size: 11px; line-height: 1.4; color: #526b6e; }
+.forecast-reference:empty { display: none; }
+.forecast-threshold { fill: none; stroke: #99542b; stroke-width: 1.5; stroke-dasharray: 6 4; }
+.forecast-graph .forecast-threshold-label { fill: #854723; paint-order: stroke; stroke: var(--sea-paper); stroke-width: 3px; }
+.forecast-map-label > div { display: grid; gap: 2px; }
+.forecast-map-label strong,.forecast-map-label span { display: block; }
+.forecast-map-label span:first-of-type { font-size: 20px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.threshold-purpose { margin: 6px 0; color: #526b6e; font-size: 12px; line-height: 1.4; }
+.threshold-observed { display: grid; gap: 3px; margin-block: 12px; }
+.threshold-observed > span,.threshold-observed time { color: #526b6e; font-size: 11px; }
+.threshold-observed > strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.threshold-observed small { font-size: 13px; }
+.threshold-rule header strong small { color: #526b6e; font-size: 12px; }
+.threshold-details { margin-top: 12px; font-size: 12px; line-height: 1.5; }
+.threshold-details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }

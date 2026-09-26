@@ -2,7 +2,7 @@
 import '../styles/global.css';
 import '../styles/market.css';
 import '../styles/wallet.css';
-import reeldealLogo from '../../../docs/assets/reeldeal-logo.svg?url';
+const reeldealLogo = '/images/reeldeal-logo.svg';
 import BrandIntro from '../components/BrandIntro.astro';
 interface Props { title: string; description?: string; section?: string; lang?: 'en' | 'ja' }
 const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'market', lang = 'en' } = Astro.props;

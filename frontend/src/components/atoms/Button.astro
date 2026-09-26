@@ -1,10 +1,11 @@
 ---
 import './ui.css';
+import type { HTMLAttributes } from 'astro/types';
 
 type Tone = 'blue' | 'pink' | 'yellow' | 'ink';
 type Variant = 'primary' | 'secondary';
 
-interface Props {
+interface Props extends Omit<HTMLAttributes<'button'>, 'class'> {
   href?: string;
   tone?: Tone;
   variant?: Variant;
@@ -26,6 +27,7 @@ const {
   target,
   rel,
   class: extraClass = '',
+  ...attributes
 } = Astro.props;
 
 const classes = [
@@ -38,7 +40,7 @@ const classes = [
 ---
 
 {href && !disabled ? (
-  <a class={classes} href={href} target={target} rel={rel}><slot /></a>
+  <a {...attributes} class={classes} href={href} target={target} rel={rel ?? (target === '_blank' ? 'noopener noreferrer' : undefined)}><slot /></a>
 ) : (
-  <button class={classes} type={type} disabled={disabled}><slot /></button>
+  <button {...attributes} class={classes} type={type} disabled={disabled}><slot /></button>
 )}

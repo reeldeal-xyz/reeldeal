@@ -21,6 +21,15 @@ const data = () => pipelineHeatRisk.parse({
 });
 
 describe('scallop and sea-pineapple configured thresholds', () => {
+  test('oysters show recorded SST independently of having a heat trigger', () => {
+    const oysterPlot = { ...plot, species: ['oyster'] };
+    const result = thresholdView('oyster', '2026', data(), oysterPlot, null, now);
+    expect(result.heat).toEqual([]);
+    expect(result.latestSst).toMatchObject({ asOf: '2026-07-03', value: 24 });
+    expect(result.bans[0].threshold).toBe(4);
+    expect(thresholdView('oyster', '2026', null, oysterPlot, null, now).latestSst).toBeNull();
+    expect(thresholdView('oyster', '2026', data(), { ...oysterPlot, areaM2: 900 }, null, now).latestSst).toBeNull();
+  });
   test('always exposes canonical thresholds even without online profile or observations', () => {
     const scallop = thresholdView('scallop', '2026', null, plot, null, now);
     expect(scallop.heat.map(({ rule }) => [rule.tempC, rule.threshold])).toEqual([[25, 14], [26, 12]]);

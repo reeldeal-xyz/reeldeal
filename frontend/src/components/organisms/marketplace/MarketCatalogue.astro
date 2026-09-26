@@ -1,0 +1,45 @@
+---
+import { LISTINGS, JPYC_DECIMALS, MARKET_RELIEF_BPS, splitSale } from '@repo/shared';
+import { parseUnits } from 'viem';
+import Button from '../../atoms/Button.astro';
+import Amount from '../../atoms/Amount.astro';
+import SpeciesIcon from '../../SpeciesIcon.astro';
+import { fishIllustration } from '../../../lib/fish-illustration';
+import { jpycFromBaseUnits } from '../../../lib/format-amount';
+import { speciesColor } from '../../../lib/plot-layer';
+interface Props { compact?: boolean; lang?: 'en' | 'ja' }
+const { compact = false, lang = 'en' } = Astro.props;
+const ja = lang === 'ja';
+const listings = compact ? LISTINGS.slice(0, 3) : LISTINGS;
+---
+<div class:list={['market-catalogue', compact && 'market-catalogue--compact']}>
+  {listings.map((listing) => {
+    const illustration = fishIllustration(listing.species);
+    const { seller, relief } = splitSale(parseUnits(String(listing.priceYen), JPYC_DECIMALS));
+    return <article id={`listing-${listing.slug}`} style={`--species-color: ${speciesColor([listing.species])}`}>
+      {!compact && <div class="catalogue-media">
+        {illustration.src.startsWith('/images/fish/')
+          ? <img src={illustration.src} alt={illustration.alt} width="480" height="320" loading="lazy" />
+          : <SpeciesIcon species={listing.species} />}
+      </div>}
+      <div class="catalogue-copy"><h2>{ja ? listing.nameJa : listing.name}</h2><p lang={ja ? 'en' : 'ja'}>{ja ? listing.name : listing.nameJa}</p>
+        <p>{listing.unit} · {listing.origin}</p></div>
+      <strong class="catalogue-price"><Amount value={String(listing.priceYen)} /></strong>
+      {!compact && <dl class="catalogue-split"><div><dt>Seller</dt><dd><Amount value={jpycFromBaseUnits(seller)!} /></dd></div><div><dt>Relief · {MARKET_RELIEF_BPS / 100}%</dt><dd><Amount value={jpycFromBaseUnits(relief)!} /></dd></div></dl>}
+      {compact ? <Button href={`/market#market-preview-detail-${listing.slug.toUpperCase()}`} variant="secondary">{ja ? '見る' : 'View'}</Button>
+        : <Button data-market-buy={listing.slug} disabled aria-label={`Review ${listing.name}`}>Review purchase</Button>}
+    </article>;
+  })}
+</div>
+<style>
+  .market-catalogue { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 20px; }
+  article { display: flex; flex-direction: column; min-width: 0; gap: 12px; padding: 16px; border: 2px solid var(--color-ink); border-top: 6px solid var(--species-color); border-radius: var(--radius-card); background: var(--color-surface); scroll-margin-top: 110px; }
+  .catalogue-media { display: grid; place-items: center; aspect-ratio: 3/2; overflow: hidden; border-radius: 8px; background: color-mix(in srgb, var(--species-color) 24%, var(--color-paper)); }
+  .catalogue-media img { width: 100%; height: 100%; object-fit: cover; } .catalogue-media :global(svg) { width: 100px; height: 100px; }
+  h2 { margin: 0; font: 800 20px/1.25 var(--font-body); overflow-wrap: anywhere; } p { margin: 4px 0 0; font-size: 12px; color: var(--color-ink-soft); }
+  .catalogue-price { margin-top: auto; font-size: 22px; } .catalogue-split { display: grid; gap: 4px; margin: 0; font-size: 12px; }
+  .catalogue-split > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; } dd { margin: 0; font-weight: 750; }
+  .market-catalogue--compact { grid-template-columns: 1fr; gap: 8px; } .market-catalogue--compact article { display: grid; grid-template-columns: minmax(0,1fr) auto; padding: 10px; gap: 6px; }
+  .market-catalogue--compact h2 { font-size: 14px; } .market-catalogue--compact .catalogue-copy { grid-column: 1/-1; } .market-catalogue--compact p { display: none; }
+  .market-catalogue--compact .catalogue-price { font-size: 15px; align-self: center; margin: 0; }
+</style>
