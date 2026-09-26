@@ -1,0 +1,20 @@
+---
+import LotDetailView from '../../src/components/organisms/LotDetailView.astro';
+import type { Detail } from '../../src/lib/lot-detail';
+
+const { initialDetail, initialState, initialMessage, initialProofOpen, initialAuditOpen } = Astro.props as {
+  initialDetail?: Detail;
+  initialState?: 'loading' | 'unavailable';
+  initialMessage?: string;
+  initialProofOpen?: boolean;
+  initialAuditOpen?: boolean;
+};
+---
+
+<LotDetailView
+  detail={initialDetail}
+  state={initialState}
+  message={initialMessage}
+  proofOpen={initialProofOpen}
+  auditOpen={initialAuditOpen}
+/>

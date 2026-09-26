@@ -1,0 +1,80 @@
+.relief-card {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.relief-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.relief-card__title {
+  margin: 0;
+  font: 900 1rem/1.2 var(--font-impact);
+  text-transform: uppercase;
+}
+
+.relief-card__label,
+.relief-card__note {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+.relief-card__note { margin-top: var(--space-4); }
+
+.relief-card__value {
+  margin: 0 0 var(--space-3);
+  font-size: 1.5rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.relief-card__facts {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.relief-card__fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px var(--space-3);
+  min-width: 0;
+}
+
+.relief-card__fact dt { color: var(--color-ink-soft); font-size: .875rem; }
+.relief-card__fact dd { margin: 0; min-width: 0; font-weight: 700; }
+.relief-card__fact--fund { padding-top: var(--space-3); border-top: 2px solid var(--color-ink); }
+
+.relief-provenance > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-size);
+  cursor: pointer;
+  list-style: none;
+  font-weight: 800;
+}
+
+.relief-provenance > summary::-webkit-details-marker { display: none; }
+.relief-provenance > summary::after { content: '+'; flex: none; font-size: 1.5rem; }
+.relief-provenance[open] > summary::after { content: '−'; }
+.relief-provenance > summary:focus-visible { outline: var(--focus-ring); outline-offset: 4px; }
+.relief-provenance[open] > summary { margin-bottom: var(--space-4); }
+
+.relief-preview { display: grid; gap: var(--space-5); }
+.relief-preview > p { margin: 0; }

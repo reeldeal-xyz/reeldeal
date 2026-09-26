@@ -1,0 +1,24 @@
+---
+import FarmCard from '../../src/components/molecules/relief/FarmCard.astro';
+import SpeciesCard from '../../src/components/molecules/relief/SpeciesCard.astro';
+import EquipmentCard from '../../src/components/molecules/relief/EquipmentCard.astro';
+import {
+  equipmentPreviews,
+  farmPreviews,
+  resourcePreviewNotice,
+  speciesPreviews,
+} from '../../src/fixtures/resource-preview';
+
+type Props =
+  | { kind: 'farm'; sample: keyof typeof farmPreviews }
+  | { kind: 'species'; sample: keyof typeof speciesPreviews }
+  | { kind: 'equipment'; sample: keyof typeof equipmentPreviews };
+const props = Astro.props as Props;
+---
+
+<div class="relief-preview">
+  <p class="relief-card__label">{resourcePreviewNotice}</p>
+  {props.kind === 'farm' && <FarmCard {...farmPreviews[props.sample]} />}
+  {props.kind === 'species' && <SpeciesCard {...speciesPreviews[props.sample]} />}
+  {props.kind === 'equipment' && <EquipmentCard {...equipmentPreviews[props.sample]} />}
+</div>

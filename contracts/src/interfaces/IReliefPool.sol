@@ -15,7 +15,6 @@ interface IReliefPool {
         uint64 firedAt;
         uint32 index;
         uint32 threshold;
-        uint8 tempC; // HEAT: a day counts when daily SST >= tempC (whole °C). 0 for perils without a temperature.
         bytes32 dataHash;
         uint64 deadline;
     }

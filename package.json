@@ -1,7 +1,11 @@
 {
   "name": "eth-global-tokyo",
   "private": true,
-  "workspaces": ["packages/*", "web"],
+  "workspaces": [
+    "packages/*",
+    "web",
+    "frontend"
+  ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun run --filter '*' test && bun run pipeline:test && cd contracts && forge test",
@@ -11,10 +15,26 @@
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
     "pipeline": "cd pipeline && uv run pipeline-serve",
-    "pipeline:test": "cd pipeline && uv run pytest"
+    "pipeline:test": "cd pipeline && uv run pytest",
+    "keeper": "bun run --filter web keeper --",
+    "dog:map": "bun scripts/dog-map.ts",
+    "dog:query": "dotdog query --dag .doghouse/generated/repo.dag",
+    "dog:trace": "dotdog trace --dag .doghouse/generated/repo.dag",
+    "dog:test": "bun test scripts/dog-map.test.ts",
+    "dog:check": "bun scripts/dog-check.ts",
+    "dog:spec": "bun scripts/dog-check.ts spec",
+    "dog:review": "bun scripts/dog-check.ts review",
+    "dog:serve": "dotdog serve specs",
+    "frontend:dev": "bun run --cwd frontend dev",
+    "frontend:check": "bun run --cwd frontend check",
+    "frontend:build": "bun run --cwd frontend build",
+    "frontend:start": "bun run --cwd frontend start",
+    "storybook": "bun run --cwd frontend storybook",
+    "storybook:build": "bun run --cwd frontend build-storybook"
   },
   "devDependencies": {
-    "typescript": "^5.9.0",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "dotdog": "0.9.0",
+    "typescript": "^5.9.0"
   }
 }

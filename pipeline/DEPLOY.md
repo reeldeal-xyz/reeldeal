@@ -129,12 +129,12 @@ One-time setup:
          "Action": "sts:AssumeRoleWithWebIdentity",
          "Condition": {
            "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-           "StringLike": { "token.actions.githubusercontent.com:sub": "repo:ss251/reeldeal:ref:refs/heads/main" }
+           "StringLike": { "token.actions.githubusercontent.com:sub": "repo:reeldeal-xyz/reeldeal:ref:refs/heads/main" }
          }
        }]
      }
      ```
-     The repo is `ss251/reeldeal` (renamed from `eth-global-tokyo`). The OIDC `sub` uses the **current** name, so the old name is rejected. Manual runs (`workflow_dispatch`) also only work from `main`; the workflow skips the deploy job anywhere else. To deploy another branch too, add it to `on.push.branches` in the workflow, relax the job's `if:`, and add its `sub` to this condition (it accepts a list).
+     The repo is `reeldeal-xyz/reeldeal` (previously `ss251/eth-global-tokyo`, then `ss251/reeldeal`). The OIDC `sub` uses the **current** owner and name, so after any rename or transfer, update this condition or the deploy is rejected. Manual runs (`workflow_dispatch`) also only work from `main`; the workflow skips the deploy job anywhere else. To deploy another branch too, add it to `on.push.branches` in the workflow, relax the job's `if:`, and add its `sub` to this condition (it accepts a list).
    - Permissions (inline policy; it can run commands on this one instance, nothing else):
      ```json
      {
@@ -147,7 +147,7 @@ One-time setup:
        ]
      }
      ```
-4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/eth-global-tokyo && git fetch origin main`. If the instance was set up from the old `pipeline` branch, switch it once: `git fetch origin main && git checkout -f -B main origin/main`. If its `origin` still points at `eth-global-tokyo`, update it to `reeldeal` (GitHub redirects renames, but a deploy key is tied to the repo).
+4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/eth-global-tokyo && git fetch origin main`. If the instance was set up from the old `pipeline` branch, switch it once: `git fetch origin main && git checkout -f -B main origin/main`. If its `origin` still points at an old name, update it: `git remote set-url origin git@github.com:reeldeal-xyz/reeldeal.git` (GitHub redirects renames and transfers, but a deploy key is tied to the repo).
 5. **Add the repo variables** in GitHub → Settings → Secrets and variables → Actions → **Variables** (not secrets; neither value is sensitive):
    - `AWS_DEPLOY_ROLE_ARN` = `arn:aws:iam::<account-id>:role/pipeline-github-deploy`
    - `EC2_INSTANCE_ID` = `i-…`
