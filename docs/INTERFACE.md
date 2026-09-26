@@ -1,28 +1,51 @@
 # Interface contract: pipeline (Jay) ↔ app (Sailesh)
 
-Frozen at kickoff. Change it only by PR touching `packages/shared/src/feed.ts` + this file, reviewed by both owners.
+Change it only by PR touching `packages/shared/src/feed.ts` + this file, reviewed by both owners. For the pipeline side, `pipeline/README.md` is the source of truth and overrules this file; keep the two in sync.
 Types and zod schemas live in `@repo/shared` (`packages/shared/src`). Everything below is validated with those schemas.
 
-## Identifiers
+## Split of responsibilities
+
+| | Pipeline (`pipeline/`, Python + FastAPI) | App + chain (`web/`, `contracts/`, `packages/shared`) |
+|---|---|---|
+| Does | Ingests ocean data nationally, publishes **risk index values** per plot and sea area, with provenance | Holds thresholds, tiers and windows (`RULES`), builds and signs `Trigger`s, attests, pays |
+| Never | Thresholds, statuses, tiers, Triggers, signing | Computes indices from raw data |
+
+The pipeline has three independent hazard modules, each with its own routes and version: **heat** (climate change), **hab** (harmful algal blooms) and **storm** (storm surge, waves, wind).
+
+## Identifiers (`ids.ts`)
 
 | Kind | Labels | On-chain |
 |---|---|---|
-| Zone | `karakuwa-east`, `kesennuma-bay` | `keccak256(label)` |
-| Species | `scallop`, `hoya`, `oyster` | `keccak256(label)` |
-| Peril | `HEAT24`, `HEAT25`, `HEAT26`, `BANWEEKS` | `keccak256(label)` |
+| Zone | Sea areas (payout unit). Demo: `karakuwa-east`, `kesennuma-bay`; national list to be generated from `pipeline/data/ref/sea_areas` | `keccak256(label)` |
+| Species | `nori`, `wakame`, `kombu`, `scallop`, `oyster`, `hoya`, `yellowtail`, `sea-bream`, `salmon`, `bluefin-tuna` | `keccak256(label)` |
+| Module | `heat`, `hab`, `storm` | none |
+| Index | Per module, see below. Parameters are part of the name (`T_D10`, `HS_HOURS3`) | none |
+| Peril | What the chain pays on: `HEAT` (days with SST ≥ the rule's `tempC`), `BANWEEKS` | `keccak256(label)` |
 | Season | `"2026"` (fiscal year, 1 Apr to 31 Mar) | string |
 | Event | `eventIdOf(zone, species, peril, tier, season)` | `keccak256(abi.encode(...))` |
 
-## Files (pipeline writes to `pipeline/out/`)
+Indices by module (`INDEX_PATTERNS`):
 
-| File | Schema | Content |
+| Module | Indices |
+|---|---|
+| heat | `SST` (°C, primary), `SST_ANOM` (°C), `T_D{z}` (°C at z m), `MHW_DAYS`, `MHW_INTENSITY`. `HEAT{t}` (days with SST ≥ t °C) is computed on request only, e.g. for the web map |
+| hab | `BANWEEKS` (consecutive weeks under shipment restriction, per species), `BAN_ACTIVE`, `REDTIDE_DAYS`, `CHL_Z` |
+| storm | `MAX_SURGE` (m), `MAX_WATER_LEVEL` (m), `MAX_HS` (m), `HS_HOURS{h}`, `MAX_WIND` (m/s), `TC_DIST` (km) |
+
+## Payloads (`feed.ts`)
+
+| Schema | Where | Content |
 |---|---|---|
-| `series-<zone>-<season>.json` | `SeriesFile` | Daily SST at the zone's reference point, with source URL and sha256 of the pinned CSV |
-| `indices-<zone>-<season>.json` | `IndicesFile` | Per day: cumulative `heat24/25/26` inside the rule window, `banWeeks` per species |
-| `triggers-<zone>-<season>.json` | `TriggersFile` | Every rule that fired: label, fire date, the `Trigger` struct (bigints as strings) and signatures |
-| `buoy-<YYYY-MM>.json` | `BuoyFile` | Futatsune buoy readings for the month, and the offset versus satellite |
+| `IndicesFile` | `pipeline/out/<module>/indices-<zone>-<season>.json`, `GET /<module>/indices/:zone/:season` | One daily series per index for a sea area, each with `unit` and `source` (product + sha256 of the pinned input) |
+| `RiskResponse` | `POST /<module>/risk`, `GET /<module>/plots/:plot/risk` | One module's index values for a plot: window, pixels used, `indices[]`, `advisory[]` |
+| `CombinedRisk` | `POST /risk` | `{ plot, heat, hab, storm }`, the three module responses merged |
+| `IndexValue` | inside the above | `{ index, unit, value, asOf, source }`. No threshold or status fields |
+| `AdvisoryValue` | inside `RiskResponse` | Model output with `model_version`. Never used for payouts |
+| `Plot`, `Station`, `StationSeries` | `/plots`, `/stations`, `/stations/:id/series` | Plot inventory (no personal data), station registry, observations. `StationSeries` replaces the old `BuoyFile` |
+| `HabBan` | `GET /hab/bans` | Normalized toxin restriction intervals from prefecture bulletins |
+| `StormEvent` | `GET /storm/events` | Typhoon / extratropical storm catalogue |
 
-Seasons for the replay: `2022`, `2023`, `2024`, `2025` (July to September data), all paying the `"2026"` season slots.
+Removed from the feed: `SeriesFile` (SST is now the `SST` index in `IndicesFile`), `TriggersFile` and `BuoyFile`. `TriggerJson` moved to `trigger.ts` because Triggers are app-side.
 
 ## ENS layout (issues #7/#10/#11)
 
@@ -91,25 +114,36 @@ for `setText` is by key only, not by name): `zone`, `species` (science key, scop
 ## HTTP (pipeline `bun run pipeline`, default `http://localhost:8787`, env `PIPELINE_FEED_URL`)
 
 ```
-GET /health
-GET /series/:zone/:season
-GET /indices/:zone/:season
-GET /triggers/:zone/:season
-GET /buoy/:month
+GET  /health                              status and version of each module
+GET  /zones                               sea areas
+GET  /plots?bbox=&species=   POST /plots  plot inventory
+GET  /stations?bbox=&type=                station registry
+GET  /stations/:id/series?var=            station observations
+POST /risk                                all three modules for one plot
+
+POST /heat/risk     GET /heat/plots/:plot/risk?season=     GET /heat/indices/:zone/:season
+GET  /heat/forecast/:plot   GET /heat/layers/:date   GET /heat/climatology/:zone
+
+POST /hab/risk      GET /hab/plots/:plot/risk?season=      GET /hab/indices/:zone/:season
+GET  /hab/bans?pref=&season=   GET /hab/redtides?pref=&season=   GET /hab/forecast/:zone   GET /hab/layers/:date
+
+POST /storm/risk    GET /storm/plots/:plot/risk?season=    GET /storm/indices/:zone/:season
+GET  /storm/events?season=   GET /storm/events/:event/impact   GET /storm/forecast/:plot   GET /storm/layers/:date
 ```
 
 Same JSON as the files. CORS open. The web app may also import the files directly for the static demo.
 
-## Trigger → chain
+## Index values → Trigger → chain
 
-- `Trigger` fields and order: `packages/shared/src/trigger.ts` ⇔ `contracts/src/interfaces/IReliefPool.sol`.
+- The app's keeper reads `GET /<module>/indices/:zone/:season` (or the file) and applies `RULES` from `packages/shared/src/rules.ts`. For `HEAT` it counts days with `SST ≥ rule.tempC` inside `rule.window` from the `SST` series (`heatDays` / `heatFiredOn` in `rules.ts`); for `BANWEEKS` it reads the index directly. On the first day the count reaches `rule.threshold` it builds a `Trigger` with `index` (the count), `threshold`, `tempC` (from the rule; 0 for `BANWEEKS`), `firedAt` and `dataHash` = `0x` + the series' `source.sha256`.
+- The temperature is part of the rule, not the peril: there is one `HEAT` peril, and `eventIdOf` stays unique through species and tier (scallop tier 1 at 25 °C, scallop tier 2 at 26 °C, hoya tier 1 at 24 °C). A species + tier can therefore have only one heat temperature per season. `tempC` is signed into the `Trigger` (uint8, whole °C) and emitted in `Attested`, so anyone can recount the days from the pinned SST without `RULES`.
+- `Trigger` fields and order: `packages/shared/src/trigger.ts` ⇔ `contracts/src/interfaces/IReliefPool.sol`. `tempC` (uint8) was added after `threshold`; regenerate `packages/shared/src/abi` with `bun run abi` after `forge build`.
 - EIP-712 domain: `{ name: "ReliefPool", version: "1", chainId: 11155111, verifyingContract: ReliefPool }`.
-- The pipeline signs with its key; the app's keeper adds the second signature and calls `attest`, then `settle`.
-- `dataHash` = sha256 of the exact pinned CSV bytes the index was computed from.
+- Who signs is app-side. Whether the pipeline should also sign the index values it publishes is open (`pipeline/README.md` Q2).
 
 ## Rules and regression
 
-`RULES` and `REFERENCE_FIRES` in `packages/shared/src/rules.ts`. The pipeline must reproduce `REFERENCE_FIRES` exactly at 38.85N 141.66E:
+`RULES`, `REFERENCE_POINT` and `REFERENCE_FIRES` live in `packages/shared/src/rules.ts` and stay app-side. The pipeline publishes the daily `SST` series for the zone containing 38.85N 141.66E. `heatFiredOn(sst, rule)` for each `HEAT` rule must reproduce `REFERENCE_FIRES` exactly:
 
 | Season | Fires |
 |---|---|
@@ -117,3 +151,5 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 | 2023 | scallop tier 2 on 11 Aug, scallop tier 1 on 12 Aug, hoya on 25 Aug |
 | 2024 | hoya on 15 Sep |
 | 2025 | scallop tier 1 on 28 Aug, hoya on 1 Sep |
+
+Seasons for the replay: `2022`, `2023`, `2024`, `2025` (July to September data), all paying the `"2026"` season slots. The reference dates were derived from MUR; if the heat source moves to Copernicus they are re-derived (`pipeline/README.md` Q10).

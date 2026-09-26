@@ -2,9 +2,19 @@
 
 Owner: Jay. Stack: Python 3.12, FastAPI, xarray. Status: SPEC (draft; open questions are marked `Q#` and listed at the end).
 
-**Precedence:** this README is the source of truth for the pipeline and overrules `docs/` (`INTERFACE.md`, `ARCHITECTURE.md`). Where it diverges, `docs/` and `packages/shared` must be updated to match (see §12). This must be coordinated with the app owner, because the web app and contracts consume that code.
+**Precedence:** this README is the source of truth for the pipeline and overrules `docs/` (`INTERFACE.md`, `ARCHITECTURE.md`). Where it diverges, `docs/` and `packages/shared` must be updated to match (see §13). This must be coordinated with the app owner, because the web app and contracts consume that code.
 
-This directory contains the pipeline for satellite imagery analysis of aquaculture risk from climate change (heat stress), harmful algal blooms (HABs) and storm damage. Coverage is **national (all of coastal Japan)**. Analysis is written as plain Python functions and exposed via FastAPI. Outputs are per-plot risk scores and, where a rule fires, signed `Trigger`s for the ReliefPool contract.
+This directory contains the pipeline for satellite imagery analysis of aquaculture risk. Coverage is **national (all of coastal Japan)**. It is split into **three independent hazard modules**, each with its own data, indices, models and API:
+
+| Module | Hazard | Package | API prefix |
+|---|---|---|---|
+| **Heat** | Climate change: marine heat stress (SST, marine heatwaves) | `pipeline.hazards.heat` | `/heat` |
+| **HAB** | Harmful algal blooms: shellfish toxin bans, red tides | `pipeline.hazards.hab` | `/hab` |
+| **Storm** | Storm surge, waves and wind from typhoons and extratropical storms | `pipeline.hazards.storm` | `/storm` |
+
+Analysis is written as plain Python functions and exposed via FastAPI. **The output is risk index values** per plot and per sea area, each with the provenance of the inputs it was computed from.
+
+**Out of scope: payouts.** The pipeline does not threshold, grade or decide anything. Payout thresholds, tiers, rule windows, Triggers and signing live on chain and in the app (`contracts/`, `packages/shared/src/rules.ts`). They consume the index values this pipeline publishes. No field in the pipeline's output says "exceeded", "watch" or "fired".
 
 ## 1. Scope
 
@@ -12,208 +22,331 @@ This directory contains the pipeline for satellite imagery analysis of aquacultu
 |---|---|
 | Geography | All coastal Japan, Hokkaido to Okinawa. Demo and regression region: Kesennuma / Karakuwa (Miyagi). |
 | Unit of study | **Aquaculture plot polygon** (GeoJSON, EPSG:4326). Plots roll up to sea area → prefecture → nation. |
-| Hazards | Heat stress (SST), HABs (toxin bans + red tides + satellite chl-a), storm damage (waves, wind, typhoons) |
+| Hazards | Three separate modules (§6–§8): heat (climate change), HABs, storm surge |
 | Operations | Seaweed (nori, wakame, kombu), shellfish (scallop, oyster, hoya), finfish (yellowtail, sea bream, salmon/coho, bluefin tuna) |
-| Thresholds | Per operation type and hazard. Set with growers and literature, never tuned to fit the data. |
+| Output | Risk index values with units, time window and input provenance. No thresholds, statuses or payout decisions. |
 | Main data | Copernicus Marine, supplemented by higher-resolution nearshore products and national in-situ stations |
-| Training | AWS (S3 data lake + SageMaker/EC2) |
+| Training | AWS (S3 data lake + SageMaker/EC2), one model family per module |
 
 Why national: one bay gives a handful of seasons and a single buoy. National coverage gives thousands of plots, hundreds of monitoring stations and decades of toxin-ban and red-tide history across ~39 coastal prefectures. That is enough data to validate satellite data against stations, set per-region bias corrections and train HAB models with real labels.
 
 ## 2. Architecture
 
 ```
-                    ┌────────── ingest (adapters) ──────────┐  ┌─ pin ──┐  ┌──── national grids ────┐  ┌── per plot ──┐  ┌─ outputs ─┐
-Copernicus Marine ──┤ SST, chl-a, waves, physics (Zarr/NC)  │  │ raw +  │  │ daily hazard layers on │  │ zonal stats  │  │ risk JSON │
-Nearshore sat     ──┤ Himawari SST, GCOM-C chl-a, MUR       ├─>│ sha256 ├─>│ a common coastal grid  ├─>│ → indices    ├─>│ triggers  │
-In-situ stations  ──┤ prefecture buoys, JMA, JODC           │  │manifest│  │ (Zarr on S3)           │  │ → rules      │  │ EIP-712   │
-HAB bulletins     ──┤ 39 prefectures' 貝毒/赤潮 PDF/HTML/XLS │  │        │  │ + station registry     │  │ → Triggers   │  │ FastAPI   │
-Storm             ──┤ JMA best track, warnings              │  │        │  │ + ban-area polygons    │  │              │  │           │
-Plot inventory    ──┤ 海しる 区画漁業権 polygons, uploads    │  └────────┘  └────────────────────────┘  └──────────────┘  └───────────┘
-                    └───────────────────────────────────────┘                        │
-                                                                         AWS: training / bias-correction models (advisory)
+                         ┌──────────────────────── shared core ────────────────────────┐
+                         │ pin (sha256 manifest) · coastal grid · plots & sea areas     │
+                         │ station registry · pixel extraction · index envelope schema  │
+                         └───────────────┬──────────────────┬──────────────────┬───────┘
+                                         │                  │                  │
+          ┌──────────── heat ────────────┴─┐ ┌──────── hab ───┴─────────────┐ ┌┴─────────── storm ───────────┐
+ingest    │ Copernicus SST L4, physics,    │ │ 39 prefectures' 貝毒/赤潮     │ │ JMA tide stations (潮位偏差),  │
+          │ MUR, Himawari                  │ │ bulletins, GlobColour/GCOM-C │ │ JMA best track & warnings,   │
+          │                                │ │ chl-a, physics (MLD)         │ │ Copernicus waves & SSH       │
+layers    │ daily SST / T-at-depth Zarr    │ │ ban intervals + chl-a Zarr   │ │ surge / Hs / wind Zarr       │
+indices   │ SST, SST anomaly, MHW days     │ │ BANWEEKS, red-tide days      │ │ MAX_SURGE, MAX_HS, TC_DIST   │
+models    │ bias correction, heat forecast │ │ HAB onset                    │ │ surge/wave nowcast, damage   │
+API       │ /heat/*                        │ │ /hab/*                       │ │ /storm/*                     │
+          └────────────────────────────────┘ └──────────────────────────────┘ └──────────────────────────────┘
+                                         │                  │                  │
+                                         └──── index values + provenance (JSON) ──┘
+                                                            │
+                                    app / chain: thresholds, Triggers, payouts (outside pipeline/)
 ```
 
 Principles:
 
-- **Pin before compute.** Every input is stored byte-for-byte (small files in `data/raw/`, large ones in S3) with URL, sha256 and fetch time. Compute reads only pinned inputs.
-- **Two paths.**
-  - Payout path: deterministic rules on pinned data. Reproducible by anyone, and its `dataHash` commits to the exact inputs.
-  - Advisory path: models, forecasts and anomaly scores. These can never fire a Trigger by themselves (`Q6`).
-- **Precompute nationally, sample per plot.** Hazard layers are built once per day for the whole coastline. API requests only sample them, with no live satellite calls in the request path.
-- **Adapters per source.** Each prefecture and dataset gets a small adapter that normalizes into one schema. Adding coverage means adding an adapter, not changing core code.
+- **One module per hazard.** Heat, HAB and storm are separate Python packages. Each owns its sources, layers, indices, models and FastAPI router, and has its own version (`module_version`). Modules never import each other; they only depend on the shared core. A module can be built, tested, trained, deployed and served on its own.
+- **Shared core only for plumbing.** Pinning, the coastal grid, the plot/sea-area/station registries, pixel extraction and the common output envelope live in `pipeline.core` and are hazard-agnostic.
+- **Index values, not decisions.** Modules compute values and stop. Anything that compares a value to a level (thresholds, tiers, statuses, Triggers) belongs to the consumer.
+- **Pin before compute.** Every input is stored byte-for-byte (small files in `data/raw/<module>/`, large ones in `s3://…/<module>/`) with URL, sha256 and fetch time. Compute reads only pinned inputs, and every index value carries the sha256 of those inputs so a consumer can reproduce it.
+- **Two kinds of output, per module.**
+  - Observed indices: deterministic functions of pinned data. Reproducible by anyone.
+  - Advisory scores: the module's models, forecasts and anomaly scores. Always labelled with `model_version` and kept separate from observed indices (`Q5`).
+- **Precompute nationally, sample per plot.** Each module builds its hazard layers once per day for the whole coastline. API requests only sample them, with no live satellite calls in the request path.
+- **Adapters per source.** Each prefecture and dataset gets a small adapter inside the module that uses it. Adding coverage means adding an adapter, not changing core code.
 
-## 3. Spatial model
+## 3. Spatial model (shared core)
 
-- **Coastal grid:** a common analysis grid covering 24–46°N, 122–149°E, masked to a coastal strip (≤ 30 km offshore, `Q10`), so storage stays small.
+- **Coastal grid:** a common analysis grid covering 24–46°N, 122–149°E, masked to a coastal strip (≤ 30 km offshore, `Q8`), so storage stays small. All three modules write layers on this grid.
 - **Plots:**
-  - The national inventory comes from 海しる (MSIL, Japan Coast Guard) demarcated fishery-right (区画漁業権) polygons. Check licence and bulk-download terms (`Q4`).
+  - The national inventory comes from 海しる (MSIL, Japan Coast Guard) demarcated fishery-right (区画漁業権) polygons. Check licence and bulk-download terms (`Q3`).
   - Co-ops and farmers can also upload plot polygons through `POST /plots`.
   - The pipeline stores geometry, species, operation type (longline, raft, cage) and plot code. **No owner names or personal data.**
-- **Sea areas:** the prefectures' toxin/red-tide monitoring areas, digitized as polygons, are how bulletins map onto plots.
+- **Sea areas:** the prefectures' toxin/red-tide monitoring areas, digitized as polygons, are how bulletins map onto plots. Sea-area indices are what an on-chain zone consumes (`Q1`).
 - **Pixel vs plot:** plots are 10²–10³ m across, while grids are 250 m–9 km and often land-masked inside bays. Extraction uses the following order and records which one was used and how many pixels:
   1. Pixels inside the polygon.
   2. Pixels inside a buffered polygon (500 m, then 2 km).
   3. Nearest valid ocean pixel.
-- **Zones:** the payout unit on-chain. It becomes a sea area (national list) instead of the two hard-coded Kesennuma zones (§12, `Q1`).
+  4. Storm surge only: nearest tide station on the same coast segment (surge is a point observation, not a gridded field).
 
 ## 4. Data sources
 
-Product IDs are indicative; verify them against the Copernicus catalogue at build time.
+Product IDs are indicative; verify them against the Copernicus catalogue at build time. The **Module** column is the only module allowed to ingest that source.
 
-| Source | Variables | Resolution | Access | Role |
-|---|---|---|---|---|
-| Copernicus Marine SST L4 (`SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001`, + REP/MY for history) | SST | 0.05°, daily | `copernicusmarine` toolkit, ARCO Zarr | **Primary** heat layer |
-| Copernicus Marine ocean colour (GlobColour L3/L4 chl-a) | chl-a, (Rrs) | ~1–4 km, daily | toolkit | HAB proxy |
-| Copernicus Marine waves (`GLOBAL_ANALYSISFORECAST_WAV_001_027`, `GLOBAL_MULTIYEAR_WAV_001_032`) | Hs, Tp, direction | ~0.083°, 3-hourly | toolkit | Storm layer |
-| Copernicus Marine physics (global / NW Pacific analysis) | T at depth, currents, MLD, salinity | ~0.083° | toolkit | Heat at cage/longline depth, stratification for HAB |
-| NASA MUR SST v4.1 (AWS Open Data Zarr) | SST | 0.01°, daily | S3, no auth | Nearshore heat, legacy Kesennuma regression |
-| JAXA Himawari-9 SST (P-Tree) | SST | 2 km, hourly | JAXA account | Nearshore / diurnal heat (`Q11`) |
-| JAXA GCOM-C SGLI | chl-a, SST | 250 m, ~daily | G-Portal | Bay-scale HAB proxy (`Q11`) |
-| Prefecture fisheries research buoys (e.g. Miyagi Futatsune, Iwate, Hokkaido) | Water temp, salinity, DO | Point, hourly | Per-prefecture sites/CSV | Validation, bias correction |
-| JMA coastal / tide stations, JODC | Temp, sea level | Point | Public | Validation, storm surge |
-| Prefecture 貝毒 (shellfish toxin) bulletins | Restriction start/end per sea area × species × toxin | Weekly-ish | PDF/HTML/Excel, ~39 prefectures | **HAB payout source** (ban weeks) |
-| Red-tide (赤潮) reports: prefectures, FRA, Fisheries Agency | Event, species (e.g. *Karenia*, *Chattonella*), area, fish kills | Event | PDF/HTML | Finfish HAB hazard, training labels |
-| JMA RSMC Tokyo best track, warnings | Typhoon track, pressure, wind radii | 6-hourly | Public | Storm hazard |
+| Source | Variables | Resolution | Access | Module | Role |
+|---|---|---|---|---|---|
+| Copernicus Marine SST L4 (`SST_GLO_SST_L4_NRT_OBSERVATIONS_010_001`, + REP/MY for history) | SST | 0.05°, daily | `copernicusmarine` toolkit, ARCO Zarr | heat | **Primary** heat layer |
+| Copernicus Marine physics (global / NW Pacific analysis) | T at depth, currents, MLD, salinity | ~0.083° | toolkit | heat, hab | Heat at cage/longline depth; stratification for HAB |
+| NASA MUR SST v4.1 (AWS Open Data Zarr) | SST | 0.01°, daily | S3, no auth | heat | Nearshore heat, legacy Kesennuma regression |
+| JAXA Himawari-9 SST (P-Tree) | SST | 2 km, hourly | JAXA account | heat | Nearshore / diurnal heat (`Q9`) |
+| Copernicus Marine ocean colour (GlobColour L3/L4 chl-a) | chl-a, (Rrs) | ~1–4 km, daily | toolkit | hab | HAB proxy |
+| JAXA GCOM-C SGLI | chl-a | 250 m, ~daily | G-Portal | hab | Bay-scale HAB proxy (`Q9`) |
+| Prefecture 貝毒 (shellfish toxin) bulletins | Restriction start/end per sea area × species × toxin | Weekly-ish | PDF/HTML/Excel, ~39 prefectures | hab | **Primary** HAB source (ban weeks) |
+| Red-tide (赤潮) reports: prefectures, FRA, Fisheries Agency | Event, species (e.g. *Karenia*, *Chattonella*), area, fish kills | Event | PDF/HTML | hab | Finfish HAB index, training labels |
+| JMA tide stations (潮位観測) + astronomical tide predictions | Observed sea level, predicted tide → surge anomaly (潮位偏差) | Point, hourly | Public | storm | **Primary** surge source |
+| JMA storm surge warnings / forecasts (高潮警報・高潮予測) | Warning level, forecast surge per coast segment | Event, 3-hourly | Public | storm | Advisory, nowcast labels |
+| JMA RSMC Tokyo best track, warnings | Typhoon track, pressure, wind radii | 6-hourly | Public | storm | Storm event catalogue |
+| Copernicus Marine waves (`GLOBAL_ANALYSISFORECAST_WAV_001_027`, `GLOBAL_MULTIYEAR_WAV_001_032`) | Hs, Tp, direction | ~0.083°, 3-hourly | toolkit | storm | Wave loading on gear |
+| Copernicus Marine physics SSH (`zos`) | Sea surface height | ~0.083°, hourly/daily | toolkit | storm | Gridded surge context between stations (advisory) |
+| Global Tide and Surge Model reanalysis (Copernicus CDS) | Surge, total water level | Coastal points, 10-min | CDS API | storm | Historical surge, training |
+| Prefecture fisheries research buoys (e.g. Miyagi Futatsune, Iwate, Hokkaido) | Water temp, salinity, DO | Point, hourly | Per-prefecture sites/CSV | heat, hab | Validation, bias correction |
+| JODC | Temp, sea level | Point | Public | heat, storm | Validation |
 
-## 5. Station registry
+## 5. Station registry (shared core)
 
 `stations.parquet` is one national catalogue of every in-situ point we ingest:
 
 `{station_id, name, source, type (buoy|tide|shore|research), lat, lon, prefecture, sea_area, variables, cadence, url, first_obs, last_obs}`
 
-Uses:
+Modules read from the registry but own their own observation series (e.g. heat reads buoy water temperature, storm reads tide-station sea level). Uses:
 - Satellite-vs-station offsets per region and season (generalizes the old `buoy-<month>.json`).
-- Bias-correction training (§9).
+- Model training per module (§6–§8).
 - Map QA in the web app.
 
-## 6. Hazards, indices and thresholds
+## 6. Heat module (climate change)
 
-All indices are computed per plot per day inside a hazard window, using the extracted pixels (median across pixels unless stated).
+Heat stress from warming seas and marine heatwaves. Hits scallop, hoya, kombu/wakame and cold-water finfish (salmon/coho).
 
-| Hazard | Index | Payout-eligible | Notes |
-|---|---|---|---|
-| Heat | `HEAT{t}`: days with SST ≥ t °C in window (cumulative) | Yes | t depends on operation (e.g. scallop 25/26, hoya 24, wakame/kombu, salmon ~20) |
-| Heat | Marine heatwave days (Hobday: > 90th percentile clim., ≥ 5 days) | Candidate (`Q2`) | Needs a 30-year climatology (MY/REP products) |
-| HAB | `BANWEEKS`: consecutive weeks under shipment restriction for the species in the plot's sea area | Yes | From bulletins (§7) |
-| HAB | Red-tide exposure days (finfish) | Candidate (`Q2`) | From red-tide reports |
-| HAB | chl-a anomaly z-score vs climatology | Advisory | Satellite proxy, not toxin |
-| Storm | Max Hs, hours Hs ≥ h in window; typhoon passage within r km | Candidate (`Q5`) | h, r depend on gear: longline, raft, cage |
+**Indices** (per plot or sea area, per day, median across extracted pixels):
 
-Thresholds live in one table keyed by `(operation, hazard, tier)`, with window, threshold, comparison (`≥`) and source/citation. Rules are data, not code.
+| Index | Unit | Definition |
+|---|---|---|
+| `SST` | °C | Daily sea surface temperature. **Primary heat index**: the app counts payout heat days from this series |
+| `SST_ANOM` | °C | SST minus the day-of-year climatology (1993–present) |
+| `T_D{z}` | °C | Daily temperature at gear depth z m (physics product) |
+| `MHW_DAYS` | days | Marine heatwave days (Hobday: > 90th percentile climatology, ≥ 5 days) |
+| `MHW_INTENSITY` | °C | Max SST anomaly during the current marine heatwave |
 
-## 7. HAB bulletin extraction (national)
+No fixed day-count indices. Payout temperatures (e.g. scallop 25 °C) belong to the app's rules, which count days from `SST` themselves. `POST /heat/risk` accepts an optional `t` and then also returns `HEAT{t}` (days with SST ≥ t °C in the window) as a convenience for the web map; it is never precomputed or stored.
+
+**Models (advisory):**
+- `heat-bias`: nearshore bias correction. Learns station temperature from satellite + physics features, per region. Improves heat indices inside bays.
+- `heat-forecast`: 14-day forecast of daily `SST` per plot, with uncertainty.
+- Climate context: SST trend and MHW frequency per sea area over 1993–present, for donor-facing reporting.
+
+**API** (router mounted at `/heat`):
+
+```
+POST /heat/risk                         GeoJSON Feature + date range (+ t) → heat indices, pixels used, sources
+GET  /heat/plots/{plot}/risk?season=    same, for an inventoried plot
+GET  /heat/indices/{zone}/{season}      per-day heat indices for a sea area
+GET  /heat/forecast/{plot}              heat-forecast values (advisory)
+GET  /heat/layers/{date}                SST layer metadata / tile URL
+GET  /heat/climatology/{zone}           trend and MHW statistics
+```
+
+## 7. HAB module
+
+Harmful algal blooms: shellfish toxin (PSP/DSP) shipment bans for shellfish, red tides for finfish.
+
+**Indices** (per sea area, per day; plots inherit their sea area's values):
+
+| Index | Unit | Definition |
+|---|---|---|
+| `BANWEEKS` | weeks | Consecutive weeks under shipment restriction for a species in the sea area |
+| `BAN_ACTIVE` | 0/1 | Restriction in force on the day, per species and toxin |
+| `REDTIDE_DAYS` | days | Red-tide exposure days in the sea area (finfish) |
+| `CHL_Z` | z-score | chl-a anomaly vs climatology. Satellite proxy, not toxin |
+
+**Bulletin extraction (national):**
 
 1. **Crawl:** one adapter per prefecture discovers bulletin URLs. Downloads are pinned under `data/raw/hab/<pref>/`.
 2. **Extract:**
    - Parse HTML tables and Excel directly.
    - Parse PDFs with pdfplumber, falling back to OCR for scanned pages.
    - Normalize wareki dates (令和) and full-width characters.
-3. **Normalize:** one row per restriction interval: `{pref, sea_area, species, toxin (PSP|DSP), level, restricted_from, lifted_on, source_url, sha256}`.
+3. **Normalize:** one row per restriction interval: `{pref, sea_area, species, toxin (PSP|DSP), level, restricted_from, lifted_on, source_url, sha256}`. `level` is the prefecture's own restriction category as published, not a pipeline grade.
 4. **Map:** sea-area names become polygons via a reviewed lookup table.
-5. **Pin:** the normalized `hab-bans.csv` (per season) is the input whose sha256 goes into `dataHash` for `BANWEEKS` triggers.
-6. **Review:** extraction diffs need a human sign-off before signing, because a bad parse moves money. Rows get a confidence flag. OCR or LLM-assisted extraction is allowed but always goes to review.
+5. **Pin:** the normalized `hab-bans.csv` (per season) is the input whose sha256 goes into the provenance of `BANWEEKS` / `BAN_ACTIVE`.
+6. **Review:** extraction diffs need a human sign-off before publication, because consumers act on these values. Rows get a confidence flag. OCR or LLM-assisted extraction is allowed but always goes to review.
 
-## 8. Processing and storage
+**Models (advisory):**
+- `hab-onset`: probability of a toxin ban or red tide in the next 1–4 weeks per sea area, from SST, chl-a, stratification, season and past bans. Labels come from decades of national bulletins.
 
-- **Daily job (national):** ingest → pin → regrid to the coastal grid → write hazard layers (Zarr, chunked by time) to S3 → per-plot extraction → indices → rules → Triggers → sign → `out/`.
-- **Backfill:** 1993–present where products allow, for climatologies, marine heatwaves and training labels.
-- **Size:** coastal-strip masking keeps daily national layers to tens of MB. MUR at 0.01° over the full bounding box is ~24 MB/day float32 unmasked.
-- **Orchestration:** a CLI (`pipeline fetch|build|sign|all --date/--season --region`) run by cron or an AWS scheduled task. Keep it simple for the hackathon.
-
-## 9. Models on AWS (advisory path)
-
-National data makes these trainable:
-
-- **Nearshore bias correction:** learn station temperature from satellite + physics features, per region. Improves heat indices inside bays.
-- **HAB onset prediction:** predict the probability of a toxin ban or red tide in the next 1–4 weeks per sea area, using SST, chl-a, stratification, season and past bans. Labels come from decades of national bulletins.
-- **Heat-threshold forecast:** estimate P(index crosses threshold within 14 days) per plot.
-
-Training data (pinned Zarr/Parquet) lives in S3 and training runs on SageMaker or EC2. Models are versioned, and every score returns its `model_version`. Inference is CPU, inside FastAPI.
-
-## 10. HTTP API (FastAPI, default `:8787`, CORS open)
+**API** (router mounted at `/hab`):
 
 ```
-GET  /health
+POST /hab/risk                          GeoJSON Feature + species + date range → HAB indices, sources
+GET  /hab/plots/{plot}/risk?season=     same, for an inventoried plot
+GET  /hab/indices/{zone}/{season}       per-day ban/red-tide indices for a sea area
+GET  /hab/bans?pref=&season=            normalized toxin restrictions
+GET  /hab/redtides?pref=&season=        normalized red-tide events
+GET  /hab/forecast/{zone}               hab-onset probabilities (advisory)
+GET  /hab/layers/{date}                 chl-a layer metadata / tile URL
+```
+
+## 8. Storm module (storm surge)
+
+Physical damage from storm surge, waves and wind: longlines and rafts torn loose, cages breached, seaweed stripped. Driven mostly by typhoons (Kyushu, Shikoku, Okinawa, Pacific coast) and winter extratropical storms (Hokkaido, Sea of Japan).
+
+**Indices** (per plot or sea area, per storm event and per day):
+
+| Index | Unit | Definition |
+|---|---|---|
+| `MAX_SURGE` | m | Max surge anomaly (observed − astronomical tide) at the plot's tide station |
+| `MAX_WATER_LEVEL` | m | Max total water level at the tide station |
+| `MAX_HS` | m | Max significant wave height at the plot |
+| `HS_HOURS{h}` | hours | Hours with Hs ≥ h m. `h` is a parameter of the index, not a payout level |
+| `MAX_WIND` | m/s | Max 10-minute wind at the plot (best-track radii / analysis) |
+| `TC_DIST` | km | Closest approach of a typhoon centre to the plot (best track) |
+
+Storm events are defined from the JMA best track and warnings. Event indices use the event's time span; daily indices are also published so consumers can pick their own window (`Q12`).
+
+**Models (advisory):**
+- `storm-nowcast`: surge and wave nowcast at plots between tide stations, from SSH, winds, pressure and track.
+- `storm-damage`: P(gear damage | surge, Hs, wind, gear type). Labels from prefecture/co-op damage reports and 共済 claims statistics where public (`Q11`).
+
+**API** (router mounted at `/storm`):
+
+```
+POST /storm/risk                        GeoJSON Feature + gear + date range (+ h) → storm indices, station/pixels used, sources
+GET  /storm/plots/{plot}/risk?season=   same, for an inventoried plot
+GET  /storm/events?season=              storm event catalogue (typhoons, extratropical storms)
+GET  /storm/events/{event}/impact       per-sea-area storm indices for one event
+GET  /storm/indices/{zone}/{season}     per-day and per-event storm indices for a sea area
+GET  /storm/forecast/{plot}             storm-nowcast / storm-damage values (advisory)
+GET  /storm/layers/{date}               surge/Hs layer metadata / tile URL
+```
+
+## 9. Processing and storage
+
+- **Daily job, per module:** ingest → pin → regrid to the coastal grid → write the module's layers (Zarr, chunked by time) to `s3://…/<module>/` → per-plot and per-sea-area extraction → indices → `out/<module>/`. Modules run as separate jobs; one failing does not block the others.
+- **Backfill:** 1993–present where products allow, for climatologies, marine heatwaves, surge history and training labels.
+- **Size:** coastal-strip masking keeps daily national layers to tens of MB per module. MUR at 0.01° over the full bounding box is ~24 MB/day float32 unmasked.
+- **Orchestration:** a CLI (`pipeline <heat|hab|storm|all> fetch|build|train --date/--season --region`) run by cron or an AWS scheduled task. Keep it simple for the hackathon.
+
+## 10. Models on AWS (advisory)
+
+Each module trains and versions its own models (§6–§8); there is no cross-hazard model.
+
+| Module | Models | Labels |
+|---|---|---|
+| heat | `heat-bias`, `heat-forecast` | Station temperatures, historical SST |
+| hab | `hab-onset` | National toxin-ban and red-tide history |
+| storm | `storm-nowcast`, `storm-damage` | Tide-station surge, GTSM reanalysis, damage reports |
+
+Training data (pinned Zarr/Parquet) lives in `s3://…/<module>/training/` and training runs on SageMaker or EC2. Models are versioned as `<model>-<semver>`, and every score returns its `model_version`. Inference is CPU, inside the module's FastAPI router.
+
+## 11. HTTP API (FastAPI, default `:8787`, CORS open)
+
+One FastAPI app mounts the three module routers (§6–§8) plus the shared core routes. Each router can also be served alone (`pipeline-serve --module heat`).
+
+Shared core routes:
+
+```
+GET  /health                                   status and version of each module
 GET  /plots?bbox=&species=                     plot inventory (no personal data)
 POST /plots                                    register/upload a plot polygon
-POST /risk                                     GeoJSON Feature + operation + date range → hazard indices, status, pixels used, sources
-GET  /plots/{plot}/risk?season=                same, for an inventoried plot
-GET  /indices/{zone}/{season}                  per-day indices for a sea area (payout unit)
-GET  /triggers/{zone}/{season}                 fired rules + signed Triggers
-GET  /stations?bbox=  /stations/{id}/series    station registry and observations
-GET  /layers/{hazard}/{date}                   layer metadata / tile URL for the web map
-GET  /hab/bans?pref=&season=                   normalized toxin restrictions
+GET  /stations?bbox=&type=                     station registry
+GET  /stations/{id}/series?var=                station observations
+GET  /zones                                    sea areas
+POST /risk                                     convenience: calls /heat/risk, /hab/risk, /storm/risk and merges them; no logic of its own
 ```
 
-`POST /risk` response sketch:
+Module response envelope (`POST /heat/risk`; `/hab/risk` and `/storm/risk` use the same envelope):
 
 ```jsonc
 {
+  "module": "heat",
+  "module_version": "heat-0.1.0",
   "plot": { "areaM2": 18200, "centroid": [141.66, 38.85], "seaArea": "miyagi-kesennuma" },
-  "operation": { "species": "scallop", "gear": "longline" },
-  "pixels": { "heat": { "strategy": "buffer_500m", "count": 3, "product": "SST_GLO_SST_L4_NRT" } },
-  "hazards": {
-    "heat":  { "index": "HEAT25", "value": 17, "threshold": 14, "status": "exceeded", "source": { "sha256": "…" } },
-    "hab":   { "index": "BANWEEKS", "value": 2, "threshold": 4, "status": "watch", "advisory": { "chlAnomalyZ": 2.4, "p_ban_4w": 0.31, "model_version": "hab-0.1" } },
-    "storm": { "index": "MAX_HS", "value": 4.1, "threshold": 3.5, "status": "exceeded" }
-  }
+  "window": { "start": "2025-07-01", "end": "2025-09-30" },
+  "pixels": { "strategy": "buffer_500m", "count": 3, "product": "SST_GLO_SST_L4_NRT" },
+  "indices": [
+    { "index": "SST", "unit": "degC", "value": 24.6, "asOf": "2025-09-30", "source": { "product": "SST_GLO_SST_L4_NRT", "sha256": "…" } },
+    { "index": "SST_ANOM", "unit": "degC", "value": 1.8, "asOf": "2025-09-30", "source": { "product": "SST_GLO_SST_L4_NRT", "sha256": "…" } }
+  ],
+  "advisory": [
+    { "index": "SST", "horizonDays": 14, "value": 23.9, "p10": 22.8, "p90": 25.1, "model_version": "heat-forecast-0.1.0" }
+  ]
 }
 ```
 
-## 11. Layout
+`POST /risk` returns `{ "plot": …, "heat": <heat response>, "hab": <hab response>, "storm": <storm response> }`.
+
+## 12. Layout
 
 ```
 pipeline/
   pyproject.toml                 # uv; console scripts: pipeline, pipeline-serve
   src/pipeline/
-    config.py  regions.py        # bbox, coastal mask, sea areas, prefectures
-    ids.py                       # keccak labels / eventIdOf, cross-tested vs packages/shared
-    thresholds.py                # rules table (data)
-    schemas.py                   # pydantic models for all outputs
-    sources/                     # copernicus.py, mur.py, himawari.py, gcomc.py, jma.py, stations/<pref>.py
-    hab/                         # crawl/<pref>.py, extract.py, normalize.py, seaareas.py
-    plots/                       # msil.py (海しる), store.py
-    pin.py  grid.py  extract.py  indices.py  triggers.py  sign.py
-    models/                      # training entrypoints + inference wrappers
-    api.py  cli.py
-  data/raw/  data/ref/           # small pinned inputs; reviewed lookup tables
-  out/
-  tests/
+    core/                        # shared, hazard-agnostic
+      config.py  regions.py      # bbox, coastal mask, sea areas, prefectures
+      schemas.py                 # shared pydantic models (plot, station, index envelope)
+      pin.py  grid.py  extract.py
+      plots/                     # msil.py (海しる), store.py
+      stations/                  # registry.py, <pref>.py adapters
+    hazards/
+      heat/                      # climate change
+        sources/                 # copernicus_sst.py, physics.py, mur.py, himawari.py
+        layers.py  indices.py  schemas.py
+        models/                  # bias.py, forecast.py (train + infer)
+        api.py                   # APIRouter(prefix="/heat")
+      hab/
+        sources/                 # globcolour.py, gcomc.py, physics.py
+        bulletins/               # crawl/<pref>.py, extract.py, normalize.py, seaareas.py
+        layers.py  indices.py  schemas.py
+        models/                  # onset.py
+        api.py                   # APIRouter(prefix="/hab")
+      storm/
+        sources/                 # jma_tide.py, jma_besttrack.py, jma_warnings.py, waves.py, ssh.py, gtsm.py
+        events.py  layers.py  indices.py  schemas.py
+        models/                  # nowcast.py, damage.py
+        api.py                   # APIRouter(prefix="/storm")
+    api.py                       # mounts core routes + module routers
+    cli.py
+  data/raw/<module>/  data/ref/  # small pinned inputs; reviewed lookup tables
+  out/<module>/
+  tests/core/  tests/heat/  tests/hab/  tests/storm/
 ```
 
-## 12. Changes required outside pipeline/
+## 13. Changes required outside pipeline/
 
 These follow from this spec. Coordinate them with the app owner in one PR:
 
-- `packages/shared/src/ids.ts`: `ZONES` becomes a national sea-area list (or generated from `data/ref/sea_areas`), and `SPECIES` grows. `PERILS` gains any promoted perils.
-- `packages/shared/src/rules.ts`: generate it from `thresholds.py`, or read a shared JSON (`Q9`). `REFERENCE_FIRES` is re-derived if heat moves from MUR to Copernicus (`Q13`).
-- `packages/shared/src/feed.ts` + `docs/INTERFACE.md`: new risk/plot/station schemas. `BuoyFile` is replaced by station series.
-- `Trigger` struct / `IReliefPool.sol`: unchanged if payouts stay per sea area. They change if payouts become per plot (`Q1`).
-- Root `package.json`: drop `pipeline` from bun workspaces and point `bun run pipeline` at `uv run` (`Q12`).
+- **Payout logic moves fully to the app / chain.** `RULES` in `packages/shared/src/rules.ts` and the contracts keep the thresholds, tiers and windows. Whatever produces `Trigger`s (keeper, oracle) reads index values from this pipeline and applies them; the pipeline no longer signs or emits Triggers (`Q2`).
+- `packages/shared/src/feed.ts` + `docs/INTERFACE.md`: replace `TriggersFile` and the `/triggers/*` route with the index envelope (§11) and per-module routes (`/heat/indices/...`). `BuoyFile` is replaced by `StationSeries`. `SeriesFile` is folded into `IndicesFile` (SST is the `SST` index), which gains `module`, `unit` and `source.sha256` per series.
+- `packages/shared/src/ids.ts`: `ZONES` becomes a national sea-area list (or generated from `data/ref/sea_areas`), and `SPECIES` grows. `PERILS` and `eventIdOf` stay app-side; the pipeline only needs index names that match them (`Q7`).
+- `REFERENCE_FIRES`: stays app-side. The pipeline's regression target becomes the daily `SST` series at 38.85N 141.66E for 2022–2025, which must reproduce those fire dates under the app's `RULES` (`heatFiredOn` in `rules.ts`) (`Q10`).
+- Perils: `HEAT24` / `HEAT25` / `HEAT26` collapse into one `HEAT` peril. The temperature is a rule field (`tempC`), signed on chain as `Trigger.tempC`, and the app counts days from `SST`.
+- `Trigger.dataHash`: the consumer sets it from the `source.sha256` the pipeline returns with each value.
+- Root `package.json`: drop `pipeline` from bun workspaces and point `bun run pipeline` at `uv run` (`Q6`).
 
-## 13. Running
+## 14. Running
 
 ```sh
 cd pipeline
 uv sync
-uv run pipeline all --season 2025 --region miyagi   # or --region japan
-uv run pipeline-serve                               # FastAPI on :8787
-uv run pytest                                       # includes Kesennuma regression + EIP-712 cross-check vs viem
+uv run pipeline all --season 2025 --region miyagi     # or --region japan
+uv run pipeline heat build --season 2025 --region miyagi
+uv run pipeline-serve                                 # all modules on :8787
+uv run pipeline-serve --module storm                  # one module alone
+uv run pytest                                         # includes Kesennuma heat index regression
+uv run pytest tests/hab                               # one module's tests
 ```
 
-## 14. Open questions
+## 15. Open questions
 
-- **Q1** Payout unit: stays per sea area (a plot inherits its sea area's trigger), or per plot (needs a contract + Trigger change)?
-- **Q2** Which candidate hazards become payout perils for the demo: marine heatwave, red-tide days, storm? Or keep them advisory?
-- **Q3** Species/operation list and who supplies thresholds for seaweed and finfish.
-- **Q4** Plot inventory: are 海しる 区画漁業権 polygons usable (licence, bulk access), and are they granular enough (fishery-right areas are often larger than individual plots)?
-- **Q5** Storm metric and gear-specific damage thresholds (longline vs raft vs cage).
-- **Q6** AWS model priority for the hackathon: bias correction, HAB onset, or heat forecast? Is an advisory-only model acceptable?
-- **Q8** Conventions: `≥` vs `>`, SST rounding, `firedAt` in UTC vs JST midnight, `deadline` lifetime, and pixel aggregation (median vs mean vs max).
-- **Q9** Single source for rules/ids: Python generates JSON consumed by `packages/shared`, or the reverse?
-- **Q10** Coastal mask width, and storage: S3 bucket/region and who pays for it.
-- **Q11** JAXA products (Himawari SST, GCOM-C 250 m chl-a) need accounts. Worth it for nearshore resolution?
-- **Q12** OK to change the root `package.json` / bun workspace now?
-- **Q13** Heat source for payouts: Copernicus L4 (main data, ~5 km, weak in bays) or MUR/Himawari (finer)? This decides the regression targets.
-- **Q14** Demo scope: run the full national daily job, or backfill nationally but demo live on a few prefectures?
+- **Q1** Consumer granularity: does the chain read sea-area indices (a plot inherits its sea area's value) or per-plot indices?
+- **Q2** Delivery to chain: does the consumer fetch index values over HTTP, or does it need them signed/attested by the pipeline (a signed index value, not a Trigger)?
+- **Q3** Plot inventory: are 海しる 区画漁業権 polygons usable (licence, bulk access), and are they granular enough (fishery-right areas are often larger than individual plots)?
+- **Q4** Species/operation list, and which index parameters (`h` for `HS_HOURS{h}`, depth z for `T_D{z}`) to precompute.
+- **Q5** AWS model priority for the hackathon: which module's model first (heat bias/forecast, HAB onset, storm nowcast/damage)?
+- **Q6** OK to change the root `package.json` / bun workspace now?
+- **Q7** Single source for index names and ids: Python generates JSON consumed by `packages/shared`, or the reverse?
+- **Q8** Coastal mask width, and storage: S3 bucket/region and who pays for it.
+- **Q9** JAXA products (Himawari SST, GCOM-C 250 m chl-a) need accounts. Worth it for nearshore resolution?
+- **Q10** Heat source for the published index: Copernicus L4 (main data, ~5 km, weak in bays) or MUR/Himawari (finer)? This decides the regression series. Also conventions: SST rounding (the app counts `≥ tempC`), day boundary in UTC vs JST, and pixel aggregation (median vs mean vs max).
+- **Q11** Storm damage labels: are prefecture/co-op damage reports or 漁業共済 claims statistics available at sea-area resolution?
+- **Q12** Storm indices per event or per day: which does the consumer need, and how is a storm event identified across systems?
+- **Q13** Demo scope: run the full national daily job for all three modules, or backfill nationally but demo live on a few prefectures and one or two modules?
