@@ -20,6 +20,9 @@ export const ENS = {
 
 // Filled after deploy (issue: deploy to public Sepolia).
 export const DEPLOYED = {
-  HumanRegistry: '0x0000000000000000000000000000000000000000',
-  ReliefPool: '0x0000000000000000000000000000000000000000',
+  HumanRegistry: '0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8',
+  ReliefPool: '0x803D06AA8b1C1E6Bb1418f586328faDE877aFe9F',
+  ReliefPoolDeployBlock: 11784150,
+  EnsPlotResolver: '0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b',
+  EnsSlotResolver: '0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec',
 } as const;
