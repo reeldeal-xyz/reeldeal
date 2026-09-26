@@ -566,14 +566,14 @@ async function relinkMultibaasCleanup(): Promise<void> {
   }
 }
 
-/** Polls `railway status` until the most recent deployment for --service web reports SUCCESS (or a
+/** Polls `railway service status` until the most recent deployment for --service web reports SUCCESS (or a
  *  terminal failure). The exact Railway CLI JSON shape isn't pinned to a version here -- this greps
  *  plain-text output for the outcome keywords, which is coarse but avoids depending on undocumented
  *  --json fields that may change between CLI versions. */
 async function waitForRailwaySuccess(timeoutMs = 10 * 60_000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const result = Bun.spawnSync(['railway', 'status', '--service', 'web'], { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' });
+    const result = Bun.spawnSync(['railway', 'service', 'status', '--service', 'web'], { cwd: REPO_ROOT, stdout: 'pipe', stderr: 'pipe' });
     const out = result.stdout.toString() + result.stderr.toString();
     if (/\bSUCCESS\b/i.test(out)) {
       console.log('[e2e] Railway deploy reported SUCCESS');
