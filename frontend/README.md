@@ -110,3 +110,15 @@ The Astro app build is clean; the static Storybook build completes. The log
 comes from Astro's dev-server bootstrap, which the adapter starts while
 pre-rendering. Do not hide unrelated errors: verify rendered story files,
 hydration, images and play assertions as well as the exit code.
+
+## Relief molecule previews (#61)
+
+The contribution split, measurement row, source disclosure and transaction row
+reuse the existing atoms in 16 synthetic Storybook states. Temperature props
+use `tempC`; missing readings display text rather than zero. Forecasts are
+advisory, while Pending, Paid and Held each explain the represented outcome.
+
+These are presentation props and local samples, not the #59 domain/API contract.
+Shared fixture adapters, farm/species/equipment cards and validation of incoming
+domain data remain outstanding until the reviewed #59 records are available.
+The previews make no wallet, pipeline, database or LINE calls.
