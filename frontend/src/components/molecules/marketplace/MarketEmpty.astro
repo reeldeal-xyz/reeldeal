@@ -1,7 +1,12 @@
-<section class="market-empty-state" aria-label="Market availability">
+---
+interface Props { lang?: 'en' | 'ja' }
+const { lang = 'en' } = Astro.props;
+const ja = lang === 'ja';
+---
+<section class="market-empty-state" aria-label={ja ? '出品状況' : 'Market availability'}>
   <p class="market-empty-state__eyebrow">宮城の水産物 · Miyagi catch</p>
-  <h3>No catch listed yet.</h3>
-  <p>Listings will appear here when sellers publish them.</p>
+  <h3>{ja ? 'まだ出品はありません。' : 'No catch listed yet.'}</h3>
+  <p>{ja ? '販売者が出品すると、ここに表示されます。' : 'Listings will appear here when sellers publish them.'}</p>
 </section>
 
 <style>

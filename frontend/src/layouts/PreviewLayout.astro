@@ -1,0 +1,28 @@
+---
+import BaseLayout from './BaseLayout.astro';
+interface Props { title: string; current: string }
+const { title, current } = Astro.props;
+const screens = [
+  { href: '/preview', label: 'Overview' },
+  { href: '/preview/market', label: 'Market' },
+  { href: '/preview/donate', label: 'Donate' },
+  { href: '/preview/farmer', label: 'Farmer' },
+  { href: '/preview/holder', label: 'Holder' },
+  { href: '/preview/coop', label: 'Co-op' },
+];
+---
+<BaseLayout title={title} section="preview">
+  <div class="shell preview-route">
+    <nav class="preview-route__nav" aria-label="Preview screens">
+      {screens.map(({ href, label }) => <a href={href} aria-current={current === href ? 'page' : undefined}>{label}</a>)}
+    </nav>
+    <slot />
+  </div>
+</BaseLayout>
+<style>
+  .preview-route { display: grid; gap: 24px; padding-block: 24px 32px; min-width: 0; }
+  .preview-route__nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .preview-route__nav a { display: grid; place-items: center; min-height: 44px; padding: 8px 4px; border: 1px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); font-size: .875rem; font-weight: 750; text-decoration: none; }
+  .preview-route__nav a[aria-current='page'] { background: var(--color-listed); border-width: 2px; }
+  @media (hover: hover) and (pointer: fine) { .preview-route__nav a:hover { background: var(--color-cream); } }
+</style>

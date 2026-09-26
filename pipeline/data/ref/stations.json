@@ -1,0 +1,21 @@
+{
+  "note": "Reviewed station registry (README §5). The loader (`pipeline stations build`) upserts stations with a published position into geo.stations and their pinned observations into risk.station_observations. A station without lat/lon is skipped: positions are never guessed.",
+  "stations": [
+    {
+      "stationId": "miyagi-futatsune",
+      "name": "Futatsune (二ツ根), Kesennuma Bay",
+      "source": "Miyagi Prefectural Fisheries Technology Center, Kesennuma Fisheries Experimental Station",
+      "type": "buoy",
+      "lat": null,
+      "lon": null,
+      "prefecture": "04",
+      "seaArea": "kesennuma-bay",
+      "variables": ["WT"],
+      "depthM": 3,
+      "cadence": "PT30M",
+      "url": "http://hydro.browse.jp/hydrolift/54-miyagi/miyagi_temp.html",
+      "adapter": "futatsune",
+      "positionNote": "The operator's page gives only 気仙沼湾内二ツ根 (checked 2026-09-26); GSI place-name search and the JODC station list have no position for it. Add lat/lon from a published source to load it."
+    }
+  ]
+}

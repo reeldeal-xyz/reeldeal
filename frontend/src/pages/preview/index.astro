@@ -1,0 +1,26 @@
+---
+import PreviewLayout from '../../layouts/PreviewLayout.astro';
+const journeys = [
+  { href: 'market', title: 'Local catch', description: 'Browse the sample market and explore its local goods.' },
+  { href: 'donate', title: 'Support the relief fund', description: 'Try an example contribution, from amount to receipt and ledger.' },
+  { href: 'farmer', title: 'Farmer relief status', description: 'Understand a held allocation and the next step for an example farmer.' },
+  { href: 'holder', title: 'Season slot requests', description: 'Review sample requests and preview issue or revoke actions.' },
+  { href: 'coop', title: 'Co-op overview', description: 'See holders, farmers and their recorded example outcomes.' },
+];
+---
+<PreviewLayout title="Community journeys" current="/preview">
+  <header class="journeys-heading"><p lang="ja">海と暮らしを支える</p><h1>Community journeys</h1><p>Local goods and contributions support relief for fishing and aquaculture communities.</p></header>
+  <p class="notice">Sample data throughout. Actions stay in this preview; they do not move money or update farm registrations.</p>
+  <div class="journeys-list">{journeys.map(({ href, title, description }) => <a href={`/preview/${href}`}><h2>{title}<span aria-hidden="true">↗</span></h2><p>{description}</p></a>)}</div>
+</PreviewLayout>
+<style>
+  .journeys-heading { display: grid; gap: 12px; }
+  .journeys-heading p { margin: 0; }
+  .journeys-heading > p:first-child { color: var(--color-ink-soft); font-size: .875rem; }
+  .journeys-heading h1 { margin: 0; font: 900 1.65rem/1.1 var(--font-impact); letter-spacing: -.04em; text-transform: uppercase; }
+  .journeys-list { display: grid; gap: 16px; }
+  .journeys-list a { display: grid; gap: 12px; padding: 20px 16px; border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); text-decoration: none; }
+  .journeys-list h2 { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin: 0; font: 900 1.05rem/1.3 var(--font-impact); }
+  .journeys-list h2 span { flex: none; }
+  .journeys-list p { margin: 0; color: var(--color-ink-soft); font-size: .875rem; }
+</style>
