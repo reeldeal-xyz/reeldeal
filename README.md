@@ -56,6 +56,28 @@ Browsing the map, purchase review and relief ledger requires no wallet. Wallet
 actions use Sepolia. The [three-minute demo script](docs/SUBMISSION.md#demo-script-3-minutes)
 provides the presentation sequence.
 
+
+## Demo
+
+Recorded end to end on Sepolia (2026-09-27): a farmer joins in LINE, the licence holder issues the plot's
+"2026" ENS slot with MetaMask, the farmer verifies with World ID (Simulator), the co-op fires the
+**Marine heatwave · hoya tier 1** event, and plot `p1213-009` is paid **20,000 JPYC** automatically.
+
+| Step | Transaction |
+|---|---|
+| Event anchored (`attest`, 2-of-3 signed trigger) | [`0x081d4738…933e`](https://sepolia.etherscan.io/tx/0x081d4738a7661868c8c6f57772bd2b48446ab2d0440bdbc2b47b3f856985933e) |
+| p1213-009 paid 20,000 JPYC (`settle`) | [`0xd2ea35b9…68e2`](https://sepolia.etherscan.io/tx/0xd2ea35b94c130e58ad1030f7382c64ff165baf6b44a08af7fd88fb64b72968e2) |
+
+### Screenshots
+
+| | |
+|---|---|
+| ![Coastal map](docs/assets/screens/01-coastal-map-plot.jpg) | ![Sea temperature](docs/assets/screens/02-sea-temperature-observations.jpg) |
+| ![Farmer LINE wallet](docs/assets/screens/03-farmer-line-wallet.jpg) | ![Farmer verified and paid](docs/assets/screens/05-farmer-plot-verified-paid.jpg) |
+| ![Holder issues slots](docs/assets/screens/04-licence-holder-slots.jpg) | ![Co-op event console](docs/assets/screens/06-coop-event-console.jpg) |
+| ![Fish market](docs/assets/screens/08-fish-market.jpg) | ![Purchase review](docs/assets/screens/09-market-purchase-review.jpg) |
+| ![Relief fund](docs/assets/screens/10-relief-fund.jpg) | ![Co-op dashboard](docs/assets/screens/07-coop-dashboard.jpg) |
+
 ## How it works
 
 1. A donation or SaleRouter checkout funds ReliefPool in JPYC.
