@@ -157,7 +157,7 @@ export async function getFundActivity(opts: GetFundActivityOptions = {}): Promis
   const poolAddress = opts.poolAddress ?? (env.reliefPoolAddress() as Address | undefined);
   const fromBlock = opts.fromBlock ?? env.reliefPoolDeployBlock();
   const rpcUrl = process.env.SEPOLIA_RPC_URL;
-  const limit = opts.limit ?? 100;
+  const limit = Math.min(opts.limit ?? 50, 50); // MultiBaas rejects limit > 50 with HTTP 400 "invalid request"
 
   const availableWei = await readPoolBalance(poolAddress, rpcUrl);
 

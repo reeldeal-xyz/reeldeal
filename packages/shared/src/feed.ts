@@ -1,6 +1,7 @@
 // Data contract between the pipeline (Jay) and the app (Sailesh). Mirrors pipeline/README.md §6-§11.
 // The pipeline writes these as JSON files to pipeline/out/<module>/ AND serves them over HTTP (see docs/INTERFACE.md).
-// The pipeline publishes index values only: no thresholds, statuses or Triggers. Those are built app-side from RULES.
+// The pipeline publishes index values, never statuses or Triggers: those are built app-side from RULES (whose values
+// the pipeline keeps as reference data, served at /species; see pipeline-species.ts).
 import { z } from 'zod';
 import { GEARS, MODULES } from './ids';
 

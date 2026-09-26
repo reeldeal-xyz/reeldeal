@@ -1,0 +1,74 @@
+{
+  "profile_version": "species-profiles-0.1.0",
+  "rules_version": "rules-0.1.0",
+  "species": [
+    { "id": "nori", "name": "Nori", "nameJa": "ノリ", "group": "seaweed", "taxon": "Pyropia yezoensis", "hazards": ["storm"], "evidence": [] },
+    { "id": "wakame", "name": "Wakame", "nameJa": "ワカメ", "group": "seaweed", "taxon": "Undaria pinnatifida", "hazards": ["heat", "storm"], "evidence": [] },
+    { "id": "kombu", "name": "Kombu", "nameJa": "コンブ", "group": "seaweed", "taxon": "Saccharina japonica", "hazards": ["heat", "storm"], "evidence": [] },
+    {
+      "id": "scallop", "name": "Yesso scallop", "nameJa": "ホタテガイ", "group": "shellfish", "taxon": "Mizuhopecten yessoensis",
+      "hazards": ["heat", "hab", "storm"],
+      "evidence": [
+        {
+          "id": "scallop-temperature-2014",
+          "url": "https://link.springer.com/article/10.1007/s10499-014-9788-0",
+          "factors": ["temperature"],
+          "access": "abstract",
+          "lifeStage": null, "size": null, "exposure": null, "endpoint": null, "testedRange": null,
+          "xUnit": null, "yUnit": null, "points": [],
+          "note": "Acute and acclimated temperature study, inspected at abstract level; full coefficients were not obtained."
+        }
+      ]
+    },
+    {
+      "id": "oyster", "name": "Pacific oyster", "nameJa": "マガキ", "group": "shellfish", "taxon": "Magallana gigas",
+      "hazards": ["hab", "storm"],
+      "evidence": [
+        {
+          "id": "oyster-temperature-salinity-density",
+          "url": "https://scxy.ouc.edu.cn/_upload/article/files/8e/ea/945b3044409584b1eb630a4b596f/f1212fef-b276-4846-8783-db9e49aa7e48.pdf",
+          "factors": ["temperature", "salinity", "density"],
+          "access": null,
+          "lifeStage": "larva", "size": null, "exposure": null, "endpoint": null, "testedRange": null,
+          "xUnit": null, "yUnit": null, "points": [],
+          "note": "Concerns larvae, not adult oysters on Miyagi farms."
+        }
+      ]
+    },
+    {
+      "id": "hoya", "name": "Sea squirt", "nameJa": "マボヤ", "group": "shellfish", "taxon": "Halocynthia roretzi",
+      "hazards": ["heat", "hab", "storm"],
+      "evidence": [
+        {
+          "id": "hoya-temperature-size",
+          "url": "https://e-kfas.org/Upload/files/kfas/8.%20449-454%20vol%2055%20No.%204.pdf",
+          "factors": ["temperature"],
+          "access": null,
+          "lifeStage": null, "size": null, "exposure": null, "endpoint": "respiration", "testedRange": null,
+          "xUnit": null, "yUnit": null, "points": [],
+          "note": "Reports respiration by temperature and size, not mortality."
+        },
+        {
+          "id": "hoya-hypoxia",
+          "url": "https://www.ebr.or.kr/journal/article.php?code=14486",
+          "factors": ["dissolved_oxygen"],
+          "access": null,
+          "lifeStage": null, "size": null, "exposure": null, "endpoint": null, "testedRange": null,
+          "xUnit": null, "yUnit": null, "points": [],
+          "note": "Hypoxia study, separate from the temperature study; not a joint exposure."
+        }
+      ]
+    },
+    { "id": "yellowtail", "name": "Japanese amberjack", "nameJa": "ブリ", "group": "finfish", "taxon": "Seriola quinqueradiata", "hazards": ["hab", "storm"], "evidence": [] },
+    { "id": "sea-bream", "name": "Red sea bream", "nameJa": "マダイ", "group": "finfish", "taxon": "Pagrus major", "hazards": ["hab", "storm"], "evidence": [] },
+    { "id": "salmon", "name": "Coho salmon", "nameJa": "ギンザケ", "group": "finfish", "taxon": "Oncorhynchus kisutch", "hazards": ["heat", "hab", "storm"], "evidence": [] },
+    { "id": "bluefin-tuna", "name": "Pacific bluefin tuna", "nameJa": "クロマグロ", "group": "finfish", "taxon": "Thunnus orientalis", "hazards": ["hab", "storm"], "evidence": [] }
+  ],
+  "rules": [
+    { "species": "scallop", "tier": 1, "peril": "HEAT", "tempC": 25, "threshold": 14, "window": { "start": "07-01", "end": "09-30" } },
+    { "species": "scallop", "tier": 2, "peril": "HEAT", "tempC": 26, "threshold": 12, "window": { "start": "07-01", "end": "09-30" } },
+    { "species": "hoya", "tier": 1, "peril": "HEAT", "tempC": 24, "threshold": 30, "window": { "start": "07-01", "end": "09-30" } },
+    { "species": "oyster", "tier": 1, "peril": "BANWEEKS", "threshold": 4 },
+    { "species": "scallop", "tier": 1, "peril": "BANWEEKS", "threshold": 4 }
+  ]
+}

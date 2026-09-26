@@ -131,6 +131,6 @@ describe('GET /api/multibaas/events (Fund activity panel data source)', () => {
 
     const req = new Request('http://localhost/api/multibaas/events?limit=9999');
     await GET(req);
-    expect(capturedUrl).toBe('https://example.multibaas.com/api/v0/events?contractLabel=reliefpool&limit=250');
+    expect(capturedUrl).toBe('https://example.multibaas.com/api/v0/events?contractLabel=reliefpool&limit=50');
   });
 });
