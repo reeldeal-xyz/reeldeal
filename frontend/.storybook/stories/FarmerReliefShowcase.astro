@@ -1,0 +1,9 @@
+---
+import FarmerReliefView from '../../src/components/organisms/farmer-relief/FarmerReliefView.astro';
+import { farmerReliefPreviews } from '../../src/fixtures/farmer-relief-preview';
+
+interface Props { sample?: keyof typeof farmerReliefPreviews }
+const { sample = 'unverified' } = Astro.props;
+---
+
+<FarmerReliefView {...farmerReliefPreviews[sample]} />

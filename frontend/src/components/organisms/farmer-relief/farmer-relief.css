@@ -1,0 +1,11 @@
+.farmer-relief { display: grid; gap: var(--space-5); min-width: 0; }
+.farmer-relief__heading { display: grid; gap: var(--space-2); }
+.farmer-relief__heading h1 { margin: 0; font: 900 1.65rem/1.1 var(--font-impact); letter-spacing: -.04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.farmer-relief__heading p { margin: 0; color: var(--color-ink-soft); font-size: .875rem; overflow-wrap: anywhere; }
+.farmer-relief__body { margin: 0; font-size: .875rem; line-height: 1.5; }
+.farmer-relief__identity > .farmer-relief__body { margin-bottom: var(--space-4); }
+.farmer-relief__demo { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.farmer-relief__demo p { margin: 0; font-size: .875rem; line-height: 1.5; }
+.farmer-relief__demo-check { display: grid; gap: var(--space-3); }
+.farmer-relief__demo .farmer-relief__small { color: var(--color-ink-soft); font-size: .75rem; }
+.farmer-relief__demo button { white-space: normal; overflow-wrap: anywhere; }
