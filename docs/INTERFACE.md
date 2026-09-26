@@ -28,9 +28,11 @@ Indices by module (`INDEX_PATTERNS`):
 
 | Module | Indices |
 |---|---|
-| heat | `SST` (°C, primary), `SST_ANOM` (°C), `T_D{z}` (°C at z m), `MHW_DAYS`, `MHW_INTENSITY`. `HEAT{t}` (days with SST ≥ t °C) is computed on request only, e.g. for the web map |
-| hab | `BANWEEKS` (consecutive weeks under shipment restriction, per species), `BAN_ACTIVE`, `REDTIDE_DAYS`, `CHL_Z` |
-| storm | `MAX_SURGE` (m), `MAX_WATER_LEVEL` (m), `MAX_HS` (m), `HS_HOURS{h}`, `MAX_WIND` (m/s), `TC_DIST` (km) |
+| heat | `SST` (°C, primary, JAXA), `SST_ANOM` (°C), `T_D{z}` (°C at z m, Copernicus), `MHW_DAYS`, `MHW_INTENSITY`. `HEAT{t}` (days with SST ≥ t °C) is computed on request only, e.g. for the web map |
+| hab | `BANWEEKS` (consecutive weeks under shipment restriction, per species), `BAN_ACTIVE`, `REDTIDE_DAYS`, `CHL` (mg/m³, JAXA), `CHL_Z`, `MLD` (m, Copernicus) |
+| storm | `MAX_SURGE` (m), `MAX_WATER_LEVEL` (m), `MAX_HS` (m, Copernicus), `HS_HOURS{h}`, `MAX_WAVE_POWER` (kW/m, Copernicus), `MAX_CURRENT` (m/s, Copernicus), `MAX_WIND` (m/s), `TC_DIST` (km) |
+
+Gridded sources: SST and chlorophyll-a come from the JAXA Earth API (GCOM-C SGLI, AMSR2 gap fill, COBE-SST normals); ocean physics and waves come from Copernicus Marine. `source.product` names the exact collection.
 
 ## Payloads (`feed.ts`)
 
@@ -152,4 +154,4 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 | 2024 | hoya on 15 Sep |
 | 2025 | scallop tier 1 on 28 Aug, hoya on 1 Sep |
 
-Seasons for the replay: `2022`, `2023`, `2024`, `2025` (July to September data), all paying the `"2026"` season slots. The reference dates were derived from MUR; if the heat source moves to Copernicus they are re-derived (`pipeline/README.md` Q10).
+Seasons for the replay: `2022`, `2023`, `2024`, `2025` (July to September data), all paying the `"2026"` season slots. The reference dates were derived from NASA MUR. The pipeline's SST now comes from the JAXA Earth API, so these dates must be re-derived from the JAXA series and re-agreed before the regression can pass (`pipeline/README.md` Q10).

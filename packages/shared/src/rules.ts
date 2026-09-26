@@ -54,7 +54,8 @@ export const heatFiredOn = (days: readonly { date: string; value: number | null 
 export const REFERENCE_POINT = { lat: 38.85, lon: 141.66 } as const;
 
 /**
- * Expected fire dates at REFERENCE_POINT, verified 2026-09-25 against raw MUR CSVs. App-side regression target:
+ * Expected fire dates at REFERENCE_POINT, verified 2026-09-25 against raw MUR CSVs. MUR is no longer a pipeline source; these
+ * must be re-derived from the JAXA SST series (pipeline/README.md Q10) and re-agreed. App-side regression target:
  * heatFiredOn(<pipeline daily SST series for the season>, rule) must give exactly these dates.
  */
 export const REFERENCE_FIRES = {

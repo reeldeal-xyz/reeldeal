@@ -3,9 +3,9 @@
 Donor-funded relief fund for aquaculture farmers across coastal Japan (demo: Kesennuma / Karakuwa). Pays JPYC on Sepolia to the owner of a plot's season slot on ENSv2 when a public ocean risk index crosses a species threshold. Farmers use a LINE LIFF app; World ID caps payouts per real person.
 
 ```
-Copernicus Marine, MUR, Himawari ─┐              ┌─ heat  (climate change) ─┐
-Prefecture 貝毒/赤潮 bulletins      ─┼─> pipeline ──┼─ hab   (algal blooms)   ─┼─> index values + sha256 ─┐
-JMA tide stations, best track     ─┘  (Jay,      └─ storm (surge, waves)    ─┘   (FastAPI, :8787)       │
+JAXA Earth API (SST, chl-a)      ─┐              ┌─ heat  (climate change) ─┐
+Copernicus (physics, waves)      ─┼─> pipeline ──┼─ hab   (algal blooms)   ─┼─> index values + sha256 ─┐
+JMA tide/track, 貝毒/赤潮 bulletins ─┘  (Jay,      └─ storm (surge, waves)    ─┘   (FastAPI, :8787)       │
                                        national)                                                          v
                                             keeper (app): RULES thresholds ─> signed Trigger ─> ReliefPool
 ENSv2 Sepolia: karakuwa.<parent>.eth ─> p1213-017 ─> 2026 slot ─> ReliefPool (JPYC) ─> farmer wallet (LIFF)

@@ -26,8 +26,8 @@ export type Module = (typeof MODULES)[number];
 // on-request convenience (days with SST >= t °C), not a fixed set. `{h}` is written into the name: HS_HOURS3 = hours with Hs >= 3 m.
 export const INDEX_PATTERNS = {
   heat: ['SST', 'SST_ANOM', 'T_D{z}', 'MHW_DAYS', 'MHW_INTENSITY', 'HEAT{t}'],
-  hab: ['BANWEEKS', 'BAN_ACTIVE', 'REDTIDE_DAYS', 'CHL_Z'],
-  storm: ['MAX_SURGE', 'MAX_WATER_LEVEL', 'MAX_HS', 'HS_HOURS{h}', 'MAX_WIND', 'TC_DIST'],
+  hab: ['BANWEEKS', 'BAN_ACTIVE', 'REDTIDE_DAYS', 'CHL', 'CHL_Z', 'MLD'],
+  storm: ['MAX_SURGE', 'MAX_WATER_LEVEL', 'MAX_HS', 'HS_HOURS{h}', 'MAX_WAVE_POWER', 'MAX_CURRENT', 'MAX_WIND', 'TC_DIST'],
 } as const satisfies Record<Module, readonly string[]>;
 
 // Perils: what the chain pays on. HEAT = days with SST at or above the rule's tempC (rules.ts), counted app-side from

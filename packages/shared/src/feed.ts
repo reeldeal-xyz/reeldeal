@@ -11,7 +11,7 @@ const ModuleName = z.enum(MODULES);
 
 /** Provenance of a value: the pinned input it was computed from. `sha256` becomes Trigger.dataHash app-side. */
 export const Source = z.object({
-  product: z.string(),            // e.g. "SST_GLO_SST_L4_NRT", "hab-bans-miyagi-2025", "jma-tide-ayukawa"
+  product: z.string(),            // e.g. "GCOM-C_SGLI_L3-SST.nighttime.v3", "GLOBAL_ANALYSISFORECAST_WAV_001_027", "hab-bans-miyagi-2025"
   sha256: Sha256,
   url: z.string().url().optional(),
   fetchedAt: z.string().optional(), // ISO timestamp
