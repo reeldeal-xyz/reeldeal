@@ -24,12 +24,12 @@ The source PR's six seafood portraits and dockside hero are not ported. Cards co
 ## Verification
 
 - `bun install --frozen-lockfile`: passed, lockfile unchanged.
-- `bun run --cwd frontend check`: passed, 53 files, zero errors/warnings/hints.
-- `bun run --cwd frontend test`: includes `scripts/marketplace-filter.test.ts` in the standard suite. Its 2 tests / 8 assertions cover bilingual/full-width matching, combined filters, empty matches and unchanged fixtures.
+- `bun run --cwd frontend check`: passed after merging main, 54 files, zero errors/warnings/hints.
+- `bun run --cwd frontend test`: passed after merging main, 10 tests / 55 assertions. Includes `scripts/marketplace-filter.test.ts`; its 2 tests / 8 assertions cover bilingual/full-width matching, combined filters, empty matches and unchanged fixtures.
 - `bun run --cwd frontend build`: passed.
 - `bun run --cwd frontend build-storybook`: passed. It still logs the existing Astro renderer `transport was disconnected` message and a large-chunk warning.
 - Inspected generated `astro-prerendered-stories.json`: inline marketplace styles are present; discovery includes the React hydration island and placeholder image; Japanese initial markup includes translated preview/action/alt text.
-- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. At 390px, `InteractiveFilters` passed with readable expanded Japanese details and visible keyboard focus; `RecoverSamples` passed. At 320px, `BeforeApproval` and `WalletRejected` passed their `Proposed split` assertions. Final desktop background inspection remains pending.
+- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. At 390px, `InteractiveFilters` passed with readable expanded Japanese details and visible keyboard focus; `RecoverSamples` passed. At 320px, `BeforeApproval` and `WalletRejected` passed their `Proposed split` assertions. At 1440px, final inspection confirmed an eggshell background across the viewport, no blue edge, and a readable short unavailable state.
 
 Combined integration review with the #67/#68 previews also passed 17 tests / 94 assertions, a 63-file frontend check, Astro build, built-server smoke checks and Storybook build. These combined counts include the other preview slices.
 
