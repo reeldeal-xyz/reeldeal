@@ -1,7 +1,10 @@
 # Pipeline API behind Caddy (automatic HTTPS). See DEPLOY.md.
 services:
   api:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-}   # set by the deploy workflow; /health reports it
     image: pipeline-api
     restart: unless-stopped
     env_file:

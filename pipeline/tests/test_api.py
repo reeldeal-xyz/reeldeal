@@ -1,9 +1,11 @@
 """API surface tests: every route in README §6–§8 and §11 exists, validates input and answers."""
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from pipeline.api import create_app
+from pipeline.core.errors import is_stub
 
 client = TestClient(create_app())
 
@@ -48,13 +50,38 @@ ROUTES = [
 ]
 
 
+def _endpoint(app, method, path):
+    for r in (r for router in app.state.routers for r in router.routes):
+        if isinstance(r, APIRoute) and r.path == path and method in r.methods:
+            return r.endpoint
+    raise AssertionError(f"{method} {path} not mounted")
+
+
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "ok"
     assert body["modules"]["heat"]["module_version"] == "heat-0.1.0"
     assert set(body["modules"]) == {"heat", "hab", "storm"}
+    assert body["commit"] is None
+
+
+def test_health_reports_stubs_honestly():
+    """While routes return 501, /health must not say ok (#35)."""
+    body = client.get("/health").json()
+    stubs = sum(is_stub(_endpoint(client.app, m, p)) for m, p, _, _ in ROUTES)
+    assert body["routes"] == {"implemented": len(ROUTES) - stubs, "total": len(ROUTES)}
+    for name, module in body["modules"].items():
+        counts = module["routes"]
+        expected = "ok" if counts["implemented"] == counts["total"] else "unimplemented" if counts["implemented"] == 0 else "degraded"
+        assert module["status"] == expected, name
+    if stubs:
+        assert body["status"] != "ok"
+
+
+def test_health_commit_from_env(monkeypatch):
+    monkeypatch.setenv("GIT_SHA", "abc1234")
+    assert client.get("/health").json()["commit"] == "abc1234"
 
 
 def test_openapi_lists_every_route():
@@ -64,9 +91,11 @@ def test_openapi_lists_every_route():
 
 
 @pytest.mark.parametrize(("method", "path", "url", "body"), ROUTES, ids=[f"{m} {p}" for m, p, _, _ in ROUTES])
-def test_stub_routes_accept_valid_input(method, path, url, body):
+def test_routes_accept_valid_input_and_501_only_when_stubbed(method, path, url, body):
+    """Valid input is never rejected, and a route answers 501 exactly when it is marked @stub (so /health stays true)."""
     r = client.request(method, url, json=body)
-    assert r.status_code == 501, r.text
+    assert r.status_code != 422, r.text
+    assert (r.status_code == 501) == is_stub(_endpoint(client.app, method, path)), r.text
 
 
 @pytest.mark.parametrize(

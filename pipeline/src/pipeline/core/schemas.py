@@ -229,12 +229,25 @@ class RiskRequest(RiskRequestBase):
 # --- health ----------------------------------------------------------------------
 
 
+# ok: every route is implemented. degraded: some routes still return 501. unimplemented: all of them do.
+# A 501 means "not supported yet", never "healthy" or "no risk" (#35).
+HealthStatus = Literal["ok", "degraded", "unimplemented"]
+
+
+class RouteCounts(Model):
+    implemented: int
+    total: int
+
+
 class ModuleHealth(Model):
-    status: Literal["ok", "degraded", "down"]
+    status: HealthStatus
     module_version: str = Field(alias="module_version")
+    routes: RouteCounts
 
 
 class Health(Model):
-    status: Literal["ok", "degraded", "down"]
+    status: HealthStatus
     version: str
+    commit: str | None = Field(None, description="Commit SHA of the deployed build (GIT_SHA); null when run from source")
+    routes: RouteCounts
     modules: dict[ModuleName, ModuleHealth]
