@@ -36,8 +36,33 @@ export const env = {
   // so these read plain process.env instead of throwing via need().
   multibaasUrl: () => process.env.MULTIBAAS_URL,
   multibaasApiKey: () => process.env.MULTIBAAS_API_KEY,
-  /** Deployed ReliefPool address (issue #16). Not required: unset means "not deployed yet". */
-  reliefPoolAddress: () => process.env.RELIEF_POOL || undefined,
+  /** Deployed ReliefPool address (issue #16). Not required: unset means "not deployed yet".
+   *  One address, three historical names: RELIEF_POOL_ADDRESS (keeper), RELIEF_POOL (verify page), NEXT_PUBLIC_*. */
+  reliefPoolAddress: () =>
+    process.env.RELIEF_POOL_ADDRESS || process.env.RELIEF_POOL || process.env.NEXT_PUBLIC_RELIEF_POOL_ADDRESS || undefined,
+
+  // --- Keeper (issue #17) ------------------------------------------------------------------
+  // Deployed by issue #16; the keeper always reads the live env var (never packages/shared/src/addresses.ts
+  // DEPLOYED, which stays the placeholder zero address until that issue lands and regenerates it).
+  // Block ReliefPool was deployed at, so the keeper's Enrolled-event scan doesn't have to start from genesis
+  // on a public RPC. Optional: unset/0 scans from genesis, which is fine for anvil/local.
+  reliefPoolDeployBlock: (): bigint => {
+    const v = process.env.RELIEF_POOL_DEPLOY_BLOCK;
+    return v ? BigInt(v) : 0n;
+  },
+  // Bearer token protecting POST /api/keeper/replay.
+  keeperApiToken: () => need('KEEPER_API_TOKEN'),
+  // Sends attest/settle transactions. Only read when a keeper run actually broadcasts (never in --dry-run).
+  keeperPrivateKey: () => need('KEEPER_PRIVATE_KEY'),
+  // Fallback EIP-712 signers: the keeper builds and signs the Trigger itself with these when the pipeline
+  // feed (issue #9) is down or its signature doesn't recover to a registered signer. Optional -- only
+  // required if the fallback path actually runs, so these read plain process.env instead of need().
+  pipelineSignerPrivateKey: () => process.env.PIPELINE_SIGNER_PRIVATE_KEY || undefined,
+  coopSignerPrivateKey: () => process.env.COOP_SIGNER_PRIVATE_KEY || undefined,
+  scienceKeyPrivateKey: () => process.env.SCIENCE_KEY_PRIVATE_KEY || undefined,
+  // JSON-file-backed payout directory (web/src/lib/payout-directory.ts). Not durable on a read-only /
+  // ephemeral serverless filesystem -- fine for local dev and the keeper's own long-lived process.
+  payoutDirectoryFile: () => process.env.PAYOUT_DIRECTORY_FILE || '.data/payout-directory.json',
 };
 
 // Public, client-safe config (issues #19/#20/#21). Unlike `env` above these never throw: an unset address means
@@ -57,4 +82,5 @@ export const publicEnv = {
   ensParentRegistry: () => optional('NEXT_PUBLIC_ENS_PARENT_REGISTRY_ADDRESS'),
   ensPlotResolver: () => optional('NEXT_PUBLIC_ENS_PLOT_RESOLVER_ADDRESS'),
   ensSlotRegistry: () => optional('NEXT_PUBLIC_ENS_SLOT_REGISTRY_ADDRESS'),
+
 };

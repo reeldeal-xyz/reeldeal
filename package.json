@@ -10,7 +10,8 @@
     "abi": "bun scripts/export-abi.ts",
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
-    "pipeline": "bun run --filter pipeline start"
+    "pipeline": "bun run --filter pipeline start",
+    "keeper": "bun run --filter web keeper --"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

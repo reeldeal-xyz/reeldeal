@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { heldReasonText, zoneLabelFor } from '@/lib/held-reasons';
 import { pushHeld, pushPaid } from '@/lib/line';
 import {
   MULTIBAAS_SIGNATURE_HEADER,
@@ -64,19 +65,7 @@ export async function POST(req: Request) {
 // ---------------------------------------------------------------------
 
 // Hold reasons are bytes32-packed ASCII on-chain (ReliefPool.REASON_*); eventInput gives the decoded label.
-const HELD_REASON_TEXT: Record<string, { reasonJa: string; reasonEn: string }> = {
-  UNVERIFIED: { reasonJa: '本人確認をすると受け取れます', reasonEn: 'Verify your identity to receive the payout.' },
-  NO_FARMER: { reasonJa: 'この区画の今季の担い手が未登録です', reasonEn: "No farmer is registered for this plot's season slot." },
-  PLOT_EXPIRED: { reasonJa: '今季の区画登録の期限が切れています', reasonEn: 'The season slot for this plot has expired.' },
-  CAP: { reasonJa: '今回の上限口数に達しました', reasonEn: 'You have reached the unit cap for this event.' },
-  ZONE_MISMATCH: { reasonJa: '区画の海域が一致しません', reasonEn: "The plot's zone does not match this event." },
-  default: { reasonJa: '確認中です。組合にお問い合わせください', reasonEn: 'Under review. Please contact the co-op.' },
-};
-
-// Plot labels don't carry the zone today; all demo plots sit in the Karakuwa branch.
-function zoneLabelFor(_plotLabel: string): string {
-  return '唐桑東';
-}
+// Shared with the keeper (issue #17) via web/src/lib/held-reasons.ts so the two LINE-push paths agree.
 
 function txHashOf(event: MultiBaasEventInformation): `0x${string}` | undefined {
   const h = (event as { transaction?: { txHash?: string } }).transaction?.txHash;
@@ -117,7 +106,7 @@ export async function handleHeld(event: MultiBaasEventInformation): Promise<void
     return;
   }
 
-  const text = HELD_REASON_TEXT[reason] ?? HELD_REASON_TEXT.default!;
+  const text = heldReasonText(reason);
   await pushHeld(lineUserId, { plotCode: plotLabel, zoneLabel: zoneLabelFor(plotLabel), ...text });
 }
 
