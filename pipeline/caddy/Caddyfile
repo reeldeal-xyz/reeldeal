@@ -1,0 +1,15 @@
+# SITE_ADDRESS is a hostname (e.g. 13-115-1-2.sslip.io) -> Let's Encrypt certificates for it and app.<it>.
+# Unset -> localhost / app.localhost with Caddy's local CA, for testing the stack on a laptop.
+# Mounted as a directory and reloaded by every pipeline deploy, so edits here take effect.
+
+# Pipeline API (this Compose project).
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+	reverse_proxy api:8787
+}
+
+# Astro web app: its own Compose project (frontend/docker-compose.yml) on the shared reeldeal network.
+app.{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+	reverse_proxy web:4321
+}
