@@ -63,6 +63,16 @@ export const env = {
   // JSON-file-backed payout directory (web/src/lib/payout-directory.ts). Not durable on a read-only /
   // ephemeral serverless filesystem -- fine for local dev and the keeper's own long-lived process.
   payoutDirectoryFile: () => process.env.PAYOUT_DIRECTORY_FILE || '.data/payout-directory.json',
+  // Jev (TypeSafe System One decisions, via OpenRouter's alpha Decisions API — see docs/JEV.md).
+  // All optional/non-throwing: an unset key just means lib/jev.ts returns null and callers escalate to
+  // a human instead of crashing (LINE intent routing, the keeper attest gate).
+  openRouterApiKey: () => process.env.OPENROUTER_API_KEY || undefined,
+  jevModel: () => process.env.JEV_MODEL || 'typesafe/jev-1.13',
+  jevConfidenceThreshold: (): number => {
+    const raw = process.env.JEV_CONFIDENCE_THRESHOLD;
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.7;
+  },
 };
 
 // Public, client-safe config (issues #19/#20/#21). Unlike `env` above these never throw: an unset address means
