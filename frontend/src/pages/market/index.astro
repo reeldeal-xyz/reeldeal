@@ -1,8 +1,14 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import MarketEmpty from '../../components/molecules/marketplace/MarketEmpty.astro';
+import MarketCatalogue from '../../components/organisms/marketplace/MarketCatalogue.astro';
+import MarketCheckout from '../../components/organisms/marketplace/MarketCheckout.astro';
+import MarketActivity from '../../components/molecules/marketplace/MarketActivity.astro';
 import WalletConnect from '../../components/react/WalletConnect';
-import { NEXT_PUBLIC_REOWN_PROJECT_ID } from 'astro:env/server';
+import { COOP_SIGNER_PRIVATE_KEY, NEXT_PUBLIC_REOWN_PROJECT_ID, SEPOLIA_RPC_URL } from 'astro:env/server';
+import { createSepoliaClient } from '../../lib/chain/client.server';
+import { getMarketActivity } from '../../lib/market-activity.server';
+const activity = await getMarketActivity(createSepoliaClient(SEPOLIA_RPC_URL));
+Astro.response.headers.set('cache-control', 'no-store');
 ---
 
 <BaseLayout title="Fish market" description="Fishery listings from the Miyagi coast." section="market">
@@ -11,10 +17,18 @@ import { NEXT_PUBLIC_REOWN_PROJECT_ID } from 'astro:env/server';
       <div><p>REELDEAL · MIYAGI COAST</p><h1>Fish market</h1></div>
       <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
     </header>
-    <MarketEmpty />
+    <p class="market-page__intro">5% of each purchase funds farmer relief. Sepolia test funds.</p>
+    <MarketCatalogue />
+    <MarketCheckout ready={!!COOP_SIGNER_PRIVATE_KEY} />
+    <noscript>Enable JavaScript to review a purchase.</noscript>
+    <MarketActivity activity={activity} />
     <a class="market-page__coast" href="/hmi">Explore the coast</a>
   </div>
 </BaseLayout>
+<script>
+  import { initMarketCheckout } from '../../lib/market.client';
+  initMarketCheckout();
+</script>
 
 <style>
   .market-page { min-height: 60dvh; padding-block: clamp(30px, 6vw, 68px); }
@@ -23,4 +37,6 @@ import { NEXT_PUBLIC_REOWN_PROJECT_ID } from 'astro:env/server';
   .market-page__heading h1 { margin: 0; font: 900 clamp(34px, 7vw, 64px)/1 var(--font-impact); }
   .market-page :global(.market-empty-state) { max-width: 680px; }
   .market-page__coast { display: inline-block; margin-top: 22px; color: var(--color-ink); font-weight: 750; text-underline-offset: 3px; }
+  .market-page__intro { margin: 0 0 24px; }
+  .market-page :global(.market-activity) { margin-top: 28px; }
 </style>

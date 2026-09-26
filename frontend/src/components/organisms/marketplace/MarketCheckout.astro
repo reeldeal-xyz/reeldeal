@@ -1,0 +1,25 @@
+---
+import Button from '../../atoms/Button.astro';
+interface Props { ready: boolean }
+const { ready } = Astro.props;
+---
+<dialog id="market-checkout" aria-labelledby="checkout-title" data-checkout-ready={String(ready)}>
+  <header><h2 id="checkout-title">Review purchase</h2><form method="dialog"><button class="checkout-close" aria-label="Close checkout">×</button></form></header>
+  <p data-checkout-listing></p>
+  <dl><div><dt>Total · JPYC</dt><dd data-checkout-total></dd></div><div><dt>Seller · 95%</dt><dd data-checkout-seller></dd></div><div><dt>Relief fund · 5%</dt><dd data-checkout-relief></dd></div></dl>
+  <p class="checkout-note">The relief share is deducted from the total. Network fees are separate.</p>
+  <p class="checkout-note">Sepolia test purchase · approve JPYC, then confirm payment in your wallet.</p>
+  {!ready && <p role="status">Purchases are unavailable until the co-op quote signer is configured.</p>}
+  <p data-checkout-status role="status" aria-live="polite"></p>
+  <a data-checkout-transaction target="_blank" rel="noopener noreferrer" hidden>View transaction ↗</a>
+  <Button id="checkout-submit" fullWidth disabled={!ready}>Connect wallet & pay</Button>
+  <a href="/relief" data-checkout-complete hidden>View relief fund</a>
+</dialog>
+<style>
+  dialog { width: min(460px,calc(100vw - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 2px solid var(--color-ink); border-radius: 16px; color: var(--color-ink); background: var(--color-paper); overflow: auto; }
+  dialog::backdrop { background: rgb(0 0 0 / .45); } header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } h2 { margin: 0; font: 800 24px/1.2 var(--font-body); }
+  .checkout-close { min-width: 44px; min-height: 44px; border: 1px solid var(--color-line); border-radius: 8px; background: white; font-size: 24px; } form { margin: 0; }
+  dl { display: grid; gap: 8px; } dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; } dd { margin: 0; font-weight: 800; overflow-wrap: anywhere; }
+  .checkout-note { font-size: 13px; color: var(--color-ink-soft); } [data-checkout-status]:empty { display: none; } [data-checkout-status] { font-size: 14px; overflow-wrap: anywhere; }
+  a { min-height: 44px; padding-block: 10px; } a:not([hidden]) { display: block; }
+</style>
