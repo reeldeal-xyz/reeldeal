@@ -43,6 +43,8 @@ const ja = lang === 'ja';
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
           <a href="/coop">{ja ? '漁協' : 'Co-op'}</a>
           <a href="/relief" aria-current={section === 'relief' ? 'page' : undefined}>{ja ? '救済' : 'Relief'}</a>
+          <a href="https://liff.line.me/2011749457-SgvM5ahH" target="_blank" rel="noopener">{ja ? '漁業者アプリ(LINE)' : 'Farmer app (LINE)'}</a>
+          <a href="/holder">{ja ? '区画ホルダー' : 'Holder'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
