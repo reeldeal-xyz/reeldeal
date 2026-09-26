@@ -26,6 +26,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { HumanRegistryAbi } from '@repo/shared';
 import { env } from '@/lib/env';
+import { sepoliaTransport } from '@/lib/rpc';
 
 export interface BinderClients {
   publicClient: Pick<PublicClient, 'simulateContract' | 'waitForTransactionReceipt' | 'readContract'>;
@@ -39,7 +40,7 @@ let cachedClients: BinderClients | null = null;
 export function getBinderClients(): BinderClients {
   if (cachedClients) return cachedClients;
   const account = privateKeyToAccount(env.binderKey() as Hex);
-  const transport = http(env.sepoliaRpc());
+  const transport = sepoliaTransport();
   const publicClient = createPublicClient({ chain: sepolia, transport });
   const walletClient = createWalletClient({ account, chain: sepolia, transport });
   cachedClients = { publicClient, walletClient, account };

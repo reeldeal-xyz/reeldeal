@@ -566,3 +566,10 @@
     border-color: #999;
   }
 }
+
+/* The ops screens paint edge to edge: the root layout's white body (and its default margin) must not
+   show around the dark shell. Scoped with :has so the map screen at "/" is untouched. */
+:global(body:has([data-ops-shell])) {
+  margin: 0;
+  background: var(--ops-bg);
+}
