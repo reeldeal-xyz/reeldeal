@@ -17,8 +17,9 @@ implementation and deployment evidence.
 - `Pipeline`: Python/FastAPI risk API scaffold (domain routes remain 501 stubs)
   with EC2 deploy files, and pinned buoy, toxin, and geographic datasets. Dataset age
   is not determined by file modification time.
-- `Application`: existing Next.js UI, API routes, keeper, identity, and LINE integration;
-  the `frontend/` Astro/Storybook foundation redirects legacy pages to `web/`.
+- `Application`: `frontend/` hosts the Astro coastal map, marketplace, and relief UI;
+  Storybook validates components. `web/` owns API routes, keeper, identity, LINE,
+  and operations pages, with its homepage redirecting to `/coop`.
 - `Tooling` and `Documentation`: repository operation and maintained contracts.
 
 ## Planned integration
