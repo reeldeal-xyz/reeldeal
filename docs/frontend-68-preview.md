@@ -67,3 +67,11 @@ the remaining story variants and 1440px view still need visual review.
 
 Inline styles preserve this organism's CSS in static Storybook; no new shared
 CSS import is required.
+
+After merging main at `e3bc4f31c8cb51809fccc3e9175918714c9176ce` (including
+the #94 marketplace and #95 farmer previews), the standard frontend suite passes
+21 tests / 104 assertions and frontend typecheck reports zero diagnostics across
+64 files. Contracts pass all 113 tests. Root typecheck still stops in `web/`
+with TS2688 for the implicit ambient `minimatch` type library; shared, pipeline
+and frontend checks pass. The combined Application/Documentation scopes and
+Astro ADR remain accurate, and their review hashes were regenerated.
