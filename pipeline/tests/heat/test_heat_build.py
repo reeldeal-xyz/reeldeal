@@ -124,6 +124,23 @@ def test_offline_rebuild_needs_no_network(built):
     assert len(built.requests) == n
 
 
+def test_database_plot_is_computed_on_request_like_the_build(built, monkeypatch):
+    """A plot only in the database has no precomputed season; the route samples the built layers for it instead."""
+    from dataclasses import replace
+
+    db_plot = replace(P1, plot_code="04-ku-9999", source="fishery_right")
+    real_lookup = store.lookup
+    monkeypatch.setattr(store, "lookup", lambda code: db_plot if code == "04-ku-9999" else real_lookup(code))
+    r = client.get("/heat/plots/04-ku-9999/risk?season=2025")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["plot"]["plotCode"] == "04-ku-9999"
+    assert body["window"] == {"start": "2025-06-01", "end": "2025-10-31"}
+    prebuilt = client.get("/heat/plots/p1213-001/risk?season=2025").json()
+    assert body["indices"] == prebuilt["indices"]  # same geometry, same computation as `heat build`
+    assert client.get("/heat/plots/04-ku-9999/risk?season=2024").status_code == 404  # no layers that season
+
+
 def test_errors(built):
     assert client.get("/heat/plots/nope/risk?season=2025").status_code == 404
     assert client.get("/heat/plots/p1213-001/risk?season=2024").status_code == 404  # not built

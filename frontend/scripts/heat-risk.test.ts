@@ -37,6 +37,18 @@ describe('operational heat consumer', () => {
     expect((await readHeatRisk({ ...input, requiredThrough: '2025-02-30' }, transport(Response.json(data)))).status).toBe('invalid-request');
   });
 
+  test('accepts database plot codes, including uploads, in the request and the echoed response', async () => {
+    for (const plotCode of ['04-ku-1101', 'upload:coop-7']) {
+      let requested = '';
+      const data = payload();
+      data.plot.plotCode = plotCode;
+      const result = await readHeatRisk({ ...input, plotCode }, async (url) => { requested = url.pathname; return Response.json(data); });
+      expect(result.status).toBe('partial');
+      expect(requested).toBe(`/v1/heat/plots/${encodeURIComponent(plotCode)}/risk`);
+    }
+    expect((await readHeatRisk({ ...input, plotCode: 'upload:' }, transport(Response.json(payload())))).status).toBe('invalid-request');
+  });
+
   test('rejects wrong identity, season, unit, hash, unsupported indices and advisory records', async () => {
     const mutations = [
       (p: any) => { p.plot.plotCode = 'p1213-002'; },
