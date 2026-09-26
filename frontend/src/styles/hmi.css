@@ -101,6 +101,10 @@ html:has(.hmi-page) { background: #edf1ee; scroll-padding-top: 80px; }
 .hmi-page .area-result > strong { display: block; margin-bottom: 6px; }
 .hmi-page .hmi-foot { padding-top: 20px; color: var(--hmi-muted); font-size: .75rem; line-height: 1.5; }
 .hmi-page [hidden] { display: none !important; }
+.hmi-page .hab-legend { margin-top: 12px; padding: 12px; border: 1px solid var(--hmi-line); border-radius: 7px; background: #f5f8f4; font-size: .8rem; overflow-wrap: anywhere; }
+.hmi-page .hab-legend-title { color: var(--hmi-ink); line-height: 1.5; }
+.hmi-page .hab-ramp { height: 12px; margin-top: 8px; border-radius: 3px; }
+.hmi-page .hab-ramp-labels { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; color: var(--hmi-muted); font-size: .74rem; }
 @media (max-width: 1199px) {
   .hmi-workspace { grid-template-columns: 210px minmax(0, 1fr); }
   .detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(3, minmax(0, 1fr)); }

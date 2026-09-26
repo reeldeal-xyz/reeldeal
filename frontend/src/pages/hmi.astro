@@ -89,25 +89,25 @@ const plot = hmi.status === 'available'
 const selectedSpecies = Astro.url.searchParams.get('species') ?? plot?.species[0] ?? '';
 const supportedSpecies = plot?.species ?? [];
 const species = supportedSpecies.includes(selectedSpecies) ? selectedSpecies : supportedSpecies[0] ?? '';
+const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM'
+  ? 'SST_ANOM'
+  : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
 const month = habMonth(Astro.url.searchParams.get('habMonth'));
-const [risk, hab] = await Promise.all([
-  plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : Promise.resolve(null),
+const [risk, speciesInfo, hab] = await Promise.all([
+  plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,
+  species ? readSpecies({ origin: PIPELINE_API_URL, species }) : null,
   readHabLayer(PIPELINE_API_URL, season, month),
 ]);
 const habLayer = hab.layer;
-const habText = hab.status === 'not-built' ? (lang === 'ja' ? `${season}年${Number(month)}月のクロロフィルaレイヤーは未作成です。` : `No chlorophyll-a layer built for ${season}-${month}.`)
-  : hab.status === 'unavailable' || hab.status === 'invalid-payload' ? (lang === 'ja' ? 'クロロフィルaレイヤーに接続できません。' : 'Chlorophyll-a layer is unavailable.') : '';
+const habText = hab.status === 'not-built'
+  ? (lang === 'ja' ? `${season}年${Number(month)}月のクロロフィルaレイヤーは未作成です。` : `No chlorophyll-a layer built for ${season}-${month}.`)
+  : hab.status === 'unavailable' || hab.status === 'invalid-payload'
+    ? (lang === 'ja' ? 'クロロフィルaレイヤーに接続できません。' : 'Chlorophyll-a layer is unavailable.')
+    : '';
 const habOverlay = habLayer ? JSON.stringify({
   url: `/api/tiles${habLayer.tileUrl}`,
   bounds: [[habLayer.bbox[1], habLayer.bbox[0]], [habLayer.bbox[3], habLayer.bbox[2]]],
 }) : '';
-const data = risk?.data ?? null;
-const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
-  : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
-const [risk, speciesInfo] = await Promise.all([
-  plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,
-  species ? readSpecies({ origin: PIPELINE_API_URL, species }) : null,
-]);
 const data = risk?.data ?? null;
 const speciesData = speciesInfo?.data ?? null;
 const seasons = [...new Set([Number(season), 2026, 2025, 2024, 2023, 2022])].sort((a, b) => b - a);
@@ -182,7 +182,14 @@ const metricName = metric === 'SST_ANOM'
 ---
 
 <BaseLayout title={copy.title} description={copy.subtitle} section="hmi" lang={lang}>
-  <div class="hmi-page" data-copy={JSON.stringify(copy)} data-season={season} data-lang={lang} data-map-features={mapFeatures} data-hab-overlay={habOverlay}>
+  <div
+    class="hmi-page"
+    data-copy={JSON.stringify(copy)}
+    data-season={season}
+    data-lang={lang}
+    data-map-features={mapFeatures}
+    data-hab-overlay={habOverlay}
+  >
     <header class="hmi-heading">
       <div>
         <h1>{copy.title}</h1>
@@ -236,9 +243,12 @@ const metricName = metric === 'SST_ANOM'
               <option value="SST_MONTH" selected={metric === 'SST_MONTH'}>{lang === 'ja' ? '月平均水温' : 'Monthly SST'}</option>
             </select>
           </label>
+
           <label>{lang === 'ja' ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
             <select name="habMonth">
-              {HAB_MONTHS.map((value) => <option value={value} selected={value === month}>{lang === 'ja' ? `${Number(value)}月` : new Date(Date.UTC(2000, Number(value) - 1, 1)).toLocaleString('en', { month: 'long', timeZone: 'UTC' })}</option>)}
+              {HAB_MONTHS.map((value) => <option value={value} selected={value === month}>
+                {lang === 'ja' ? `${Number(value)}月` : new Date(Date.UTC(2000, Number(value) - 1, 1)).toLocaleString('en', { month: 'long', timeZone: 'UTC' })}
+              </option>)}
             </select>
           </label>
 
@@ -289,8 +299,27 @@ const metricName = metric === 'SST_ANOM'
 
         <p class="map-attribution">
           {lang === 'ja' ? '背景地図' : 'Basemap'}: Esri, Maxar, Earthstar Geographics, GIS User Community
-          · {lang === 'ja' ? '衛星レイヤー' : 'overlays'}: NASA GIBS / GHRSST MUR / PACE OCI
+          · {lang === 'ja' ? '衛星レイヤー' : 'overlays'}: NASA GIBS / GHRSST MUR / PACE OCI · JAXA GCOM-C SGLI
         </p>
+
+        {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={lang === 'ja' ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
+          <p class="hab-legend-title">
+            <strong>{lang === 'ja' ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong>
+            · {habLayer.cadence === 'monthly' ? (lang === 'ja' ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}
+          </p>
+          <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
+          <p class="hab-ramp-labels">
+            <span>≤{habLayer.tileScale.min}</span>
+            <span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span>
+            <span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (lang === 'ja' ? '（対数）' : ' (log)') : ''}</span>
+          </p>
+          <p class="coverage">
+            {lang === 'ja' ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}
+            · {habLayer.product} · {habLayer.sha256.slice(0, 12)}
+          </p>
+          <p class="coverage">{lang === 'ja' ? 'クロロフィルaは藻類量の指標で、貝毒や出荷規制の有無を示すものではありません。' : 'Chlorophyll-a is a bloom proxy only; it does not show toxin status or shipment restrictions.'}</p>
+        </section>}
+        {habText && <p class="map-help">{habText}</p>}
 
         <p class="map-tile-status" data-map-tile-status role="status" hidden>
           <span>{lang === 'ja' ? '地図タイルを読み込めませんでした。区画と観測データは引き続き利用できます。' : 'Map tiles failed to load. Plot and observation data remain available.'}</span>
@@ -307,16 +336,6 @@ const metricName = metric === 'SST_ANOM'
         <p class="map-help">{copy.imageryContext}</p>
         <p class="map-help" data-area-help aria-live="polite">{copy.help} {copy.extent}</p>
         <section class="area-result" data-area-result aria-live="polite" hidden></section>
-        {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={lang === 'ja' ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
-          <p class="hab-legend-title"><strong>{lang === 'ja' ? 'クロロフィルa（JAXA GCOM-C SGLI）' : 'Chlorophyll-a (JAXA GCOM-C SGLI)'}</strong> · {habLayer.cadence === 'monthly' ? (lang === 'ja' ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
-          <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
-          <p class="hab-ramp-labels"><span>≤{habLayer.tileScale.min}</span><span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span><span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (lang === 'ja' ? '（対数）' : ' (log)') : ''}</span></p>
-          <p class="coverage">{lang === 'ja' ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`} · {habLayer.product} · {habLayer.sha256.slice(0, 12)}</p>
-          <p class="coverage">{lang === 'ja' ? 'クロロフィルaは藻類量の指標で、貝毒や出荷規制の有無を示すものではありません。' : 'Chlorophyll-a is a bloom proxy only; it does not show toxin status or shipment restrictions.'}</p>
-        </section>}
-        {habText && <p class="map-help">{habText}</p>}
-        <div class="map-legend"><span><i class="legend-plot"></i>{lang === 'ja' ? '養殖区画' : 'Farm plot'}</span><span><i class="legend-demo"></i>{lang === 'ja' ? 'デモ区画' : 'Demo plot'}</span><span><i class="legend-zone"></i>{lang === 'ja' ? '概略海域' : 'Approximate sea area'}</span></div>
-        {plot && <p class="source-note">{lang === 'ja' ? '選択中' : 'Selected'} {plot.plotCode} · {plot.centroid[1].toFixed(4)}°N, {plot.centroid[0].toFixed(4)}°E · {lang === 'ja' ? (plot.source === 'demo' ? 'デモ用形状' : plot.source === 'msil' ? 'MSIL区画' : '登録区画') : plotSource}{plot.prefecture ? ` · ${plot.prefecture}` : ''}{plot.seaArea ? ` · ${plot.seaArea}` : ''}</p>}
 
         <div class="map-legend">
           <span><i class="legend-plot" aria-hidden="true"></i>{lang === 'ja' ? '養殖区画' : 'Farm plot'}</span>
@@ -429,14 +448,33 @@ const metricName = metric === 'SST_ANOM'
     });
     const gibs = 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
     const overlays: Record<string, L.TileLayer> = {
-      sst: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
-      anom: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
-      chl: L.tileLayer.wms(gibs, { layers: 'OCI_PACE_Chlorophyll_a', format: 'image/png', transparent: true, opacity: 0.78, version: '1.1.1', attribution: 'NASA GIBS / PACE OCI' }),
+      sst: L.tileLayer.wms(gibs, {
+        layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.72,
+        version: '1.1.1',
+      }),
+      anom: L.tileLayer.wms(gibs, {
+        layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.72,
+        version: '1.1.1',
+      }),
+      chl: L.tileLayer.wms(gibs, {
+        layers: 'OCI_PACE_Chlorophyll_a',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.78,
+        version: '1.1.1',
+      }),
     };
     // JAXA SGLI chl-a from the pipeline's own layers, proxied same-origin; bounded so no tiles are asked for outside the grid.
     const habOverlay = page?.dataset.habOverlay ? JSON.parse(page.dataset.habOverlay) as { url: string; bounds: L.LatLngBoundsLiteral } : null;
-    if (habOverlay) overlays.hab = L.tileLayer(habOverlay.url, { bounds: habOverlay.bounds, maxNativeZoom: 12, maxZoom: 16, opacity: 0.85, attribution: 'JAXA SGLI' });
+    if (habOverlay) overlays.hab = L.tileLayer(habOverlay.url, { bounds: habOverlay.bounds, maxNativeZoom: 12, maxZoom: 16, opacity: 0.85 });
     const habLegend = document.querySelector<HTMLElement>('[data-hab-legend]');
+
     const tileStatus = document.querySelector<HTMLElement>('[data-map-tile-status]');
     let activeLayer = 'satellite';
     let tileFailures = 0;
@@ -520,11 +558,13 @@ const metricName = metric === 'SST_ANOM'
       sst: 'NASA GIBS · 日別解析海面水温（MUR） · °C',
       anom: 'NASA GIBS · 海面水温偏差（MUR） · °C',
       chl: 'NASA PACE OCI · クロロフィルa · mg/m³',
+      hab: 'JAXA GCOM-C SGLI · クロロフィルa（HAB指標） · mg/m³',
     } : {
       satellite: 'Imagery only · Esri World Imagery',
       sst: 'NASA GIBS · Daily analyzed SST (MUR) · °C',
       anom: 'NASA GIBS · SST anomaly (MUR) · °C',
       chl: 'NASA PACE OCI · Chlorophyll-a · mg/m³',
+      hab: 'JAXA GCOM-C SGLI · Chlorophyll-a (HAB proxy) · mg/m³',
     };
 
     const activate = (name: string) => {
@@ -674,30 +714,3 @@ const metricName = metric === 'SST_ANOM'
     setTimeout(() => map.invalidateSize(), 0);
   }
 </script>
-<style>
-  :global(.app-frame:has(.hmi-page)) { width: min(calc(100% - 32px), 1500px); height: auto; min-height: min(900px, calc(100dvh - 32px)); max-height: none; overflow: visible; border-radius: 22px; }
-  :global(.app-frame:has(.hmi-page) > main) { min-height: 0; }
-  .hmi-page { --hmi-ink: #102a30; --hmi-muted: #587078; width: min(100% - 36px, 1420px); margin: 24px auto 18px; color: var(--hmi-ink); }
-  .hmi-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 20px; }.heading-tools { display: flex; align-items: center; flex-wrap: wrap; justify-content: end; gap: 9px; }.language { display: flex; align-items: center; gap: 4px; }.language a { min-height: 36px; display: inline-flex; align-items: center; padding: 0 9px; border: 1px solid #c7d6d1; border-radius: 6px; color: var(--hmi-muted); text-decoration: none; font-size: .74rem; }.language a[aria-current="page"] { color: var(--hmi-ink); border-color: #124750; background: #edf5ed; font-weight: 800; }
-  h1,h2,p { margin: 0; } h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.04em; } h2 { font-size: 1.05rem; line-height: 1.2; }
-  .hmi-heading > div > p:last-child { margin-top: 8px; color: var(--hmi-muted); }
-  .eyebrow { margin-bottom: 6px; color: #39717a; font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
-  .live-badge { flex: none; padding: 8px 11px; border: 1px solid #96b9b5; border-radius: 999px; color: #335e61; background: #edf7f2; font-size: .72rem; }.live-badge.offline { border-color: #cfb4a1; color: #785545; background: #faf1e8; }.live-badge.offline i { background: #c77b50; }
-  .live-badge i,.swatch { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #178c73; }
-  .hmi-workspace { display: grid; grid-template-columns: 208px minmax(350px, 1fr) 300px; gap: 14px; align-items: start; }
-  .hmi-rail,.detail-rail { display: grid; gap: 12px; }
-  .controls,.layer-list,.mode-panel,.map-panel,.detail-card { padding: 15px; border: 1px solid #c7d6d1; border-radius: 10px; background: #fbfcf8; box-shadow: 0 2px 7px #163e4410; }
-  .controls { display: grid; gap: 11px; } label { display: grid; gap: 4px; color: var(--hmi-muted); font-size: .76rem; font-weight: 700; }
-  select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid #a6bdb8; border-radius: 6px; color: var(--hmi-ink); background: white; font: inherit; text-transform: capitalize; }
-  .controls button { min-height: 40px; border: 0; border-radius: 6px; color: white; background: #124750; font: inherit; font-weight: 750; cursor: pointer; }
-  .layer-list h2,.mode-panel h2 { margin-bottom: 10px; }
-  .layer-row { display: flex; align-items: center; padding: 7px 0; border-top: 1px solid #e1e9e4; font-size: .82rem; text-transform: capitalize; }
-  .layer-row small { margin-left: auto; color: var(--hmi-muted); font-size: .66rem; text-transform: none; }
-  .swatch.heat { background: #db714d; }.swatch.hab { background: #8d60a9; }.swatch.storm { background: #547bca; }.disabled { opacity: .62; }
-  .layer-note,.mode-panel > p,.source-note,.coverage { margin-top: 9px; color: var(--hmi-muted); font-size: .7rem; line-height: 1.45; }
-  .mode-switch { display: flex; gap: 5px; }.mode-switch button { min-height: 34px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; font-size: .72rem; font-weight: 700; }.mode-switch [aria-pressed="true"] { color: white; background: #124750; }.mode-switch button:disabled { opacity: .6; }
-  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: clamp(390px, 58vh, 620px); touch-action: none; cursor: grab; background: #cbe9e8; }.map:active { cursor: grabbing; }.map.drawing { cursor: crosshair; }.map:focus-visible { outline: 3px solid #0b5ed7; outline-offset: -3px; }.map-layers,.map-controls,.area-controls { position: absolute; z-index: 1000; display: flex; gap: 5px; padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; box-shadow: 0 1px 4px #163e4430; }.map-layers { top: 9px; left: 9px; max-width: calc(100% - 130px); overflow-x: auto; }.map-layers button,.map-controls button,.area-controls button { flex: none; min-height: 38px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: 700 .74rem var(--font-body); cursor: pointer; }.map-layers button[aria-pressed="true"] { color: white; border-color: #124750; background: #124750; }.map-controls { top: 9px; right: 9px; }.map-controls > div { display: flex; gap: 3px; }.map-controls button { min-width: 38px; padding: 0 8px; }.map-controls button[data-map-zoom='in'],.map-controls button[data-map-zoom='out'] { font-size: 1.05rem; }.area-controls { bottom: 10px; left: 10px; flex-wrap: wrap; max-width: calc(100% - 20px); }.area-controls button { min-height: 42px; }.area-controls button:first-child { color: white; border-color: #124750; background: #124750; }.area-controls button:disabled { opacity: .48; cursor: default; }.map .drawing { cursor: crosshair; }.map-layer-note,.map-help { margin: 6px 0 0; color: var(--hmi-muted); font-size: .7rem; line-height: 1.4; }.map-date { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #d4dfda; border-radius: 7px; background: #f5f8f4; }.map-date label { display: grid; gap: 4px; color: var(--hmi-muted); font-size: .68rem; font-weight: 700; }.map-date input,.map-date button { min-height: 42px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; }.map-date button { font-size: .72rem; font-weight: 700; cursor: pointer; }.map-date button:disabled,.map-date input:disabled { opacity: .5; cursor: default; }.map-date span { color: var(--hmi-muted); font-size: .68rem; }.area-result { margin-top: 8px; padding: 10px; border-radius: 6px; color: #263f37; background: #edf5ed; font-size: .78rem; line-height: 1.45; }.area-result[hidden] { display: none; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }.leaflet-container { font: inherit; }.map-layers button:disabled { opacity: .48; cursor: default; }.hab-legend { margin-top: 10px; padding: 10px; border: 1px solid #d4dfda; border-radius: 7px; background: #f5f8f4; font-size: .72rem; }.hab-legend[hidden] { display: none; }.hab-legend-title { color: var(--hmi-ink); }.hab-ramp { height: 12px; margin-top: 8px; border-radius: 3px; }.hab-ramp-labels { display: flex; justify-content: space-between; margin-top: 3px; color: var(--hmi-muted); font-size: .66rem; }
-  .detail-card h2 { margin-bottom: 7px; text-transform: capitalize; }.detail-card > p:not(.eyebrow) { color: var(--hmi-muted); font-size: .78rem; line-height: 1.45; }.section-title { align-items: end; }.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }.chart polyline { fill: none; stroke: #ce6548; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }.chart-grid { fill: none; stroke: #d9e3dd; stroke-width: 1; }.chart text { fill: var(--hmi-muted); font-size: 11px; }.empty-chart { margin-top: 12px; }.threshold { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e9e4; font-size: .75rem; }.threshold div { display: grid; gap: 2px; }.threshold span { color: var(--hmi-muted); font-size: .67rem; }.threshold b { white-space: nowrap; }.forecast-card { border-color: #dbcbc1; background: #faf6f0; }.hmi-foot { padding-top: 13px; color: var(--hmi-muted); font-size: .68rem; }
-  @media(max-width: 980px) { .hmi-workspace { grid-template-columns: 190px minmax(0,1fr); }.detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); }.detail-card { min-width: 0; } }
-  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.heading-tools { justify-content: space-between; margin-top: 10px; }.live-badge { display: inline-flex; align-items: center; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.panel-heading { align-items: start; }.map { height: min(52vh, 460px); min-height: 380px; }.map-layers { top: 5px; left: 5px; max-width: calc(100% - 110px); gap: 3px; padding: 3px; }.map-layers button,.map-controls button { min-height: 40px; padding: 0 7px; font-size: .68rem; }.map-controls { top: 5px; right: 5px; gap: 3px; padding: 3px; }.area-controls { bottom: 5px; left: 5px; gap: 4px; padding: 4px; }.area-controls button { min-height: 44px; padding: 0 8px; font-size: .69rem; }.map-date { align-items: stretch; }.map-date label { flex: 1 1 160px; }.map-date input,.map-date button { width: 100%; }.map-date span { flex: 1 1 100%; }.map-legend { gap: 8px; }.detail-rail { gap: 9px; } }
-</style>
