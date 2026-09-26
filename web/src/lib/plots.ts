@@ -28,3 +28,6 @@ export const DEMO_PLOTS: readonly DemoPlot[] = Array.from({ length: 15 }, (_, i)
 
 /** LIFF deep link a farmer scans to open their plot in the LINE app (see issue #13/#14). */
 export const liffPlotUrl = (plotLabel: string): string => `https://liff.line.me/2011749457-SgvM5ahH?plot=${encodeURIComponent(plotLabel)}`;
+
+/** Base LIFF deep link with no plot param, for generic prompts (e.g. Jev intent-routing replies, docs/JEV.md). */
+export const LIFF_BASE_URL = 'https://liff.line.me/2011749457-SgvM5ahH';

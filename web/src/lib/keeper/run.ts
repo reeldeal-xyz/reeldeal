@@ -19,6 +19,7 @@ import { ReliefPoolAbi, idOf, eventIdOf, triggerEventId, type Trigger } from '@r
 import { env } from '@/lib/env';
 import { zoneLabelFor, heldReasonText } from '@/lib/held-reasons';
 import { pushHeld, pushPaid, type HeldPushParams, type PaidPushParams } from '@/lib/line';
+import { decideAttest as decideAttestGate, type AttestGateResult, type AttestGateState } from '@/lib/jev-gate';
 import { payoutDirectory, recordPlotWallet } from '@/lib/payout-directory';
 import {
   getKeeperChainClients,
@@ -27,8 +28,34 @@ import {
   type KeeperWalletClient,
 } from './chain-clients';
 import { batchPlots, listEnrolledPlots } from './plots';
-import { getReferenceEvent } from './reference-events';
+import { getReferenceEvent, type ReferenceEvent } from './reference-events';
 import { resolveSignedTrigger, type FallbackKeys, type TriggerSource } from './signing';
+
+const SECONDS_PER_DAY = 86_400;
+
+/**
+ * Builds the Jev attest-gate state from a resolved trigger (docs/JEV.md). daysOfData is a proxy -- the
+ * season window from windowStart to firedAt -- since the keeper doesn't fetch buoy ground-truth or the
+ * pipeline's per-day series alongside the trigger yet; buoyOffset is null until that's wired up.
+ * TODO: replace both once the keeper reads packages/shared BuoyFile.vsSatellite / SeriesFile.days here.
+ */
+function buildAttestGateState(trigger: Trigger, ref: ReferenceEvent): AttestGateState {
+  const daysOfData = Math.max(0, Math.round(Number(trigger.firedAt - trigger.windowStart) / SECONDS_PER_DAY));
+  return {
+    trigger: {
+      zone: ref.zone,
+      species: ref.species,
+      peril: ref.peril,
+      tier: trigger.tier,
+      index: trigger.index,
+      threshold: trigger.threshold,
+      firedAt: new Date(Number(trigger.firedAt) * 1000).toISOString(),
+    },
+    buoyOffset: null,
+    daysOfData,
+    sourceHashes: [trigger.dataHash],
+  };
+}
 
 const PLOT_STATUS_NAMES = ['Unsettled', 'Paid', 'Held', 'Claimed', 'Swept'] as const;
 
@@ -58,6 +85,8 @@ export interface KeeperRunDeps {
   lineUserIdForWallet: (wallet: string) => Promise<string | null>;
   lineUserIdForPlot: (plotLabel: string) => Promise<string | null>;
   recordPlotWallet: (plotLabel: string, wallet: string) => void;
+  /** Jev data-quality gate (docs/JEV.md), asked right before attest. Injectable so tests never hit the network. */
+  decideAttest: (state: AttestGateState) => Promise<AttestGateResult>;
 }
 
 export function defaultKeeperRunDeps(): KeeperRunDeps {
@@ -83,12 +112,15 @@ export function defaultKeeperRunDeps(): KeeperRunDeps {
     lineUserIdForWallet: payoutDirectory.lineUserIdForWallet,
     lineUserIdForPlot: payoutDirectory.lineUserIdForPlot,
     recordPlotWallet,
+    decideAttest: (state) => decideAttestGate(state),
   };
 }
 
 export interface KeeperRunOptions {
   referenceEventId: string;
   dryRun?: boolean;
+  /** Skips the Jev attest gate entirely and proceeds straight to attest, for live-demo overrides. */
+  force?: boolean;
 }
 
 export interface PlotSettlementOutcome {
@@ -124,6 +156,10 @@ export interface KeeperRunResult {
   settleTxHashes: Hex[];
   plotOutcomes: PlotSettlementOutcome[];
   pushes: LinePushOutcome[];
+  /** 'escalated' when the Jev attest gate held this run for co-op review -- attest/settle never ran. */
+  status: 'ok' | 'escalated';
+  /** Set whenever the gate was actually asked (i.e. not already-attested and not --force). */
+  jevGate?: AttestGateResult;
 }
 
 export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps = defaultKeeperRunDeps()): Promise<KeeperRunResult> {
@@ -144,6 +180,7 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
   let trigger: Trigger | undefined;
   let triggerSource: TriggerSource | 'already-attested' = alreadyAttested ? 'already-attested' : 'feed';
   let attestTxHash: Hex | undefined;
+  let jevGate: AttestGateResult | undefined;
 
   const signing = dryRun ? null : deps.getSigningClient();
 
@@ -188,6 +225,42 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
       throw new Error(
         `[keeper] ${ref.id}: resolved trigger's eventId ${resolvedEventId} does not match the expected ${eventId} -- refusing to attest`,
       );
+    }
+
+    if (options.force) {
+      console.log(`[keeper] ${ref.id}: --force set -- skipping the Jev attest gate`);
+    } else {
+      jevGate = await deps.decideAttest(buildAttestGateState(trigger, ref));
+      console.log(
+        JSON.stringify({
+          scope: 'jev',
+          kind: 'attest_gate_decision',
+          refId: ref.id,
+          eventId,
+          decision: jevGate.decision,
+          confidence: jevGate.confidence,
+          probabilities: jevGate.probabilities,
+          reason: jevGate.reason,
+        }),
+      );
+      if (jevGate.decision === 'co_op_review') {
+        console.log(`[keeper] ${ref.id}: Jev gate held this event for co-op review -- not attesting (pass force:true to override)`);
+        return {
+          referenceEventId: ref.id,
+          eventId,
+          trigger,
+          triggerSource,
+          dryRun,
+          alreadyAttested,
+          eligiblePlots: [],
+          unsettledPlots: [],
+          settleTxHashes: [],
+          plotOutcomes: [],
+          pushes: [],
+          status: 'escalated',
+          jevGate,
+        };
+      }
     }
 
     if (dryRun) {
@@ -323,6 +396,8 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
     settleTxHashes,
     plotOutcomes,
     pushes,
+    status: 'ok',
+    jevGate,
   };
 }
 

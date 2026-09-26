@@ -189,6 +189,12 @@ describe.skipIf(!HAS_ANVIL)('keeper against a local anvil chain', () => {
       lineUserIdForWallet: mock(async (w: string) => (w.toLowerCase() === FARMER_VERIFIED.toLowerCase() ? 'U-VERIFIED' : null)),
       lineUserIdForPlot: mock(async (p: string) => (p === 'p-held' ? 'U-HELD' : null)),
       recordPlotWallet: mock(() => {}),
+      decideAttest: mock(async () => ({
+        decision: 'attest_now' as const,
+        confidence: 1,
+        probabilities: { attest_now: 1, co_op_review: 0 },
+        reason: 'jev_choice' as const,
+      })),
       ...overrides,
     };
   }
