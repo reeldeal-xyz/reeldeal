@@ -1,10 +1,10 @@
-# Test the pipeline, then deploy it to the EC2 instance via SSM Run Command (pipeline/DEPLOY.md §5).
+# Test the pipeline, then deploy the pushed branch to the EC2 instance via SSM Run Command (pipeline/DEPLOY.md §5).
 # Needs repo variables AWS_DEPLOY_ROLE_ARN and EC2_INSTANCE_ID. No stored AWS or SSH keys: GitHub OIDC.
 name: deploy-pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [pipeline]
     paths:
       - "pipeline/**"
       - ".github/workflows/deploy-pipeline.yml"
@@ -43,13 +43,13 @@ jobs:
         env:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes.
           script="set -e
           cd /home/ubuntu/eth-global-tokyo
-          git checkout -q main
-          git fetch -q origin main
-          git reset -q --hard $SHA
+          git fetch -q origin $BRANCH
+          git checkout -q -f -B $BRANCH $SHA
           cd pipeline
           docker compose up -d --build --wait
           docker image prune -f"
@@ -58,7 +58,7 @@ jobs:
           cmd_id=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name AWS-RunShellScript \
-            --comment "deploy ${SHA::7}" \
+            --comment "deploy $BRANCH@${SHA::7}" \
             --parameters "$params" \
             --query Command.CommandId --output text)
           echo "SSM command $cmd_id"
