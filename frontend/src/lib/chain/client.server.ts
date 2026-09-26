@@ -10,7 +10,7 @@ import { sepolia } from 'viem/chains';
 import { DEPLOYED, JPYC, JpycAbi, ReliefPoolAbi, HumanRegistryAbi } from '@repo/shared';
 
 export function createSepoliaClient(rpcUrl: string): PublicClient {
-  return createPublicClient({ chain: sepolia, transport: http(rpcUrl) });
+  return createPublicClient({ chain: sepolia, transport: http(rpcUrl, { timeout: 8000, retryCount: 1 }) });
 }
 
 const RELIEF_POOL_EVENT_NAMES = ['Donated', 'Attested', 'Paid', 'Held', 'Claimed', 'Swept'] as const;
@@ -91,10 +91,19 @@ export async function readReliefPoolEvents(
   poolAddress: Address,
   fromBlock: bigint,
   names: readonly ReliefPoolEventName[] = RELIEF_POOL_EVENT_NAMES,
+  blockNumber?: bigint,
 ): Promise<ReliefPoolEvent[]> {
   const events = reliefPoolEvents(names);
   if (!events.length) return [];
-  const logs = await client.getLogs({ address: poolAddress, events, fromBlock, toBlock: 'latest' });
+  const toBlock = blockNumber ?? await client.getBlockNumber({ cacheTime: 0 });
+  const batchSize = 25_000n;
+  if (fromBlock < 0n || (toBlock - fromBlock) / batchSize >= 80n) throw new Error('Event range requires an indexer');
+  const fetchLogs = (start: bigint, end: bigint) => client.getLogs({ address: poolAddress, events, fromBlock: start, toBlock: end });
+  const logs: Awaited<ReturnType<typeof fetchLogs>> = [];
+  for (let start = fromBlock; start <= toBlock; start += batchSize) {
+    const end = start + batchSize - 1n;
+    logs.push(...await fetchLogs(start, end < toBlock ? end : toBlock));
+  }
   return logs.map((log) => {
     const args = (log.args ?? {}) as Record<string, unknown>;
     const type = log.eventName as ReliefPoolEventName;
@@ -135,7 +144,9 @@ export interface FundSummary {
   availableWei: string | null;
   /** ReliefPool.reserved(): JPYC committed to pending/held allocations. */
   reservedWei: string | null;
-  totals: FundTotals;
+  totals: FundTotals | null;
+  atBlock: string;
+  eventsComplete: boolean;
   events: ReliefPoolEvent[];
   eventsAvailable: boolean;
   fetchedAt: string;
@@ -144,34 +155,37 @@ export interface FundSummary {
 export function computeFundTotals(events: ReliefPoolEvent[]): FundTotals {
   let donated = 0n;
   let paid = 0n;
-  let held = 0;
-  let resolved = 0;
-  for (const event of events) {
+  const held = new Set<string>();
+  for (const event of [...events].sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex)) {
     if (event.type === 'Donated' && event.amountWei) donated += BigInt(event.amountWei);
     if ((event.type === 'Paid' || event.type === 'Claimed') && event.amountWei) paid += BigInt(event.amountWei);
-    if (event.type === 'Held') held++;
-    if (event.type === 'Claimed' || event.type === 'Swept') resolved++;
+    if (!event.eventId || !event.plotLabel) continue;
+    const key = `${event.eventId}:${event.plotLabel}`;
+    if (event.type === 'Held') held.add(key);
+    if (event.type === 'Paid' || event.type === 'Claimed' || event.type === 'Swept') held.delete(key);
   }
-  return { donatedWei: donated.toString(), paidWei: paid.toString(), heldCount: Math.max(0, held - resolved) };
+  return { donatedWei: donated.toString(), paidWei: paid.toString(), heldCount: held.size };
 }
 
 export interface GetFundSummaryOptions {
   poolAddress?: Address;
   fromBlock?: bigint;
   limit?: number;
+  blockNumber?: bigint;
 }
 
 export async function getFundSummary(client: PublicClient, opts: GetFundSummaryOptions = {}): Promise<FundSummary> {
   const poolAddress = opts.poolAddress ?? DEPLOYED.ReliefPool;
   const fromBlock = opts.fromBlock ?? BigInt(DEPLOYED.ReliefPoolDeployBlock);
-  const limit = opts.limit ?? 100;
+  const limit = Math.max(0, Math.min(opts.limit ?? 100, 1000));
+  const blockNumber = opts.blockNumber ?? await client.getBlockNumber({ cacheTime: 0 });
 
   const [balanceWei, reservedWei, eventResult] = await Promise.all([
-    client.readContract({ address: JPYC, abi: JpycAbi, functionName: 'balanceOf', args: [poolAddress] })
+    client.readContract({ address: JPYC, abi: JpycAbi, functionName: 'balanceOf', args: [poolAddress], blockNumber })
       .then((v) => v.toString()).catch(() => null),
-    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'reserved' })
+    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'reserved', blockNumber })
       .then((v) => v.toString()).catch(() => null),
-    readReliefPoolEvents(client, poolAddress, fromBlock)
+    readReliefPoolEvents(client, poolAddress, fromBlock, RELIEF_POOL_EVENT_NAMES, blockNumber)
       .then((events) => ({ available: true as const, events }))
       .catch(() => ({ available: false as const, events: [] as ReliefPoolEvent[] })),
   ]);
@@ -187,7 +201,9 @@ export async function getFundSummary(client: PublicClient, opts: GetFundSummaryO
     balanceWei,
     availableWei,
     reservedWei,
-    totals: computeFundTotals(eventResult.events),
+    totals: eventResult.available ? computeFundTotals(eventResult.events) : null,
+    atBlock: blockNumber.toString(),
+    eventsComplete: eventResult.available && sorted.length <= limit,
     events: sorted.slice(0, limit),
     eventsAvailable: eventResult.available,
     fetchedAt: new Date().toISOString(),
@@ -197,7 +213,9 @@ export async function getFundSummary(client: PublicClient, opts: GetFundSummaryO
 export interface PlotStatus {
   plotLabel: string;
   seasonLabel: string;
-  enrolled: boolean;
+  enrolled: boolean | null;
+  plotReadAvailable: boolean;
+  targetReadAvailable: boolean;
   zoneId: Hex | null;
   speciesId: Hex | null;
   payoutTarget: { farmer: Address; plotRegistry: Address; slotExpiry: string } | null;
@@ -209,6 +227,9 @@ export interface GetPlotStatusOptions {
   fromBlock?: bigint;
   events?: ReliefPoolEvent[];
   eventsAvailable?: boolean;
+  eventsComplete?: boolean;
+  blockNumber?: bigint;
+  eventId?: Hex;
   /** Known attested event ID for a direct settlement read when log indexing is unavailable. */
   eventIdHint?: Hex;
 }
@@ -218,11 +239,12 @@ async function plotBase(
   poolAddress: Address,
   plotLabel: string,
   seasonLabel: string,
+  blockNumber: bigint,
 ) {
   const [plot, target] = await Promise.all([
-    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'plots', args: [plotLabel] })
+    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'plots', args: [plotLabel], blockNumber })
       .catch(() => null),
-    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'payoutTarget', args: [plotLabel, seasonLabel] })
+    client.readContract({ address: poolAddress, abi: ReliefPoolAbi, functionName: 'payoutTarget', args: [plotLabel, seasonLabel], blockNumber })
       .catch(() => null),
   ]);
   const [zoneId, speciesId, enrolled] = (plot as readonly [Hex, Hex, boolean] | null) ?? [null, null, false];
@@ -231,14 +253,16 @@ async function plotBase(
   return {
     zoneId: zoneId && zoneId !== `0x${'0'.repeat(64)}` ? zoneId : null,
     speciesId: speciesId && speciesId !== `0x${'0'.repeat(64)}` ? speciesId : null,
-    enrolled,
+    enrolled: plot ? enrolled : null,
+    plotReadAvailable: plot !== null,
+    targetReadAvailable: target !== null,
     payoutTarget: farmer !== zeroAddress ? { farmer, plotRegistry, slotExpiry: slotExpiry.toString() } : null,
   };
 }
 
 async function eventSource(client: PublicClient, poolAddress: Address, fromBlock: bigint, opts: GetPlotStatusOptions) {
-  if (opts.events) return { available: opts.eventsAvailable ?? true, events: opts.events };
-  return readReliefPoolEvents(client, poolAddress, fromBlock)
+  if (opts.events && opts.eventsComplete !== false) return { available: opts.eventsAvailable ?? true, events: opts.events };
+  return readReliefPoolEvents(client, poolAddress, fromBlock, RELIEF_POOL_EVENT_NAMES, opts.blockNumber)
     .then((events) => ({ available: true, events }))
     .catch(() => ({ available: false, events: [] as ReliefPoolEvent[] }));
 }
@@ -251,9 +275,10 @@ export async function getPlotStatus(
 ): Promise<PlotStatus> {
   const poolAddress = opts.poolAddress ?? DEPLOYED.ReliefPool;
   const fromBlock = opts.fromBlock ?? BigInt(DEPLOYED.ReliefPoolDeployBlock);
+  const blockNumber = opts.blockNumber ?? await client.getBlockNumber({ cacheTime: 0 });
   const [base, source] = await Promise.all([
-    plotBase(client, poolAddress, plotLabel, seasonLabel),
-    eventSource(client, poolAddress, fromBlock, opts),
+    plotBase(client, poolAddress, plotLabel, seasonLabel, blockNumber),
+    eventSource(client, poolAddress, fromBlock, { ...opts, blockNumber }),
   ]);
   const matching = source.events
     .filter((event) => event.plotLabel === plotLabel)
@@ -280,7 +305,9 @@ export async function getHumanLevel(client: PublicClient, wallet: Address, opts:
 export type PlotSettlementState = 'unsettled' | 'paid' | 'held' | 'claimed' | 'swept';
 
 export interface PlotReliefStory extends PlotStatus {
+  atBlock: string;
   eventsAvailable: boolean;
+  settlementReadStatus: 'available' | 'not-found' | 'unavailable';
   identity: { status: 'available'; level: number } | { status: 'unavailable'; level: null } | null;
   settlement: null | {
     eventId: Hex;
@@ -295,6 +322,7 @@ export interface PlotReliefStory extends PlotStatus {
     txHash: Hex | null;
     blockNumber: number | null;
     signers: Address[];
+    recipient: Address | null;
   };
 }
 
@@ -314,65 +342,71 @@ export async function getPlotReliefStory(
 ): Promise<PlotReliefStory> {
   const poolAddress = opts.poolAddress ?? DEPLOYED.ReliefPool;
   const fromBlock = opts.fromBlock ?? BigInt(DEPLOYED.ReliefPoolDeployBlock);
+  const blockNumber = opts.blockNumber ?? await client.getBlockNumber({ cacheTime: 0 });
   const [base, source] = await Promise.all([
-    plotBase(client, poolAddress, plotLabel, seasonLabel),
-    eventSource(client, poolAddress, fromBlock, opts),
+    plotBase(client, poolAddress, plotLabel, seasonLabel, blockNumber),
+    eventSource(client, poolAddress, fromBlock, { ...opts, blockNumber }),
   ]);
 
   const plotEvents = source.events
     .filter((event) => event.plotLabel === plotLabel && ['Paid', 'Held', 'Claimed', 'Swept'].includes(event.type))
     .sort((a, b) => b.blockNumber - a.blockNumber || b.logIndex - a.logIndex);
-  const latestEvent = plotEvents[0] ?? null;
+  let latestEvent: ReliefPoolEvent | null = null;
 
   const identity = base.payoutTarget
     ? await client.readContract({
         address: DEPLOYED.HumanRegistry,
         abi: HumanRegistryAbi,
         functionName: 'levelOf',
-        args: [base.payoutTarget.farmer],
+        args: [base.payoutTarget.farmer], blockNumber,
       }).then((level) => ({ status: 'available' as const, level: Number(level) }))
         .catch(() => ({ status: 'unavailable' as const, level: null }))
     : null;
 
   let settlement: PlotReliefStory['settlement'] = null;
-  const eventId = latestEvent?.eventId ?? opts.eventIdHint;
-  if (eventId) {
+  let settlementReadStatus: PlotReliefStory['settlementReadStatus'] = source.available ? 'not-found' : 'unavailable';
+  const candidates = opts.eventId ? [opts.eventId] : [...new Set([
+    ...plotEvents.flatMap((event) => event.eventId ? [event.eventId] : []),
+    ...(opts.eventIdHint ? [opts.eventIdHint] : []),
+  ])];
+  if (candidates.length > 32) settlementReadStatus = 'unavailable';
+  for (const eventId of candidates.slice(0, 32)) {
     const [settlementRaw, attestationRaw] = await Promise.all([
       client.readContract({
-        address: poolAddress,
-        abi: ReliefPoolAbi,
-        functionName: 'plotSettlements',
-        args: [eventId, plotLabel],
+        address: poolAddress, abi: ReliefPoolAbi, functionName: 'plotSettlements',
+        args: [eventId, plotLabel], blockNumber,
       }).catch(() => null),
       client.readContract({
-        address: poolAddress,
-        abi: ReliefPoolAbi,
-        functionName: 'attestations',
-        args: [eventId],
+        address: poolAddress, abi: ReliefPoolAbi, functionName: 'attestations',
+        args: [eventId], blockNumber,
       }).catch(() => null),
     ]);
-    if (settlementRaw && attestationRaw) {
-      const [statusCode, holdReason] = settlementRaw as readonly [number, Hex];
-      const [, , attestationSeason, eligibleUnits, perUnit, reservedAmount, attestedAt, claimDeadline] =
-        attestationRaw as readonly [Hex, Hex, string, number, bigint, bigint, bigint, bigint];
-      if (attestationSeason === seasonLabel) {
-        const attested = source.events.find((event) => event.type === 'Attested' && event.eventId === eventId);
-        settlement = {
-          eventId,
-          state: settlementStates[Number(statusCode)] ?? 'unsettled',
-          holdReason: decodeReason(holdReason),
-          amountWei: latestEvent?.amountWei ?? perUnit.toString(),
-          eligibleUnits: Number(eligibleUnits),
-          reservedAmountWei: reservedAmount.toString(),
-          attestedAt: attestedAt.toString(),
-          claimDeadline: claimDeadline.toString(),
-          trigger: attested?.trigger ?? null,
-          txHash: latestEvent && latestEvent.txHash !== '0x' ? latestEvent.txHash : null,
-          blockNumber: latestEvent?.blockNumber || null,
-          signers: attested?.signers ?? [],
-        };
-      }
+    if (!settlementRaw || !attestationRaw) {
+      settlementReadStatus = 'unavailable';
+      break;
     }
+    const [statusCode, holdReason] = settlementRaw as readonly [number, Hex];
+    const [zone, species, attestationSeason, eligibleUnits, perUnit, reservedAmount, attestedAt, claimDeadline] =
+      attestationRaw as readonly [Hex, Hex, string, number, bigint, bigint, bigint, bigint];
+    if (attestationSeason !== seasonLabel || attestedAt === 0n) continue;
+    const state = settlementStates[Number(statusCode)];
+    if (!state) { settlementReadStatus = 'unavailable'; break; }
+    if (state === 'unsettled' && (!base.enrolled || base.zoneId !== zone || base.speciesId !== species)) continue;
+    latestEvent = plotEvents.find((event) => event.eventId === eventId) ?? null;
+    const attested = source.events.find((event) => event.type === 'Attested' && event.eventId === eventId);
+    settlement = {
+      eventId, state, holdReason: decodeReason(holdReason),
+      amountWei: latestEvent?.amountWei ?? perUnit.toString(),
+      eligibleUnits: Number(eligibleUnits), reservedAmountWei: reservedAmount.toString(),
+      attestedAt: attestedAt.toString(), claimDeadline: claimDeadline.toString(),
+      trigger: attested?.trigger ?? null,
+      txHash: latestEvent && latestEvent.txHash !== '0x' ? latestEvent.txHash : null,
+      blockNumber: latestEvent?.blockNumber || null,
+      signers: attested?.signers ?? [],
+      recipient: (state === 'paid' || state === 'claimed') ? latestEvent?.farmer ?? null : null,
+    };
+    settlementReadStatus = 'available';
+    break;
   }
 
   return {
@@ -381,6 +415,8 @@ export async function getPlotReliefStory(
     ...base,
     latestEvent,
     eventsAvailable: source.available,
+    settlementReadStatus,
+    atBlock: blockNumber.toString(),
     identity,
     settlement,
   };
