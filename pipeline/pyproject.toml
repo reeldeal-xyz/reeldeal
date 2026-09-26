@@ -9,9 +9,13 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "pydantic>=2.8",
     "geojson-pydantic>=1.1",
+    "numpy>=2.5.3",
+    "rasterio>=1.5.1",
+    "shapely>=2.1.2",
 ]
 
 [project.scripts]
+pipeline = "pipeline.cli:main"
 pipeline-serve = "pipeline.serve:main"
 
 [dependency-groups]
@@ -27,5 +31,12 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/pipeline"]
 
+[tool.ruff]
+line-length = 120
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # rasterio.transform.from_origin still uses Affine `*`; not ours to fix.
+    "ignore:Use `@` matmul:PendingDeprecationWarning:rasterio",
+]

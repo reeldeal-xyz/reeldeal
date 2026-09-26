@@ -3,13 +3,15 @@
 import os
 from collections.abc import Iterable
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.routing import BaseRoute
 
 from pipeline import __version__
 from pipeline.core.errors import is_stub, not_implemented, stub
+from pipeline.core.plots import store
+from pipeline.core.regions import sea_areas
 from pipeline.core.schemas import (
     Health,
     HealthStatus,
@@ -62,6 +64,32 @@ def _status(counts: RouteCounts) -> HealthStatus:
     return "unimplemented" if counts.implemented == 0 else "degraded"
 
 
+def _bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
+    if bbox is None:
+        return None
+    try:
+        west, south, east, north = (float(v) for v in bbox.split(","))
+    except ValueError:
+        raise HTTPException(422, detail="bbox must be west,south,east,north") from None
+    if west >= east or south >= north:
+        raise HTTPException(422, detail="bbox must be west,south,east,north") from None
+    return west, south, east, north
+
+
+def _plot(p: store.PlotRecord) -> Plot:
+    return Plot(
+        plot_code=p.plot_code,
+        geometry=p.geojson,
+        species=list(p.species),
+        operation=p.operation,
+        sea_area=p.sea_area,
+        prefecture=p.prefecture,
+        area_m2=p.area_m2,
+        centroid=p.centroid,
+        source=p.source,
+    )
+
+
 def core_router(modules: Iterable[ModuleName]) -> APIRouter:
     modules = list(modules)
     router = APIRouter(tags=["core"])
@@ -88,15 +116,14 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
         )
 
     @router.get("/plots", response_model=list[Plot])
-    @stub
     def list_plots(bbox: str | None = None, species: Species | None = None) -> list[Plot]:
         """Plot inventory (no personal data). bbox = west,south,east,north."""
-        raise not_implemented("GET /plots")
+        return [_plot(p) for p in store.query(_bbox(bbox), species)]
 
     @router.post("/plots", response_model=Plot, status_code=201)
     @stub
     def create_plot(plot: PlotCreate) -> Plot:
-        """Register / upload a plot polygon."""
+        """Register / upload a plot polygon. Waits on the PostGIS service that will hold plots."""
         raise not_implemented("POST /plots")
 
     @router.get("/stations", response_model=list[Station])
@@ -112,10 +139,12 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
         raise not_implemented("GET /stations/{id}/series")
 
     @router.get("/zones", response_model=list[Zone])
-    @stub
     def list_zones() -> list[Zone]:
-        """Sea areas."""
-        raise not_implemented("GET /zones")
+        """Sea areas: the prefectures' toxin / red-tide monitoring areas (approximate traced polygons)."""
+        return [
+            Zone(id=a.id, name=a.name, name_ja=a.name_ja, prefecture=a.prefecture, geometry=a.geojson)
+            for a in sorted(sea_areas().values(), key=lambda a: a.id)
+        ]
 
     if set(modules) == set(MODULES):
 

@@ -1,0 +1,620 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-001",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.676577,
+       38.902102
+      ],
+      [
+       141.676577,
+       38.903898
+      ],
+      [
+       141.675423,
+       38.903898
+      ],
+      [
+       141.675423,
+       38.902102
+      ],
+      [
+       141.676577,
+       38.902102
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-002",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.682577,
+       38.902102
+      ],
+      [
+       141.682577,
+       38.903898
+      ],
+      [
+       141.681423,
+       38.903898
+      ],
+      [
+       141.681423,
+       38.902102
+      ],
+      [
+       141.682577,
+       38.902102
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-003",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.688577,
+       38.902102
+      ],
+      [
+       141.688577,
+       38.903898
+      ],
+      [
+       141.687423,
+       38.903898
+      ],
+      [
+       141.687423,
+       38.902102
+      ],
+      [
+       141.688577,
+       38.902102
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-004",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.676577,
+       38.894902
+      ],
+      [
+       141.676577,
+       38.896698
+      ],
+      [
+       141.675423,
+       38.896698
+      ],
+      [
+       141.675423,
+       38.894902
+      ],
+      [
+       141.676577,
+       38.894902
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-005",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.682577,
+       38.894902
+      ],
+      [
+       141.682577,
+       38.896698
+      ],
+      [
+       141.681423,
+       38.896698
+      ],
+      [
+       141.681423,
+       38.894902
+      ],
+      [
+       141.682577,
+       38.894902
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-006",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.688577,
+       38.894902
+      ],
+      [
+       141.688577,
+       38.896698
+      ],
+      [
+       141.687423,
+       38.896698
+      ],
+      [
+       141.687423,
+       38.894902
+      ],
+      [
+       141.688577,
+       38.894902
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-007",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.676577,
+       38.887702
+      ],
+      [
+       141.676577,
+       38.889498
+      ],
+      [
+       141.675423,
+       38.889498
+      ],
+      [
+       141.675423,
+       38.887702
+      ],
+      [
+       141.676577,
+       38.887702
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-008",
+    "species": [
+     "scallop"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.682577,
+       38.887702
+      ],
+      [
+       141.682577,
+       38.889498
+      ],
+      [
+       141.681423,
+       38.889498
+      ],
+      [
+       141.681423,
+       38.887702
+      ],
+      [
+       141.682577,
+       38.887702
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-009",
+    "species": [
+     "hoya"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.688577,
+       38.887702
+      ],
+      [
+       141.688577,
+       38.889498
+      ],
+      [
+       141.687423,
+       38.889498
+      ],
+      [
+       141.687423,
+       38.887702
+      ],
+      [
+       141.688577,
+       38.887702
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-010",
+    "species": [
+     "hoya"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.676577,
+       38.880502
+      ],
+      [
+       141.676577,
+       38.882298
+      ],
+      [
+       141.675423,
+       38.882298
+      ],
+      [
+       141.675423,
+       38.880502
+      ],
+      [
+       141.676577,
+       38.880502
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-011",
+    "species": [
+     "hoya"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.682577,
+       38.880502
+      ],
+      [
+       141.682577,
+       38.882298
+      ],
+      [
+       141.681423,
+       38.882298
+      ],
+      [
+       141.681423,
+       38.880502
+      ],
+      [
+       141.682577,
+       38.880502
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-012",
+    "species": [
+     "hoya"
+    ],
+    "operation": "longline",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.688577,
+       38.880502
+      ],
+      [
+       141.688577,
+       38.882298
+      ],
+      [
+       141.687423,
+       38.882298
+      ],
+      [
+       141.687423,
+       38.880502
+      ],
+      [
+       141.688577,
+       38.880502
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-013",
+    "species": [
+     "oyster"
+    ],
+    "operation": "raft",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.676577,
+       38.873302
+      ],
+      [
+       141.676577,
+       38.875098
+      ],
+      [
+       141.675423,
+       38.875098
+      ],
+      [
+       141.675423,
+       38.873302
+      ],
+      [
+       141.676577,
+       38.873302
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-014",
+    "species": [
+     "oyster"
+    ],
+    "operation": "raft",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.682577,
+       38.873302
+      ],
+      [
+       141.682577,
+       38.875098
+      ],
+      [
+       141.681423,
+       38.875098
+      ],
+      [
+       141.681423,
+       38.873302
+      ],
+      [
+       141.682577,
+       38.873302
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "plotCode": "p1213-015",
+    "species": [
+     "oyster"
+    ],
+    "operation": "raft",
+    "seaArea": "karakuwa-east",
+    "prefecture": "miyagi",
+    "source": "demo",
+    "accuracy": "synthetic demo plot (100 m x 200 m) placed inside the traced karakuwa-east sea area; not a surveyed fishery-right polygon"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       141.688577,
+       38.873302
+      ],
+      [
+       141.688577,
+       38.875098
+      ],
+      [
+       141.687423,
+       38.875098
+      ],
+      [
+       141.687423,
+       38.873302
+      ],
+      [
+       141.688577,
+       38.873302
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}
