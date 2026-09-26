@@ -41,6 +41,8 @@ db/
     20260926100000_geo.sql
     20260926100100_risk.sql
     20260926100200_risk_reference_data.sql
+    20260926170000_plots_app_compat.sql      # plot_code fully unique; origin 'synthetic'
+    20260926170100_demo_plots.sql            # demo sea areas and p1213-001..015
   backup/                   # Dockerfile, backup.sh (pg_dump -> S3), schedule.sh
   scripts/
     up.sh  test.sh  psql.sh  reset.sh  restore.sh  gen-env.sh
@@ -65,12 +67,14 @@ Migrations use **dbmate** (table `dbmate.schema_migrations`): plain SQL that wor
 |---|---|
 | `prefectures` | `code` (JIS 01–47) PK, `name_ja`, `name_en`, `geom` MultiPolygon |
 | `sea_areas` | `id` text PK (e.g. `miyagi-kesennuma`), `prefecture_code`, `name_ja`, `name_en`, `kind` (`toxin_monitoring`, `red_tide`, …), `geom` MultiPolygon, `accuracy` (`official`, `approximate, traced from <source>`), `source_url`, `source_sha256`, `valid_from`, `valid_to` |
-| `plots` | `id` uuid PK, `plot_code` text, unique among live plots (fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated, `ST_PointOnSurface`, so it's always inside the plot), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
+| `plots` | `id` uuid PK, `plot_code` text UNIQUE across all rows, never reused (the ENS label for deployed plots such as `p1213-001`, a fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`, `synthetic` for demo plots without a surveyed polygon), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated, `ST_PointOnSurface`, so it's always inside the plot), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
 | `stations` | `id` text PK, `name`, `source`, `type` (`buoy`, `tide`, `shore`, `research`), `geom` Point, `prefecture_code`, `sea_area_id`, `variables` text[], `cadence`, `url`, `first_obs`, `last_obs` |
 | `coast_segments` | `id` PK, `geom` MultiLineString, `prefecture_code`. Storm surge uses these to match plots to tide stations. |
 | `coastal_mask` | `id`, `version`, `offshore_km` (`Q8`), `geom` MultiPolygon: the coastal strip that the pipeline's grid is masked to |
 
-Rows are never hard-deleted (the pipeline role has no `DELETE`). Plots and sea areas are retired with `valid_to`/`retired_at`. Ids are stable: an UPDATE that changes `geom` copies the old row into `plots_history` / `sea_areas_history` (trigger) and resets `valid_from`, so the geometry behind any past index value can be recovered. `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
+Rows are never hard-deleted (the pipeline role has no `DELETE`). Plots and sea areas are retired with `valid_to`/`retired_at`. Ids are stable: an UPDATE that changes `geom` copies the old row into `plots_history` / `sea_areas_history` (trigger) and resets `valid_from`, so the geometry behind any past index value can be recovered.
+
+Demo data: `20260926170100_demo_plots.sql` seeds sea areas `karakuwa-east` and `kesennuma-bay` (traced, `accuracy` says so) and the 15 deployed plots `p1213-001..015` as `synthetic` 50 m discs around #115's points. Real polygons replace them in place (UPDATE `geom`/`origin`; the code and id stay). `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
 
 ### 4.2 `risk`
 
@@ -95,7 +99,8 @@ Rows are never hard-deleted (the pipeline role has no `DELETE`). Plots and sea a
 
 Defined by #59 and implemented by #62 in Drizzle. This spec fixes only the interface:
 
-- `app.farm.plot_id uuid REFERENCES geo.plots(id)` replaces `Farm.location` from the PR #30 ER diagram. A farm without a fishery-right polygon gets an uploaded plot through the pipeline's `POST /plots`, so geometry is still written by one role.
+- App tables reference plots by `geo.plots(plot_code)`, the ENS label the app already keys on (e.g. `app.plot_wallets.plot_id`), or by `geo.plots(id)`. Both are stable and unique, and `app_migrator` has `REFERENCES` on them. This replaces `Farm.location` from the PR #30 ER diagram. A farm without a fishery-right polygon gets an uploaded plot through the pipeline's `POST /plots`, so geometry is still written by one role.
+- Drizzle creates `app` itself (`web/drizzle`'s first migration runs `CREATE SCHEMA "app"`) plus its `drizzle` bookkeeping schema. `app_migrator` has `CREATE` on the database for that; default privileges give `app` USAGE and DML on whatever `app_migrator` creates.
 - `app.threshold.risk_model_id REFERENCES risk.models(id)`.
 - Species ids are shared text codes (`packages/shared/src/ids.ts`, `D4`).
 - Farmer personal data stays in `app`, in columns that `readonly` cannot select.
@@ -109,7 +114,7 @@ All roles, schemas and default privileges are created by `bootstrap/bootstrap.sh
 | `postgres` | Local socket only | Superuser. Bootstrap, restore and emergencies only. |
 | `db_migrator` | Yes | Owns `geo` and `risk`. Runs dbmate. |
 | `pipeline` | Yes | `SELECT, INSERT, UPDATE` on `geo.*` and `risk.*`. No `DELETE` (retire instead), no DDL. |
-| `app_migrator` | Yes | Owns `app`. Runs Drizzle migrations. `USAGE` + `REFERENCES` on `geo.plots` and `risk.models`. |
+| `app_migrator` | Yes | Creates and owns `app` and `drizzle` (`CREATE` on the database). Runs Drizzle migrations. `USAGE` + `REFERENCES` on `geo.plots`, `geo.sea_areas` and `risk.models`. |
 | `app` | Yes | DML on `app.*`. `SELECT` on `geo.*` and `risk.*`. |
 | `readonly` | Yes | `SELECT` on `geo.*`, `risk.*` and non-PII `app` views. For dashboards, QA and Dotdog. |
 | `db_backup` | Yes | `pg_read_all_data`. Used only by the backup sidecar. |
@@ -122,7 +127,7 @@ All roles, schemas and default privileges are created by `bootstrap/bootstrap.sh
 
 1. `db` starts and becomes healthy. `init/` runs only on an empty data directory; `bootstrap.sh` then re-runs on every start.
 2. The `migrate` one-shot (`docker compose run --rm migrate up`, dbmate as `db_migrator`) applies `geo`/`risk` migrations and reference data.
-3. The app's Drizzle migrations run as `app_migrator` in the app's deploy (#62/#71). They can depend on `geo`/`risk` tables but never alter them.
+3. The app's Drizzle migrations run as `app_migrator` (`DATABASE_URL=postgres://app_migrator:…@db:5432/reeldeal bun run --filter web db:migrate`) in the app's deploy (#62/#71). They can depend on `geo`/`risk` tables but never alter them. The app then runs as `app`, not `app_migrator`.
 4. The pipeline and app start. Each checks at startup that the schema version it needs is present (`dbmate.schema_migrations`) and reports it in `/health`.
 
 Migrations are forward-only and must not break the currently deployed clients (expand, then contract across two deploys).
@@ -135,6 +140,8 @@ Migrations are forward-only and must not break the currently deployed clients (e
 | Pipeline API | `pipeline` | same | Reads `geo`/`risk` to answer `/plots`, `/zones`, `/stations`, `/<module>/risk`. Writes only on `POST /plots`. |
 | Astro app / keeper | `app` | `DATABASE_URL` in the app's `.env` (`frontend/astro.config.mjs` already declares it) | `app` DML. Reads risk values through the pipeline API (the typed contract, #79), not SQL, unless #55 decides otherwise (`D6`). |
 | Humans / QA | `readonly` | SSM port forward to `127.0.0.1:5432` | Read only |
+
+**Reachability.** The database has no public port; clients must be on the `reeldeal` network, on the instance, or use an SSM port forward. The web app currently runs on Railway against #115's interim Railway PostGIS, so it can't reach this database until it moves onto the instance (#71) or port 5432 is opened (`D8`).
 
 The pipeline uses `psycopg` 3 with a small connection pool and `shapely` for geometry, with no ORM. Plot/pixel extraction stays in Python (xarray on rasters, polygons from `geo.plots`).
 
@@ -185,3 +192,4 @@ Local development uses a named volume and `db/.env.example` passwords (set `DB_P
 - **D5** Farmer personal data in `app`: retention period, and whether it is encrypted at rest beyond the EBS default.
 - **D6** Does the app ever read `risk` tables directly (for example for map tiles), or only through the pipeline API? Direct reads bypass the OpenAPI contract.
 - **D7** RDS later: after the hackathon, move to RDS for PostgreSQL with PostGIS. The roles and dbmate migrations carry over unchanged.
+- **D8** Until the app moves to EC2 (#71): keep it on the interim Railway database, or expose 5432 with TLS and a security group limited to the app host's egress IPs?
