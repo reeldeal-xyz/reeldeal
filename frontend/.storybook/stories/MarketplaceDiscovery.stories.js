@@ -25,8 +25,10 @@ export const Japanese = { args: { initialLocale: 'ja' } };
 export const Storefront = {
   args: { live: true },
   globals: { viewport: { value: 'iphone17', isRotated: false } },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, globals }) => {
     const canvas = await hydratedCanvas(canvasElement);
+    const viewportWidth = { iphone17: 402, ipad: 820, desktop1440: 1440 }[globals.viewport.value];
+    await waitFor(() => expect(window.innerWidth).toBe(viewportWidth));
     const oysterCard = canvasElement.querySelector('[data-market-preview-item="KARAKUWA-OYSTERS"]');
     const review = within(oysterCard).getByRole('button', { name: 'Review purchase' });
     const cardWidth = oysterCard.getBoundingClientRect().width;
