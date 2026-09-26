@@ -9,6 +9,7 @@ const LINKS = [
   { href: '/holder', label: 'Holder' },
   { href: '/coop', label: 'Co-op' },
   { href: '/donate', label: 'Donate' },
+  { href: '/market', label: 'Market' },
 ] as const;
 
 export function Nav() {
