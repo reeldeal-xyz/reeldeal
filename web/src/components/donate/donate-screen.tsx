@@ -9,6 +9,7 @@ import { NotDeployedNotice } from '@/components/ui/not-deployed-notice';
 import { useReliefPoolLedger, type LedgerEntry, type LedgerEventName } from '@/hooks/use-relief-pool-ledger';
 import { ReliefPoolAbi, Erc20Abi, JPYC } from '@/lib/contracts';
 import { decodeReason, formatJpyc, parseJpyc, shortAddress } from '@/lib/format';
+import { FundActivityPanel } from './fund-activity-panel';
 
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000';
 
@@ -192,6 +193,8 @@ export function DonateScreen({ reliefPool, reliefPoolDeployBlock }: { reliefPool
           </div>
         </section>
       )}
+
+      <FundActivityPanel />
 
       <section className={styles.section}>
         <div className={styles.sectionHeader}>

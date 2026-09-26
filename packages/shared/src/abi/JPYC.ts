@@ -1,7 +1,9 @@
 // Minimal JPYC ABI for the LIFF in-app wallet (issue #15 wallet management): balance reads, Transfer
-// event logs, and the EIP-3009 gasless-transfer surface (`transferWithAuthorization` +
-// `authorizationState`). Hand-picked from the deployed proxy at packages/shared/src/addresses.ts's JPYC --
-// not the full JPYC/FiatToken ABI (no mint/burn/pause/admin surface here; this app never needs it).
+// event logs, the EIP-3009 gasless-transfer surface (`transferWithAuthorization` + `authorizationState`),
+// and (Reown wallet login) the plain ERC20 `transfer` a connected external wallet can call directly, paying
+// its own gas, as an alternative to the gasless relay. Hand-picked from the deployed proxy at
+// packages/shared/src/addresses.ts's JPYC -- not the full JPYC/FiatToken ABI (no mint/burn/pause/admin
+// surface here; this app never needs it).
 //
 // Verified live against the Sepolia proxy (0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29), 2026-09-26:
 // name() -> "JPY Coin", symbol() -> "JPYC", decimals() -> 18. `transferWithAuthorization` and
@@ -68,6 +70,16 @@ export const JpycAbi = [
       { "name": "s", "type": "bytes32", "internalType": "bytes32" }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transfer",
+    "inputs": [
+      { "name": "to", "type": "address", "internalType": "address" },
+      { "name": "value", "type": "uint256", "internalType": "uint256" }
+    ],
+    "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
     "stateMutability": "nonpayable"
   },
   {

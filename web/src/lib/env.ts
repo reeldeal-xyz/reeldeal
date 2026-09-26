@@ -73,6 +73,14 @@ export const env = {
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.7;
   },
+  // JSON-file fallbacks (sponsor-polish task) for notification-log.ts / keeper-runs.ts, same policy as
+  // payoutDirectoryFile above: not durable on a read-only/ephemeral filesystem, fine for local dev/tests.
+  notificationLogFile: () => process.env.NOTIFICATION_LOG_FILE || '.data/notification-log.json',
+  keeperRunsFile: () => process.env.KEEPER_RUNS_FILE || '.data/keeper-runs.json',
+  // Guards POST /api/coop/approve-attest (sponsor-polish task): a simple shared secret for the co-op's
+  // "Approve and attest" button, distinct from KEEPER_API_TOKEN (which stays server-only and is never
+  // sent to the browser). Unset means the route refuses every request (fail closed).
+  coopPasscode: () => process.env.COOP_PASSCODE || undefined,
 };
 
 // Public, client-safe config (issues #19/#20/#21). Unlike `env` above these never throw: an unset address means
@@ -92,5 +100,8 @@ export const publicEnv = {
   ensParentRegistry: () => optional('NEXT_PUBLIC_ENS_PARENT_REGISTRY_ADDRESS'),
   ensPlotResolver: () => optional('NEXT_PUBLIC_ENS_PLOT_RESOLVER_ADDRESS'),
   ensSlotRegistry: () => optional('NEXT_PUBLIC_ENS_SLOT_REGISTRY_ADDRESS'),
-
+  // Reown (WalletConnect) AppKit project id, from dashboard.reown.com -- public, not a secret (issue: wallet
+  // login for farmers without a LINE account). Unset means "Connect wallet" explains it isn't configured yet
+  // instead of crashing -- see components/app/wallet-providers.tsx.
+  reownProjectId: () => optional('NEXT_PUBLIC_REOWN_PROJECT_ID'),
 };
