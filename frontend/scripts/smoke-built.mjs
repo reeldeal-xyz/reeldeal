@@ -61,7 +61,24 @@ await withServer(undefined, async (request) => {
   for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
     assert(html.includes(`/images/fish/${species}-ice.webp`), `Missing species illustration: ${species}`);
   }
-  const assets = [...new Set([...html.matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
+  let previewHtml = '';
+  for (const [path, heading] of [
+    ['/preview', 'Community journeys'],
+    ['/preview/market', 'Local catch'],
+    ['/preview/donate', 'relief fund'],
+    ['/preview/farmer', 'My relief status'],
+    ['/preview/holder', 'slot'],
+    ['/preview/coop', 'Co-op'],
+  ]) {
+    const response = await request(path);
+    assert.equal(response.status, 200, `Preview route should render without services: ${path}`);
+    const page = await response.text();
+    assert(page.includes(heading), `Missing screen content: ${path}`);
+    assert(page.includes('aria-label="Preview screens"'), `Missing journey navigation: ${path}`);
+    assert(!page.includes(secret), `Server-only env leaked into ${path}`);
+    previewHtml += page;
+  }
+  const assets = [...new Set([...(html + previewHtml).matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
   assert(assets.length >= 6, 'Expected CSS, both islands, renderers, and a visible image');
   for (const asset of assets) {
     const response = await request(asset);
@@ -77,7 +94,7 @@ await withServer(undefined, async (request) => {
   for (const path of ['/unknown', '/api/world', '/map/extra', '/verify/']) {
     assert.equal((await request(path)).status, 404, `Unknown route should stay local: ${path}`);
   }
-  console.log(`PASS built health, workshop, ${assets.length} assets, missing-env routes, and local 404s`);
+  console.log(`PASS built health, workshop, six preview routes, ${assets.length} assets, missing-env routes, and local 404s`);
 });
 
 await withServer('https://legacy.example.test/ignored-base', async (request) => {
