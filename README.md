@@ -584,9 +584,9 @@ Source of truth: [`packages/shared/src/addresses.ts`](packages/shared/src/addres
 
 | Contract | Address | Role |
 |---|---|---|
-| ReliefPool (v2) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | Holds donations, verifies 2-of-3 signed Triggers, pays or holds per plot |
+| ReliefPool (v2) | [`0xa9F67EA1717D2D068C7Cd4599CEB50755a8A2a68`](https://sepolia.etherscan.io/address/0xa9F67EA1717D2D068C7Cd4599CEB50755a8A2a68) | Holds donations, verifies 2-of-3 signed Triggers, pays or holds per plot |
 | HumanRegistry | [`0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8) | Wallet ↔ World ID nullifier binding and level |
-| SaleRouter | [`0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) | Atomic marketplace checkout: pays the seller and donates the relief share |
+| SaleRouter | [`0xD7aa137538874D05a375cF3BF152F3Fc57d89296`](https://sepolia.etherscan.io/address/0xD7aa137538874D05a375cF3BF152F3Fc57d89296) | Atomic marketplace checkout: pays the seller and donates the relief share |
 | EnsPlotResolver | [`0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) | Reads a plot's `zone` / `species` text records from ENSv2 |
 | EnsSlotResolver | [`0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) | Reads who holds a plot's season slot, and until when |
 | JPYC | [`0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29) | Payment token (18 decimals) |
