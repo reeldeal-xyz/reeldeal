@@ -23,7 +23,7 @@ const KEEPER_ACCOUNT = { address: '0x9999999999999999999999999999999999999999' }
 const REF_ID = '2023-scallop-tier2';
 const ZONE_ID = idOf('karakuwa-east');
 const SPECIES_ID = idOf('scallop');
-const EVENT_ID = eventIdOf('karakuwa-east', 'scallop', 'HEAT26', 2, '2026');
+const EVENT_ID = eventIdOf('karakuwa-east', 'scallop', 'HEAT', 2, '2026');
 
 const PIPELINE_KEY = `0x${'11'.repeat(32)}` as Hex;
 const COOP_KEY = `0x${'22'.repeat(32)}` as Hex;
@@ -361,7 +361,7 @@ describe('runKeeper', () => {
 
       expect(decideAttest).toHaveBeenCalledTimes(1);
       const state = decideAttest.mock.calls[0]![0];
-      expect(state.trigger).toMatchObject({ zone: 'karakuwa-east', species: 'scallop', peril: 'HEAT26', tier: 2 });
+      expect(state.trigger).toMatchObject({ zone: 'karakuwa-east', species: 'scallop', peril: 'HEAT', tier: 2 });
       expect(state.sourceHashes).toHaveLength(1);
 
       expect(result.status).toBe('escalated');

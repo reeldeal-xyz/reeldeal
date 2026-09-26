@@ -11,7 +11,7 @@ const pipelineAccount = privateKeyToAccount(PIPELINE_KEY);
 const TRIGGER_JSON = {
   zoneId: idOf('karakuwa-east'),
   speciesId: idOf('scallop'),
-  perilId: idOf('HEAT26'),
+  perilId: idOf('HEAT'),
   tier: 2,
   seasonLabel: '2026',
   windowStart: '1000',
@@ -19,6 +19,7 @@ const TRIGGER_JSON = {
   firedAt: '1500',
   index: 20,
   threshold: 12,
+  tempC: 26,
   dataHash: idOf('fixture'),
   deadline: '9999999999',
 } as const;
@@ -39,6 +40,7 @@ async function signTrigger(): Promise<Hex> {
       firedAt: BigInt(TRIGGER_JSON.firedAt),
       index: TRIGGER_JSON.index,
       threshold: TRIGGER_JSON.threshold,
+      tempC: TRIGGER_JSON.tempC,
       dataHash: TRIGGER_JSON.dataHash,
       deadline: BigInt(TRIGGER_JSON.deadline),
     },
@@ -54,7 +56,7 @@ function triggersFileResponse(signature: Hex, signer: Address = pipelineAccount.
         label: 'scallop:2',
         zone: 'karakuwa-east',
         species: 'scallop',
-        peril: 'HEAT26',
+        peril: 'HEAT',
         firedOn: '2023-08-11',
         trigger: TRIGGER_JSON,
         signatures: [{ signer, signature }],

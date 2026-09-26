@@ -1,9 +1,11 @@
 'use client';
 
-import { REPLAY_SEASONS, type IndicesFile, type SeriesFile, type TriggersFile, type Zone } from '@repo/shared';
+import { REPLAY_SEASONS, type ReplayTrigger, type Zone } from '@repo/shared';
 import { useState } from 'react';
+import type { SstSeries } from '@/fixtures/series';
 import type { SyntheticPlot, ZoneFeatureCollection } from '@/fixtures/geo';
 import type { FeedResult } from '@/lib/feed-client';
+import type { HeatIndexDay } from '@/lib/heat-indices';
 import { SPECIES_COLOR, SPECIES_LABEL } from '@/lib/species-colors';
 import { FixtureBadge } from '../ui/FixtureBadge';
 import { MapCanvas, type ActiveFire } from './MapCanvas';
@@ -14,14 +16,14 @@ import { Timeline } from './Timeline';
 export interface ZoneSeasonDataset {
   zone: Zone;
   season: string;
-  series: FeedResult<SeriesFile>;
-  indices: FeedResult<IndicesFile>;
-  triggers: FeedResult<TriggersFile>;
+  series: FeedResult<SstSeries>;
+  indices: FeedResult<HeatIndexDay[]>;
+  triggers: FeedResult<ReplayTrigger[]>;
 }
 
 export interface BanweeksDataset {
   zone: Zone;
-  triggers: FeedResult<TriggersFile>;
+  triggers: FeedResult<ReplayTrigger[]>;
 }
 
 interface MapExperienceProps {
@@ -44,10 +46,10 @@ export function MapExperience({ datasets, banweeks, zoneFeatures, plots }: MapEx
   const [dayIndex, setDayIndex] = useState(0);
 
   const current = datasets.find((d) => d.zone === zone && d.season === season);
-  const days = current?.indices.data.days ?? [];
+  const days = current?.indices.data ?? [];
   const clampedIndex = Math.min(dayIndex, Math.max(days.length - 1, 0));
 
-  const seasonFires: ActiveFire[] = (current?.triggers.data.triggers ?? [])
+  const seasonFires: ActiveFire[] = (current?.triggers.data ?? [])
     .filter((t) => {
       const fireDayIndex = days.findIndex((d) => d.date === t.firedOn);
       return fireDayIndex >= 0 && fireDayIndex <= clampedIndex;
@@ -55,7 +57,7 @@ export function MapExperience({ datasets, banweeks, zoneFeatures, plots }: MapEx
     .map((t) => ({ id: `${zone}-${season}-${t.label}`, zone, label: t.label, firedOn: t.firedOn }));
 
   const banweeksFires: ActiveFire[] = banweeks.flatMap((b) =>
-    b.triggers.data.triggers.map((t) => ({
+    b.triggers.data.map((t) => ({
       id: `${b.zone}-2026-${t.label}`,
       zone: b.zone,
       label: `${t.label} · toxin ban`,
@@ -116,8 +118,8 @@ export function MapExperience({ datasets, banweeks, zoneFeatures, plots }: MapEx
           <h2 className={styles.sectionTitle}>Season timeline</h2>
           {current ? (
             <Timeline
-              days={current.indices.data.days}
-              triggers={current.triggers.data.triggers}
+              days={current.indices.data}
+              triggers={current.triggers.data}
               index={clampedIndex}
               onIndexChange={setDayIndex}
             />
@@ -146,7 +148,7 @@ export function MapExperience({ datasets, banweeks, zoneFeatures, plots }: MapEx
           <h2 className={styles.sectionTitle}>2026 toxin ban (BANWEEKS)</h2>
           <div className={styles.banweeksList}>
             {banweeks.map((b) => {
-              const t = b.triggers.data.triggers[0];
+              const t = b.triggers.data[0];
               return (
                 <div className={styles.banweeksRow} key={b.zone}>
                   <span className={styles.banweeksZone}>{ZONE_LABEL[b.zone]}</span>

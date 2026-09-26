@@ -1,7 +1,8 @@
 'use client';
 
-import { RULES, type IndicesDay, type Peril } from '@repo/shared';
+import { RULES } from '@repo/shared';
 import { useMemo } from 'react';
+import type { HeatIndexDay } from '@/lib/heat-indices';
 import { SPECIES_COLOR } from '@/lib/species-colors';
 import styles from './Timeline.module.css';
 
@@ -13,22 +14,18 @@ export interface TimelineTrigger {
 }
 
 interface TimelineProps {
-  days: IndicesDay[];
+  days: HeatIndexDay[];
   triggers: TimelineTrigger[];
   index: number;
   onIndexChange: (i: number) => void;
 }
 
-const HEAT_METRIC: Record<string, (d: IndicesDay) => number> = {
-  HEAT24: (d) => d.heat24,
-  HEAT25: (d) => d.heat25,
-  HEAT26: (d) => d.heat26,
-};
-
+// Trigger v2 (#55): HEAT24/HEAT25/HEAT26 collapsed into one HEAT peril; tempC (not the peril id) now picks
+// the metric, via HeatIndexDay.countByTempC (lib/heat-indices.ts).
 const LINE_STYLE: Record<string, { color: string; dash?: string; name: string }> = {
-  'scallop:1': { color: SPECIES_COLOR.scallop, name: 'Scallop tier 1 · HEAT25' },
-  'scallop:2': { color: '#1fb8a3', dash: '5 4', name: 'Scallop tier 2 · HEAT26' },
-  'hoya:1': { color: SPECIES_COLOR.hoya, name: 'Hoya tier 1 · HEAT24' },
+  'scallop:1': { color: SPECIES_COLOR.scallop, name: 'Scallop tier 1 · HEAT (tempC 25)' },
+  'scallop:2': { color: '#1fb8a3', dash: '5 4', name: 'Scallop tier 2 · HEAT (tempC 26)' },
+  'hoya:1': { color: SPECIES_COLOR.hoya, name: 'Hoya tier 1 · HEAT (tempC 24)' },
 };
 
 const VB_W = 800;
@@ -46,11 +43,13 @@ function formatDate(date: string): string {
 export function Timeline({ days, triggers, index, onIndexChange }: TimelineProps) {
   const heatRules = useMemo(
     () =>
-      RULES.filter((r) => r.window !== undefined).map((r) => ({
-        label: `${r.species}:${r.tier}`,
-        peril: r.peril,
-        threshold: r.threshold,
-      })),
+      RULES.filter((r): r is typeof r & { tempC: number } => r.window !== undefined && r.tempC !== undefined).map(
+        (r) => ({
+          label: `${r.species}:${r.tier}`,
+          tempC: r.tempC,
+          threshold: r.threshold,
+        }),
+      ),
     [],
   );
 
@@ -61,8 +60,9 @@ export function Timeline({ days, triggers, index, onIndexChange }: TimelineProps
   };
 
   const lines = heatRules.map((rule) => {
-    const metric = HEAT_METRIC[rule.peril as Peril] ?? (() => 0);
-    const points = days.map((d, i) => [scaleX(i), scaleY((metric(d) / rule.threshold) * 100)] as const);
+    const points = days.map(
+      (d, i) => [scaleX(i), scaleY(((d.countByTempC[rule.tempC] ?? 0) / rule.threshold) * 100)] as const,
+    );
     const path = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
     const style = LINE_STYLE[rule.label] ?? { color: '#7ba3ad', name: rule.label };
     return { ...rule, ...style, path, points };

@@ -3,8 +3,31 @@
 // Returns null (never throws) on any failure -- the caller (web/src/lib/keeper/run.ts) treats that as
 // "feed unavailable, fall back to self-signing" and logs which.
 import { recoverTypedDataAddress, type Address } from 'viem';
-import { TRIGGER_EIP712_TYPES, TriggersFile, eip712Domain, type Trigger } from '@repo/shared';
+import { z } from 'zod';
+import { TRIGGER_EIP712_TYPES, TriggerJson, eip712Domain, type Trigger } from '@repo/shared';
 import { triggerFromJson } from './trigger-codec';
+
+// `GET /triggers/:zone/:dataSeason` returning pre-signed Triggers is legacy (issue #9): docs/INTERFACE.md
+// (Trigger v2, #55) is explicit that the pipeline never serves Triggers -- only index values -- and that
+// "who signs is app-side" (whether the pipeline should ALSO sign is still open, INTERFACE.md's Q2). feed.ts
+// dropped the shared `TriggersFile` schema accordingly. This keeper module still speaks the same wire shape
+// (a pipeline that opts into pre-signing could still serve it), so the schema is kept here, locally, rather
+// than deleted outright -- but it's no longer part of the shared interchange contract.
+const LocalTriggersFile = z.object({
+  zone: z.string(),
+  season: z.string(),
+  triggers: z.array(
+    z.object({
+      label: z.string(),
+      zone: z.string(),
+      species: z.string(),
+      peril: z.string(),
+      firedOn: z.string(),
+      trigger: TriggerJson,
+      signatures: z.array(z.object({ signer: z.string(), signature: z.string() })),
+    }),
+  ),
+});
 
 export interface FeedTriggerResult {
   trigger: Trigger;
@@ -45,7 +68,7 @@ export async function fetchSignedTrigger(params: FetchSignedTriggerParams): Prom
     return null;
   }
 
-  const parsed = TriggersFile.safeParse(body);
+  const parsed = LocalTriggersFile.safeParse(body);
   if (!parsed.success) {
     console.warn('[keeper/feed] response failed schema validation', parsed.error.message);
     return null;

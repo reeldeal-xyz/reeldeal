@@ -80,8 +80,24 @@ contract DeployReliefPoolV2 is Script, StdCheats {
     uint8 internal constant DEMO_TEMP_C = 25;
     uint32 internal constant DEMO_THRESHOLD = 14;
 
+    string internal constant DEMO_PLOT_1 = "p1213-001";
+
     // The live season-slot holder for p1213-001/"2026" on the real umi.eth/karakuwa ENS branch (issue #55).
+    // Also World ID level 2 on the live HumanRegistry (verified 2026-09-26 via `levelOf`), so settle() below
+    // actually pays them rather than holding UNVERIFIED.
     address internal constant EXPECTED_PLOT1_FARMER = 0x1aEDC8476f15BdF1Ac742544c58Be3a187eEAB51;
+
+    /// @dev Issue #32's narrow demo ("community funding -> registered scallop plot -> reviewed
+    ///      shipping-restriction evidence -> relief allocation -> confirmed payment -> LINE update"): the
+    ///      verified 2026 karakuwa-east scallop shipping-restriction episode
+    ///      (pipeline/data/toxin/scallop-ban-2026.json) as a first-class BANWEEKS reference event,
+    ///      "2026-scallop-banweeks-karakuwa" (see web/src/lib/keeper/reference-events.ts). Restricted
+    ///      2026-05-12, fires 2026-06-02 (the 4th consecutive restricted week -- RULES' scallop BANWEEKS
+    ///      threshold is 4: weeks 05-12/05-19/05-26/06-02), lifted 2026-09-15. `dataHash` is the pinned
+    ///      prefecture PDF's own sha256 from that file's `source.sha256` -- not invented.
+    uint64 internal constant BANWEEKS_FIRED_AT = 1780358400; // 2026-06-02T00:00:00Z
+    uint32 internal constant BANWEEKS_THRESHOLD = 4;
+    bytes32 internal constant BANWEEKS_DATA_HASH = 0x39851aa6b573d9a4491f48fb2595609ffb07f84ac4a42000ab81fb1c4563d708;
 
     // ------------------------------------------------------------------
     // Env-or-default private keys. Real .env values always take precedence (vm.envOr); these fallbacks only
@@ -131,7 +147,11 @@ contract DeployReliefPoolV2 is Script, StdCheats {
 
     /// @dev HUMAN_REGISTRY_ADDRESS/ENS_PLOT_RESOLVER_ADAPTER/ENS_SLOT_RESOLVER_ADAPTER, already broadcast
     ///      and live -- this script never deploys or modifies any of the three.
-    function _liveAddresses() internal view returns (address humanRegistry, address plotResolver, address slotResolver) {
+    function _liveAddresses()
+        internal
+        view
+        returns (address humanRegistry, address plotResolver, address slotResolver)
+    {
         humanRegistry = vm.envAddress("HUMAN_REGISTRY_ADDRESS");
         plotResolver = vm.envAddress("ENS_PLOT_RESOLVER_ADAPTER");
         slotResolver = vm.envAddress("ENS_SLOT_RESOLVER_ADAPTER");
@@ -262,12 +282,13 @@ contract DeployReliefPoolV2 is Script, StdCheats {
         require(poolBalance == p.donationAmount, "dryRun: pool JPYC balance != donation");
         console2.log("OK: pool JPYC balance == donation:", poolBalance);
 
-        (address farmer,, uint64 slotExpiry) = pool.payoutTarget("p1213-001", SEASON_LABEL);
+        (address farmer,, uint64 slotExpiry) = pool.payoutTarget(DEMO_PLOT_1, SEASON_LABEL);
         require(farmer == EXPECTED_PLOT1_FARMER, "dryRun: payoutTarget(p1213-001, 2026) resolved an unexpected farmer");
         require(slotExpiry > block.timestamp, "dryRun: resolved slot already expired");
         console2.log("OK: payoutTarget(p1213-001, 2026) resolves the live farmer:", farmer);
 
         _attestFallbackTrigger(pool, p);
+        _attestAndSettleBanweeksTrigger(pool, p);
     }
 
     /// @dev Builds and attests a v2 Trigger the same way web/src/lib/keeper's fallback trigger builder would
@@ -301,10 +322,58 @@ contract DeployReliefPoolV2 is Script, StdCheats {
         bytes32 eventId = pool.attest(t, sigs);
         vm.stopPrank();
 
-        (,, , , , , uint64 attestedAt,) = pool.attestations(eventId);
+        (,,,,,, uint64 attestedAt,) = pool.attestations(eventId);
         require(attestedAt != 0, "dryRun: fallback-signed v2 trigger did not attest");
         console2.log("OK: fallback-signed v2 Trigger (tempC=25) attested, eventId:");
         console2.logBytes32(eventId);
+    }
+
+    /// @dev Builds, attests and settles "2026-scallop-banweeks-karakuwa" (see contract NatSpec on
+    ///      BANWEEKS_FIRED_AT/BANWEEKS_DATA_HASH) -- the toxin-ban side of issue #32's narrow demo, alongside
+    ///      `_attestFallbackTrigger`'s heat event. `windowStart`/`windowEnd` both equal `firedAt`: BANWEEKS
+    ///      rules carry no `window` in rules.ts (that field is HEAT-only), matching how
+    ///      `packages/shared/src/compute.ts`'s `buildTrigger` falls back to the fired date alone when a rule
+    ///      has no window. Unlike `_attestFallbackTrigger` (attest only), this also calls `settle` for
+    ///      DEMO_PLOT_1 and requires it actually pay -- proving the full "relief allocation -> confirmed
+    ///      payment" path against the live HumanRegistry/ENS state, not just a signature check.
+    function _attestAndSettleBanweeksTrigger(ReliefPool pool, DeployParams memory p) internal {
+        IReliefPool.Trigger memory t;
+        t.zoneId = ZONE_KARAKUWA_EAST;
+        t.speciesId = SPECIES_SCALLOP;
+        t.perilId = PERIL_BANWEEKS;
+        t.tier = 1;
+        t.seasonLabel = SEASON_LABEL;
+        t.windowStart = BANWEEKS_FIRED_AT;
+        t.windowEnd = BANWEEKS_FIRED_AT;
+        t.firedAt = BANWEEKS_FIRED_AT;
+        t.index = BANWEEKS_THRESHOLD;
+        t.threshold = BANWEEKS_THRESHOLD;
+        t.tempC = 0; // BANWEEKS has no temperature
+        t.dataHash = BANWEEKS_DATA_HASH;
+        t.deadline = uint64(block.timestamp + 365 days);
+
+        bytes32 digest = pool.triggerDigest(t);
+        bytes[] memory sigs = new bytes[](2);
+        sigs[0] = _sign(p.pipelineSignerKey, digest);
+        sigs[1] = _sign(p.coopSignerKey, digest);
+
+        address deployer = vm.addr(p.deployerKey);
+        vm.startPrank(deployer);
+        bytes32 eventId = pool.attest(t, sigs);
+        console2.log("OK: fallback-signed v2 BANWEEKS Trigger (2026-scallop-banweeks-karakuwa) attested, eventId:");
+        console2.logBytes32(eventId);
+
+        uint256 balanceBefore = IERC20(JPYC).balanceOf(EXPECTED_PLOT1_FARMER);
+        string[] memory plotLabels = new string[](1);
+        plotLabels[0] = DEMO_PLOT_1;
+        pool.settle(eventId, plotLabels);
+        vm.stopPrank();
+
+        (ReliefPool.PlotStatus status,) = pool.plotSettlements(eventId, DEMO_PLOT_1);
+        require(status == ReliefPool.PlotStatus.Paid, "dryRun: BANWEEKS settle did not pay p1213-001 (Held/Unsettled)");
+        uint256 balanceAfter = IERC20(JPYC).balanceOf(EXPECTED_PLOT1_FARMER);
+        require(balanceAfter > balanceBefore, "dryRun: p1213-001's farmer balance did not increase");
+        console2.log("OK: settle paid p1213-001's live farmer for the BANWEEKS event, new JPYC balance:", balanceAfter);
     }
 
     function _sign(uint256 key, bytes32 digest) internal view returns (bytes memory) {

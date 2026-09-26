@@ -17,6 +17,8 @@ export interface AttestGateTrigger {
   tier: number;
   index: number;
   threshold: number;
+  /** HEAT: the rule's temperature (whole C, Trigger.tempC). 0 for every other peril. */
+  tempC: number;
   /** ISO timestamp the index crossed the threshold. */
   firedAt: string;
 }

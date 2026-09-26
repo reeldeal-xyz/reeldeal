@@ -9,7 +9,7 @@ describe('triggerFromJson', () => {
     const json: TriggerJson = {
       zoneId: idOf('karakuwa-east'),
       speciesId: idOf('scallop'),
-      perilId: idOf('HEAT25'),
+      perilId: idOf('HEAT'),
       tier: 1,
       seasonLabel: '2026',
       windowStart: '1000',
@@ -17,6 +17,7 @@ describe('triggerFromJson', () => {
       firedAt: '1500',
       index: 20,
       threshold: 14,
+      tempC: 25,
       dataHash: idOf('fixture'),
       deadline: '9999999999',
     };
@@ -28,6 +29,7 @@ describe('triggerFromJson', () => {
     expect(trigger.zoneId).toBe(json.zoneId as Hex);
     expect(trigger.tier).toBe(1);
     expect(trigger.index).toBe(20);
+    expect(trigger.tempC).toBe(25);
   });
 });
 
@@ -69,5 +71,21 @@ describe('buildFallbackTrigger', () => {
 
   test('throws for an unknown reference event id', () => {
     expect(() => buildFallbackTrigger('nonsense')).toThrow();
+  });
+
+  test('sets tempC from the rule for a HEAT reference event', () => {
+    const trigger = buildFallbackTrigger('2023-scallop-tier2');
+    expect(trigger.tempC).toBe(26); // RULES: scallop tier 2
+  });
+
+  test('sets tempC to 0 for a non-HEAT (BANWEEKS) reference event, and collapses the window to firedOn', () => {
+    const trigger = buildFallbackTrigger('2026-scallop-banweeks-karakuwa');
+    expect(trigger.tempC).toBe(0);
+    expect(trigger.threshold).toBe(4);
+    expect(trigger.index).toBe(4);
+    // BANWEEKS carries no rules.ts window -- windowStart/windowEnd both collapse to firedOn (2026-06-02).
+    expect(trigger.windowStart).toBe(BigInt(Date.parse('2026-06-02T00:00:00Z') / 1000));
+    expect(trigger.windowEnd).toBe(trigger.windowStart);
+    expect(trigger.firedAt).toBe(trigger.windowStart);
   });
 });

@@ -37,7 +37,7 @@ const SECONDS_PER_DAY = 86_400;
  * Builds the Jev attest-gate state from a resolved trigger (docs/JEV.md). daysOfData is a proxy -- the
  * season window from windowStart to firedAt -- since the keeper doesn't fetch buoy ground-truth or the
  * pipeline's per-day series alongside the trigger yet; buoyOffset is null until that's wired up.
- * TODO: replace both once the keeper reads packages/shared BuoyFile.vsSatellite / SeriesFile.days here.
+ * TODO: replace both once the keeper reads the buoy vsSatellite offset / the pipeline's per-day SST series here.
  */
 function buildAttestGateState(trigger: Trigger, ref: ReferenceEvent): AttestGateState {
   const daysOfData = Math.max(0, Math.round(Number(trigger.firedAt - trigger.windowStart) / SECONDS_PER_DAY));
@@ -49,6 +49,7 @@ function buildAttestGateState(trigger: Trigger, ref: ReferenceEvent): AttestGate
       tier: trigger.tier,
       index: trigger.index,
       threshold: trigger.threshold,
+      tempC: trigger.tempC,
       firedAt: new Date(Number(trigger.firedAt) * 1000).toISOString(),
     },
     buoyOffset: null,

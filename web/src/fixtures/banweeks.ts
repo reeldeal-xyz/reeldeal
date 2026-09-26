@@ -5,7 +5,7 @@
 // covers the feed being unreachable. Unlike the HEAT fixtures in series.ts, these dates are NOT
 // synthetic — they come from buildBanweeksTrigger(scallop-ban-2026.json) and are pinned here as literals
 // so the map (#18) can show them without duplicating the weekly-series/index logic client-side.
-import { idOf, type TriggersFile, type Zone } from '@repo/shared';
+import { idOf, type ReplayTrigger, type Zone } from '@repo/shared';
 import type { Hex } from 'viem';
 
 // sha256 of the pinned PDF (pipeline/data/toxin/miyagi-mahi-kaidoku-2026-09-15.pdf), from
@@ -28,35 +28,32 @@ const BANWEEKS_2026: Record<Zone, BanweeksFixture> = {
 
 export const BANWEEKS_SEASON = '2026';
 
-export function fixtureBanweeksTriggers(zone: Zone): TriggersFile {
+export function fixtureBanweeksTriggers(zone: Zone): ReplayTrigger[] {
   const entry = BANWEEKS_2026[zone];
   const firedAt = toEpochSeconds(entry.firedOn);
-  return {
-    zone,
-    season: BANWEEKS_SEASON,
-    triggers: [
-      {
-        label: 'scallop:1',
-        zone,
-        species: 'scallop',
-        peril: 'BANWEEKS',
-        firedOn: entry.firedOn,
-        trigger: {
-          zoneId: idOf(zone),
-          speciesId: idOf('scallop'),
-          perilId: idOf('BANWEEKS'),
-          tier: 1,
-          seasonLabel: BANWEEKS_SEASON,
-          windowStart: toEpochSeconds(entry.banStart).toString(),
-          windowEnd: firedAt.toString(),
-          firedAt: firedAt.toString(),
-          index: 4,
-          threshold: 4,
-          dataHash: TOXIN_PDF_SHA256,
-          deadline: (firedAt + 90n * 24n * 60n * 60n).toString(),
-        },
-        signatures: [],
+  return [
+    {
+      label: 'scallop:1',
+      zone,
+      species: 'scallop',
+      peril: 'BANWEEKS',
+      firedOn: entry.firedOn,
+      trigger: {
+        zoneId: idOf(zone),
+        speciesId: idOf('scallop'),
+        perilId: idOf('BANWEEKS'),
+        tier: 1,
+        seasonLabel: BANWEEKS_SEASON,
+        windowStart: toEpochSeconds(entry.banStart).toString(),
+        windowEnd: firedAt.toString(),
+        firedAt: firedAt.toString(),
+        index: 4,
+        threshold: 4,
+        tempC: 0, // BANWEEKS has no temperature
+        dataHash: TOXIN_PDF_SHA256,
+        deadline: (firedAt + 90n * 24n * 60n * 60n).toString(),
       },
-    ],
-  };
+      signatures: [],
+    },
+  ];
 }
