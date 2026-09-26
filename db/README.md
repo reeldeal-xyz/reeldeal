@@ -44,6 +44,7 @@ db/
     20260926170000_plots_app_compat.sql      # plot_code fully unique; origin 'synthetic'
     20260926170100_demo_plots.sql            # demo sea areas and p1213-001..015
     20260926210000_plots_fishery_right_origin.sql  # origin 'fishery_right'
+    20260926220000_demo_plots_real_zones.sql       # p1213-* take real zone polygons
   backup/                   # Dockerfile, backup.sh (pg_dump -> S3), schedule.sh
   scripts/
     up.sh  test.sh  psql.sh  reset.sh  restore.sh  gen-env.sh
@@ -75,7 +76,7 @@ Migrations use **dbmate** (table `dbmate.schema_migrations`): plain SQL that wor
 
 Rows are never hard-deleted (the pipeline role has no `DELETE`). Plots and sea areas are retired with `valid_to`/`retired_at`. Ids are stable: an UPDATE that changes `geom` copies the old row into `plots_history` / `sea_areas_history` (trigger) and resets `valid_from`, so the geometry behind any past index value can be recovered.
 
-Demo data: `20260926170100_demo_plots.sql` seeds sea areas `karakuwa-east` and `kesennuma-bay` (traced, `accuracy` says so) and the 15 deployed plots `p1213-001..015` as `synthetic` 50 m discs around #115's points. Real polygons replace them in place (UPDATE `geom`/`origin`; the code and id stay). `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
+Demo data: `20260926170100_demo_plots.sql` seeds sea areas `karakuwa-east` and `kesennuma-bay` (traced, `accuracy` says so) and the 15 deployed plots `p1213-001..015` as `synthetic` 50 m discs around #115's points. `20260926220000_demo_plots_real_zones.sql` then replaces each disc in place with its own Miyagi 区画漁業権 zone (hanging shellfish culture, nearest by minimum total distance, 0–1.84 km from the old point; `origin` `fishery_right`, `source_url` names the licence). Codes, ids and `sea_area_id` stay; the discs are kept in `plots_history`. `app.farm` references `geo.plots(id)` (ADR 0004: one writable copy of geography).
 
 ### 4.2 `risk`
 

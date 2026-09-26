@@ -1,0 +1,45 @@
+---
+import Address from '../../atoms/Address.astro';
+import Badge from '../../atoms/Badge.astro';
+import { holderPreviews } from '../../../fixtures/operations-preview';
+import { displayedSlot, expiryLabel } from './guards';
+import { identityLabel, slotLabels, type HolderPreview } from './props';
+import HolderActionPreview from './react/HolderActionPreview';
+import styles from './operations.css?inline';
+import reliefStyles from '../../molecules/relief/relief.css?inline';
+
+interface Props { sample?: keyof typeof holderPreviews }
+const { sample = 'queue' } = Astro.props;
+const preview: HolderPreview = holderPreviews[sample];
+---
+
+<style is:inline set:html={reliefStyles + styles} />
+<article class="ops-preview" aria-label="Holder operations preview">
+  <header class="ops-preview__heading"><p>Plot holder · karakuwa-east</p><h1>Season slot requests</h1><p>Review a farmer’s request and the recorded registration separately.</p></header>
+  <p class="notice">Synthetic preview · no live account, holder authority, registration or wallet request.</p>
+  <section class="relief-card" aria-label="Example holder context">
+    <h2 class="relief-card__title">Holder context</h2>
+    <dl class="relief-card__facts ops-preview__facts">
+      <div class="relief-card__fact"><dt>Example wallet</dt><dd><Address value={preview.context.wallet} compact /></dd></div>
+      <div class="relief-card__fact"><dt>Network</dt><dd>{preview.context.chainId === 11155111 ? 'Sepolia · example' : 'Different network · example'}</dd></div>
+      <div class="relief-card__fact"><dt>Authority sample</dt><dd>{preview.context.authority === 'holder' ? 'Holder role supplied by fixture' : preview.context.authority === 'unauthorized' ? 'Not authorized' : 'Unavailable'}</dd></div>
+    </dl>
+    <p class="relief-card__note">Identity verification does not grant holder authority or establish relief eligibility. All checks here describe this local example.</p>
+  </section>
+  {preview.state !== 'ready' ? <section class="relief-card" aria-label="Slot requests"><h2 class="relief-card__title">Slot requests</h2><p class="relief-card__note" role="status">{preview.state === 'loading' ? 'Loading example requests…' : preview.state === 'empty' ? 'No requests in this example queue.' : 'Requests are unavailable. No count, ownership or action eligibility can be confirmed.'}</p></section> :
+    <div class="ops-preview__grid">{preview.rows.map(row => {
+      const slot = displayedSlot(row, preview.context.asOf);
+      return <section class="relief-card ops-preview__record" aria-label={`Request ${row.plotLabel}`}>
+        <div class="relief-card__head"><div><h2 class="relief-card__title">{row.plotLabel}</h2><p class="relief-card__label">Season {row.seasonLabel} · {row.species}</p></div><Badge label={slotLabels[slot]} tone={slot === 'issued' ? 'lime' : slot === 'pending' ? 'yellow' : 'ink'} /></div>
+        <dl class="relief-card__facts">
+          <div class="relief-card__fact"><dt>{slot === 'pending' ? 'Requested farmer' : 'Recorded farmer'}</dt><dd><Address value={row.farmer} compact /></dd></div>
+          <div class="relief-card__fact"><dt>Recorded identity</dt><dd>{identityLabel(row.identityLevel)}</dd></div>
+          <div class="relief-card__fact"><dt>Slot expiry</dt><dd>{expiryLabel(row.expiresAt)}</dd></div>
+          <div class="relief-card__fact"><dt>Request sample</dt><dd>{row.requestedAtLabel}</dd></div>
+        </dl>
+        <HolderActionPreview row={row} context={preview.context} initialPhase={preview.initialPhase} client:load />
+      </section>;
+    })}</div>
+  }
+  <p class="ops-preview__note">Local confirmation and pending screens preserve the recorded status. A real change needs authorized server actions and a successful receipt for this plot’s registry.</p>
+</article>

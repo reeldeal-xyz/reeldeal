@@ -1,0 +1,17 @@
+---
+interface Props { lang?: 'en' | 'ja' }
+const { lang = 'en' } = Astro.props;
+const ja = lang === 'ja';
+---
+<section class="market-empty-state" aria-label={ja ? '出品状況' : 'Market availability'}>
+  <p class="market-empty-state__eyebrow">宮城の水産物 · Miyagi catch</p>
+  <h3>{ja ? 'まだ出品はありません。' : 'No catch listed yet.'}</h3>
+  <p>{ja ? '販売者が出品すると、ここに表示されます。' : 'Listings will appear here when sellers publish them.'}</p>
+</section>
+
+<style>
+  .market-empty-state { padding: 24px 0; border-top: 1px solid #bdd3cd; border-bottom: 1px solid #bdd3cd; }
+  .market-empty-state__eyebrow { margin: 0 0 10px; color: #526b6e; font-size: 11px; font-weight: 750; letter-spacing: .04em; }
+  .market-empty-state h3 { margin: 0; color: #123a3e; font: 800 clamp(20px, 5vw, 26px)/1.15 var(--font-body); }
+  .market-empty-state p:last-child { max-width: 32ch; margin: 9px 0 0; color: #526b6e; font-size: 13px; line-height: 1.5; }
+</style>

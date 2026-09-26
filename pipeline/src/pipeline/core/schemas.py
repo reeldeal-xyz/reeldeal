@@ -117,6 +117,8 @@ class StationSeries(Model):
     station_id: str
     var: str
     unit: str
+    depth_m: float | None = Field(default=None, description="Depth of these observations; null when there are none")
+    sources: list[str] = Field(default_factory=list, description="sha256 of every pinned input behind the points")
     points: list[StationPoint]
 
 

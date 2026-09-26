@@ -11,7 +11,7 @@ From the repository root (Bun 1.3.14, Node 24):
 ```sh
 bun install --frozen-lockfile
 cp frontend/.env.example frontend/.env
-bun run frontend:dev                 # http://localhost:4321/workshop
+bun run frontend:dev                 # http://localhost:4321/hmi
 bun run frontend:check
 bun run --cwd frontend test
 bun run frontend:build
@@ -40,6 +40,21 @@ Python heat implementation. New indices/advisory envelopes fail validation
 until reviewed. #79's Python-produced conformance fixtures and OpenAPI drift
 check, a deployed response and #55's signed evidence manifest remain release
 gates. This endpoint makes no eligibility decision and cannot sign or pay.
+
+## Connected preview screens (#67)
+
+Open `/preview` from the Workshop's **Journeys** link. The overview connects
+`/preview/market`, `/preview/donate`, `/preview/farmer`, `/preview/holder` and
+`/preview/coop` using the same components as Storybook. The donor journey runs
+locally from amount entry through approval, donation, receipt and activity.
+Holder controls preview a request; pending actions do not change the recorded
+slot. Navigation starts a fresh sample screen; no account state is shared or
+persisted between pages.
+
+These routes need no backend configuration. The live `/donate`, `/holder`,
+`/coop` and `/liff` route handoffs remain unchanged. See
+[the donor and operations preview notes](../docs/frontend-67-donor-operations-preview.md)
+for state coverage and the remaining integration gates.
 
 ## Island boundaries
 
@@ -71,7 +86,8 @@ Until a replacement route exists, the catch-all redirects these page URLs to
 `LEGACY_WEB_ORIGIN`, preserving path and query. Unknown paths are 404, missing
 configuration is 503, and a same-origin destination is rejected to avoid a loop.
 API routes are not proxied. New Astro page files take precedence over the
-catch-all. `/` currently opens `/workshop`; it is an explicit fixture surface.
+catch-all. `/` opens the coastal map at `/hmi` (`/hmi?lang=ja` for Japanese);
+the component workshop is now Storybook-only, with no `/workshop` route in the app.
 
 ## Server and pipeline integration
 
