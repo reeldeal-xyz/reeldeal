@@ -21,6 +21,8 @@ pg() { docker compose exec -T -u postgres db "$@"; }
 pg dropdb --if-exists "$scratch" 2>/dev/null
 pg createdb -T template0 "$scratch"
 pg pg_restore --exit-on-error -d "$scratch" "$file"
+# pg_dump doesn't carry database-level grants (CONNECT, CREATE); a real restore needs bootstrap too.
+docker compose exec -T -u postgres -e POSTGRES_DB="$scratch" db bash /db/bootstrap/bootstrap.sh >/dev/null
 ./scripts/test.sh "$scratch"
 
 echo "restore: row counts (live vs restored)"
