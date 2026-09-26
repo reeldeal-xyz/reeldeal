@@ -32,7 +32,7 @@ export interface EnsAddresses {
 }
 
 export const ensCapabilities = (a: EnsAddresses) => ({
-  canIssueSlots: Boolean(a.slotRegistry),
+  canIssueSlots: Boolean(a.slotRegistry || a.parentRegistry),
   canReadHolders: Boolean(a.parentRegistry),
   canEditRecords: Boolean(a.plotResolver),
 });
@@ -173,16 +173,32 @@ const errorMessage = (err: unknown) => (err instanceof Error ? err.message : Str
 
 const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000';
 
+/** Each plot has its own registry (issue #10): the branch registry's getSubregistry(plotLabel). Falls back to
+ *  a single configured slot registry (NEXT_PUBLIC_ENS_SLOT_REGISTRY_ADDRESS) when the branch isn't set. */
+async function slotRegistryFor(config: Config, addresses: EnsAddresses, plotLabel: string): Promise<Address | undefined> {
+  if (addresses.parentRegistry) {
+    const sub = (await readContract(config, {
+      address: addresses.parentRegistry,
+      abi: EnsRegistryReadAbi,
+      functionName: 'getSubregistry',
+      args: [plotLabel],
+    })) as Address;
+    if (sub && sub !== ZERO_ADDRESS) return sub;
+  }
+  return addresses.slotRegistry;
+}
+
 /** Issues this season's slot to a farmer (issue #19: `register("2026", farmer, ...)`). */
 export async function issueSeasonSlot(
   config: Config,
   addresses: EnsAddresses,
   params: { plotLabel: string; farmer: Address; seasonLabel?: string; expires: bigint },
 ): Promise<EnsWriteResult> {
-  if (!addresses.slotRegistry) return { ok: false, error: 'ENS slot registry not deployed yet (see #10)' };
   try {
+    const registry = await slotRegistryFor(config, addresses, params.plotLabel);
+    if (!registry) return { ok: false, error: `No ENS registry found for ${params.plotLabel}` };
     const hash = await writeContract(config, {
-      address: addresses.slotRegistry,
+      address: registry,
       abi: PlotRegistryAbi,
       functionName: 'register',
       args: [
@@ -205,12 +221,14 @@ export async function issueSeasonSlot(
 export async function revokeSeasonSlot(
   config: Config,
   addresses: EnsAddresses,
+  plotLabel: string,
   seasonLabel: string = SEASON_LABEL,
 ): Promise<EnsWriteResult> {
-  if (!addresses.slotRegistry) return { ok: false, error: 'ENS slot registry not deployed yet (see #10)' };
   try {
+    const registry = await slotRegistryFor(config, addresses, plotLabel);
+    if (!registry) return { ok: false, error: `No ENS registry found for ${plotLabel}` };
     const hash = await writeContract(config, {
-      address: addresses.slotRegistry,
+      address: registry,
       abi: PlotRegistryAbi,
       functionName: 'unregister',
       args: [BigInt(keccak256(stringToHex(seasonLabel)))],
