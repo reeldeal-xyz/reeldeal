@@ -49,7 +49,7 @@ states: [observed]
 
 ### Entity: Application
 
-Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration, plus the frontend/ Astro HMI and relief views. The HMI has species-coloured plots, compact plot details, observed relief thresholds, and hourly forecast playback with a plot-anchored readout. Forecasts remain advisory; recorded water temperature is independent of species-specific payout rules. The market shelf links the shared catalogue to the live market redirect. Storybook covers panel focus and phone/tablet bounds. Remaining route and service migration stays under #54.
+Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration, plus the frontend/ Astro HMI and relief views. The HMI has species-coloured plots, compact plot details, observed relief thresholds, and hourly forecast playback with a plot-anchored readout. Forecasts remain advisory; recorded water temperature is independent of species-specific payout rules. Astro owns the market catalogue and quote endpoint on this migration branch: signed prices, exact JPYC approval, two-confirmation settlement, and matching Checkout/Donated receipt evidence. Pending purchases survive reload; missing signer configuration blocks new payments. Deployment and wallet acceptance are still pending. Storybook covers panel focus and phone/tablet bounds. Remaining route and service migration stays under #54.
 
 ```yaml
 entity: Application
