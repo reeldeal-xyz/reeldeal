@@ -9,13 +9,16 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
 import {MockHumanRegistry} from "./mocks/MockHumanRegistry.sol";
 import {MockPlotResolver} from "./mocks/MockPlotResolver.sol";
+import {MockSlotResolver} from "./mocks/MockSlotResolver.sol";
 
 /// @notice ReliefPool core: donate, enroll/reindex, attest (2-of-3 EIP-712) + pro-rata reserve snapshot.
-///         settle/claimHeld/sweep/payoutTarget are out of scope (issues #8, #11) and stay NotImplemented.
+///         settle/claimHeld/sweep/payoutTarget behavior lives in ReliefPoolSettle.t.sol (issue #8); the real
+///         ENSv2 slot walk behind ISlotResolver is issue #11.
 contract ReliefPoolTest is Test {
     ERC20Mock internal jpyc;
     MockHumanRegistry internal humans;
     MockPlotResolver internal resolver;
+    MockSlotResolver internal slotResolver;
     ReliefPool internal pool;
 
     address internal admin = makeAddr("admin");
@@ -40,7 +43,8 @@ contract ReliefPoolTest is Test {
         jpyc = new ERC20Mock();
         humans = new MockHumanRegistry();
         resolver = new MockPlotResolver();
-        pool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, admin);
+        slotResolver = new MockSlotResolver();
+        pool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, slotResolver, admin);
 
         (signer1, signer1Key) = makeAddrAndKey("signer1");
         (signer2, signer2Key) = makeAddrAndKey("signer2");
@@ -298,8 +302,19 @@ contract ReliefPoolTest is Test {
         bytes32 returnedId = pool.attest(t, sigs);
         assertEq(returnedId, eventId);
 
-        (uint32 eligibleUnits, uint256 perUnit, uint256 reservedAmount, uint64 attestedAt, uint64 claimDeadline) =
-            pool.attestations(eventId);
+        (
+            bytes32 aZoneId,
+            bytes32 aSpeciesId,
+            string memory aSeasonLabel,
+            uint32 eligibleUnits,
+            uint256 perUnit,
+            uint256 reservedAmount,
+            uint64 attestedAt,
+            uint64 claimDeadline
+        ) = pool.attestations(eventId);
+        assertEq(aZoneId, zoneId);
+        assertEq(aSpeciesId, speciesId);
+        assertEq(aSeasonLabel, "2026");
         assertEq(eligibleUnits, 3);
         assertEq(perUnit, 20_000e18); // min(tierAmount=20000e18, free/eligible=30000e18)
         assertEq(reservedAmount, 60_000e18);
@@ -367,7 +382,7 @@ contract ReliefPoolTest is Test {
     }
 
     function test_attest_revertsWhenSignersNotConfigured() public {
-        ReliefPool freshPool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, admin);
+        ReliefPool freshPool = new ReliefPool(IERC20(address(jpyc)), humans, resolver, slotResolver, admin);
         resolver.setPlot("p1213-017", zoneId, speciesId);
         freshPool.enroll("p1213-017");
         vm.prank(admin);
@@ -471,7 +486,7 @@ contract ReliefPoolTest is Test {
         IReliefPool.Trigger memory t = _trigger(20, uint64(block.timestamp + 1 days));
         pool.attest(t, _sign2of3(t));
 
-        (, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
+        (,,,, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
         assertEq(perUnit, 15_000e18);
         assertEq(reservedAmount, 45_000e18);
         assertEq(pool.reserved(), 45_000e18);
@@ -491,7 +506,7 @@ contract ReliefPoolTest is Test {
         IReliefPool.Trigger memory t = _trigger(20, uint64(block.timestamp + 1 days));
         pool.attest(t, _sign2of3(t));
 
-        (, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
+        (,,,, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
         assertEq(perUnit, 20_000e18);
         assertEq(reservedAmount, 60_000e18);
     }
@@ -512,7 +527,7 @@ contract ReliefPoolTest is Test {
         pool.attest(t, _sign2of3(t));
 
         uint256 expectedPerUnit = uint256(100_000e18) / 3;
-        (, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
+        (,,,, uint256 perUnit, uint256 reservedAmount,,) = pool.attestations(pool.eventIdOf(t));
         assertEq(perUnit, expectedPerUnit);
         assertEq(reservedAmount, expectedPerUnit * 3);
         assertLe(reservedAmount, 100_000e18); // reserve never exceeds the pool's balance
@@ -539,7 +554,7 @@ contract ReliefPoolTest is Test {
         t2.threshold = 12;
         pool.attest(t2, _sign2of3(t2)); // free = 30000e18 - 20000e18 = 10000e18 -> perUnit = min(50000e18, 10000e18)
 
-        (, uint256 perUnit2, uint256 reservedAmount2,,) = pool.attestations(pool.eventIdOf(t2));
+        (,,,, uint256 perUnit2, uint256 reservedAmount2,,) = pool.attestations(pool.eventIdOf(t2));
         assertEq(perUnit2, 10_000e18);
         assertEq(reservedAmount2, 10_000e18);
         assertEq(pool.reserved(), 30_000e18);
