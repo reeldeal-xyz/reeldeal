@@ -74,3 +74,36 @@ bun run db:migrate
 `app` schema change (re-apply the hand-added FK statement at the top of the new migration file if one
 lands — see that file's header comment). `bun run db:cross-check-plots` reads `ReliefPool.plots(label)`
 for the 15 demo labels (cheap `eth_call`s, no gas) as an informational check against `geo.plots`.
+
+## End-to-end tests
+
+`scripts/e2e.ts` (`bun run e2e`) drives the whole donate → attest → settle → Paid/Held pipeline through the
+real contracts and the real keeper (`web/src/lib/keeper/run.ts`'s `runKeeper()`), not mocks. Two modes:
+
+```sh
+bun run e2e -- --fork                       # default: local anvil fork of Sepolia, throwaway pool, repeatable
+bun run e2e -- --fork --event <id>          # a different reference event (web/src/lib/keeper/reference-events.ts)
+bun run e2e -- --fork --push                # also exercise real LINE pushes (fails here: DNS blocks api.line.me)
+bun run e2e -- --live --yes                 # REAL Sepolia deploy + Railway redeploy + MultiBaas relink
+bun run e2e -- --live --yes --donation 50000000000000000000000
+```
+
+**`--fork`** (safe, repeatable, no real spend): forks real Sepolia into a local `anvil` (reusing the live
+`HumanRegistry`/ENSv2 plot+slot adapters as they really are), deploys a throwaway `ReliefPool` v2 against
+the fork with the real `forge script contracts/script/DeployReliefPoolV2.s.sol --sig "run()"`, then runs
+`runKeeper()` twice for the BANWEEKS demo event (`force: true`, LINE pushes off unless `--push`) and
+asserts: the event attests; `p1213-001` is Paid to the live verified farmer for exactly the attestation's
+own `perUnit` (read back on-chain, never hardcoded, since it depends on the pool's donation/tier amount);
+every other enrolled karakuwa-east/scallop plot is Held(`UNVERIFIED`); the second `runKeeper()` call is a
+no-op (already attested, nothing re-settled, no JPYC moves); and a Trigger signed under the old
+`EIP712("ReliefPool","1")` domain is rejected while the same Trigger signed under the live `"2"` domain is
+accepted (both via a read-only `simulateContract`, never broadcast). Prints a PASS/FAIL table, always kills
+`anvil` on exit, and skips gracefully (exit 0) if `anvil`/`forge` aren't on `PATH`.
+
+**`--live`** (spends real testnet JPYC/ETH, repoints the deployed app — requires explicit `--yes`, never run
+from CI): deploys a fresh `ReliefPool` v2 for real, writes `packages/shared/src/addresses.ts` via
+`scripts/write-addresses.ts` (prints the diff, does not commit it), repoints Railway's `web` service at the
+new address (`railway variables ... --set`, then `railway up --detach`, polling for a successful deploy),
+relinks MultiBaas (deletes the stale `reliefpool` alias/contract, then `bun run multibaas:setup -- --apply`
+from the new deploy block), replays the keeper via `POST /api/keeper/replay` on the live app, and verifies
+the same on-chain assertions as `--fork` plus prints `sepolia.etherscan.io` links for every tx.
