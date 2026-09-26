@@ -85,6 +85,15 @@
 .layer-choices label:has(:checked) { color: #176b5c; }
 .layer-choices input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: #187b69; }
 .layer-choices + .shelf-note { margin-top: 8px; }
+.plot-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; padding: 0; list-style: none; color: #526b6e; font-size: 12px; }
+.plot-legend li { display: flex; align-items: center; gap: 5px; }
+.plot-legend i { width: 12px; height: 12px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25); }
+.leaflet-tooltip.plot-tooltip { padding: 7px 9px; border: 0; border-radius: 6px; background: rgb(12 38 42 / 0.92); color: #f4fbf8; box-shadow: 0 4px 14px rgb(0 0 0 / 0.3); }
+.leaflet-tooltip.plot-tooltip::before { border-top-color: rgb(12 38 42 / 0.92); }
+.plot-tip { display: grid; gap: 2px; min-width: 180px; font-size: 12px; line-height: 1.35; white-space: nowrap; }
+.plot-tip strong { font-size: 13px; }
+.plot-tip-heat { margin-top: 3px; color: #ffd07a; font-weight: 700; }
+.plot-tip em { color: #a9c7c0; font-size: 11px; }
 .shelf-kicker { margin: 0 0 7px; color: #4d6e70; font-size: 12px; font-weight: 750; }
 .shelf-note { margin: 10px 0 0; color: #526b6e; font-size: 12px; line-height: 1.45; }
 .threshold { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-top: 1px solid #cdded6; }
