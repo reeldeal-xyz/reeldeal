@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/reeldeal-logo.svg" alt="Reel Deal" width="128"></p>
+
 # Submission: Reel Deal
 
 ETHGlobal Tokyo 2026, Classic track. Owner: Sailesh (#27). This draft is written to be
@@ -178,8 +180,8 @@ Curvegrid/ENS Labs' deployment, re-verified live 2026-09-26, not ours.
 
 | Contract | Address | Deploy tx | Notes |
 |---|---|---|---|
-| **ReliefPool** (v2, first live run — the 10,000 JPYC payout above) | [`0x560E8404be74DCB7F3877835F374CF1B1B696D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) | [`0x1e583bd2…9505fb`](https://sepolia.etherscan.io/tx/0x1e583bd21588f944a6797a662c55d338f72fa7ec00b530366382c959b79505fb) (block 11785370) | Trigger v2 (`tempC`), EIP-712 domain `{"ReliefPool","2"}`, 2-of-3 signers (#55, #117, #118) |
-| **ReliefPool** (v2, **current demo pool** — the app points here) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | block 11785698, created by `bun run e2e -- --live` | Same v2 contract, 100,000 JPYC seed; SaleRouter donates here |
+| **ReliefPool** (v2, **live pool** — the app points here, proof below) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | block 11785698, created by `bun run e2e -- --live` | Same v2 contract, 100,000 JPYC seed; attested, all 8 karakuwa-east scallop plots settled (below); SaleRouter donates here |
+| ReliefPool (v2, earlier pool, superseded by the redeploy above) | [`0x560E8404be74DCB7F3877835F374CF1B1B696D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) | [`0x1e583bd2…9505fb`](https://sepolia.etherscan.io/tx/0x1e583bd21588f944a6797a662c55d338f72fa7ec00b530366382c959b79505fb) (block 11785370) | Trigger v2 (`tempC`), EIP-712 domain `{"ReliefPool","2"}`, 2-of-3 signers (#55, #117, #118). Redeployed to wire up SaleRouter (#125); this address is no longer what the app or `packages/shared/src/addresses.ts` point to — kept here only because it's where the *first* attest/settle run happened |
 | **SaleRouter** | [`0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) | #125 | Atomic sale → seller + `donate("sale:<orderId>")`; quote signer = co-op signer, max 10% |
 | **HumanRegistry** | [`0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8) | [`0x14757a36…3f4f7aa`](https://sepolia.etherscan.io/tx/0x14757a363b91b2a8e08c2d820523d24da651e59c51c519f993424b7cb3f4f7aa) | |
 | **EnsPlotResolver** | [`0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) | [`0xa372f082…95c78a`](https://sepolia.etherscan.io/tx/0xa372f082de22b95b763cd9d012ac849177b45b2539ba44ed33498ba58195c78a) | |
@@ -194,15 +196,36 @@ Curvegrid/ENS Labs' deployment, re-verified live 2026-09-26, not ours.
 Event `2026-scallop-banweeks-karakuwa` (Karakuwa east scallop shipping restriction,
 May 12 → Sep 15 2026, per the [pinned Miyagi prefecture PDF](https://www.pref.miyagi.jp/documents/24934/080915_mahikeika.pdf),
 sha256 `39851aa6b573d9a4491f48fb2595609ffb07f84ac4a42000ab81fb1c4563d708`), fired at the
-4th weekly `BANWEEKS` checkpoint (June 2):
+4th weekly `BANWEEKS` checkpoint (June 2). Proof below is against the **current live
+pool** (`0xB25888A8...`, the one `packages/shared/src/addresses.ts` and the deployed app
+actually point to), independently re-derived from raw chain logs (`eth_getLogs`, event
+topics decoded against `contracts/src/interfaces/IReliefPool.sol`'s exact signatures via
+`cast keccak`), not just trusted from an API response:
 
-1. Jev's attest gate escalated to co-op review (marginal data-quality read).
-2. Co-op approved; keeper attested — tx [`0x786ad95c…9894190`](https://sepolia.etherscan.io/tx/0x786ad95c1c2712361830c831ea2b9bb9dcd7eecf9bbb8187e1f45f69a9894190).
-3. Keeper settled — tx [`0x9d046a0c…e85fd03`](https://sepolia.etherscan.io/tx/0x9d046a0c9ec189ea9cdcd37789b30e72868152615ba70878775527319e85fd03).
-4. Plot `p1213-001` (World-ID-level-2-verified farmer) **Paid 10,000 JPYC**. The other 7
-   enrolled scallop plots **Held(UNVERIFIED)**.
-5. A LINE "Paid" card was delivered to the farmer via the MultiBaas webhook → LINE push
-   path.
+1. Donated (100,000 JPYC seed) — tx [`0x85715828…d5b2b9`](https://sepolia.etherscan.io/tx/0x857158283b6b660a820ec61017138b66b23ba0bd0dae7de1893ff95d30d5b2b9).
+2. Jev's attest gate escalated to co-op review (marginal data-quality read); co-op
+   approved — keeper attested, tx [`0x8070a0cb…8bbbf2`](https://sepolia.etherscan.io/tx/0x8070a0cbb0861ab028b889224754262315a68529ce8e1be85f761ae0f916d2be).
+3. Settled — tx [`0x635c30a4…4b2ded`](https://sepolia.etherscan.io/tx/0x635c30a45200cfa123b8a214a94bd0bc6a915dbae1eb339ed9f8fa0f554b2ded)
+   (`p1213-001` Paid, `p1213-002..005` Held) and tx [`0x8461479b…fa53518`](https://sepolia.etherscan.io/tx/0x8461479b92beb837751d1a73196085b72de2a215190e77c80cabd3c18fa53518)
+   (`p1213-006..008` Held) — settlement was run in two batches (`POST /api/keeper/replay`
+   is idempotent per-plot; the second batch just finished the remaining unsettled plots).
+4. Plot `p1213-001` (World-ID-level-2-verified farmer, `0x1aEDC8...eEAB51`) **Paid
+   exactly 10,000 JPYC** — decoded directly from the `Paid` event's log data
+   (`10000000000000000000000` wei), not read off a UI. The other 7 enrolled scallop
+   plots are **Held(UNVERIFIED)**.
+5. LINE push: confirmed delivered for the **first** live run against the earlier pool
+   (`0x560E8404...`, tx `0x786ad95c...`/`0x9d046a0c...` below). Not independently
+   re-confirmed for this pool's Paid event — the keeper replay response showed
+   `"sent": false` for the Held pushes it just fired (no linked LINE account on the
+   still-synthetic demo plots), and the earlier Paid push for `p1213-001` on *this* pool
+   happened before this check, so don't claim a fresh LINE screenshot without pulling one.
+
+Earlier run, same event, on the pool this one superseded (`0x560E8404...`, see
+[addresses](#deployed-addresses-sepolia-chain-11155111)): keeper attested (tx
+[`0x786ad95c…9894190`](https://sepolia.etherscan.io/tx/0x786ad95c1c2712361830c831ea2b9bb9dcd7eecf9bbb8187e1f45f69a9894190)),
+settled (tx [`0x9d046a0c…e85fd03`](https://sepolia.etherscan.io/tx/0x9d046a0c9ec189ea9cdcd37789b30e72868152615ba70878775527319e85fd03)),
+`p1213-001` Paid 10,000 JPYC with a confirmed LINE push. Kept here because it's the run
+with confirmed LINE delivery; the address itself is no longer live.
 
 Read honestly: this is a **historical replay** (the 2022–2025 SST/restriction seasons
 pay the live "2026" season slots — `docs/INTERFACE.md`), on **testnet**, with
