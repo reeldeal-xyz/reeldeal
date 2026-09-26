@@ -4,7 +4,7 @@ import { CoopScreen } from '@/components/coop/coop-screen';
 import { asAddress } from '@/lib/contracts';
 import { publicEnv } from '@/lib/env';
 
-export const metadata = { title: 'Co-op · Real Deal' };
+export const metadata = { title: 'Co-op · Reel Deal' };
 
 export default function CoopPage() {
   const deployBlockRaw = publicEnv.reliefPoolDeployBlock();

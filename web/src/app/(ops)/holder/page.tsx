@@ -3,7 +3,7 @@ import { HolderScreen } from '@/components/holder/holder-screen';
 import { asAddress } from '@/lib/contracts';
 import { publicEnv } from '@/lib/env';
 
-export const metadata = { title: 'Holder · Real Deal' };
+export const metadata = { title: 'Holder · Reel Deal' };
 
 export default function HolderPage() {
   return (

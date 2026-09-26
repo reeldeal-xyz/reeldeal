@@ -6,7 +6,7 @@ import { getIndices, getSeries, getTriggers } from '@/lib/feed-client';
 import '@/styles/ocean-theme.css';
 import styles from './map.module.css';
 
-export const metadata: Metadata = { title: 'Map & replay — Real Deal' };
+export const metadata: Metadata = { title: 'Map & replay — Reel Deal' };
 
 const ZONES: readonly Zone[] = ['karakuwa-east', 'kesennuma-bay'];
 const BANWEEKS_SEASON = '2026';
@@ -33,7 +33,7 @@ export default async function MapPage() {
   return (
     <main className={`oceanRoot ${styles.page}`}>
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Real Deal — opening visual</p>
+        <p className={styles.eyebrow}>Reel Deal — opening visual</p>
         <h1 className={styles.title}>Kesennuma Bay, replayed</h1>
         <p className={styles.lede}>
           Scrub a season and watch the scallop and hoya heat indices climb toward their thresholds — the

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 }
 
 const INTENT_INSTRUCTIONS =
-  "Classify the farmer's LINE message into the single best-matching intent for the Real Deal relief-payout bot.";
+  "Classify the farmer's LINE message into the single best-matching intent for the Reel Deal relief-payout bot.";
 
 const INTENT_CRITERIA: Record<Intent, string> = {
   payout_status: 'Asking whether or when a relief payout has arrived, or its current status.',

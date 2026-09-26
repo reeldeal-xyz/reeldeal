@@ -8,7 +8,7 @@ import { resolveEvent } from '@/lib/resolve-event';
 import '@/styles/ocean-theme.css';
 import styles from './verify.module.css';
 
-export const metadata: Metadata = { title: 'Verify a trigger — Real Deal' };
+export const metadata: Metadata = { title: 'Verify a trigger — Reel Deal' };
 
 export default async function VerifyPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
@@ -18,7 +18,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ eventId
     return (
       <main className={`oceanRoot ${styles.page}`}>
         <header className={styles.hero}>
-          <p className={styles.eyebrow}>Real Deal — recompute</p>
+          <p className={styles.eyebrow}>Reel Deal — recompute</p>
           <h1 className={styles.title}>Unknown event</h1>
           <p className={styles.eventId}>{eventId}</p>
         </header>
@@ -57,7 +57,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ eventId
   return (
     <main className={`oceanRoot ${styles.page}`}>
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Real Deal — recompute</p>
+        <p className={styles.eyebrow}>Reel Deal — recompute</p>
         <h1 className={styles.title}>
           {resolved.zone} · {resolved.label} · {resolved.dataSeason}
         </h1>

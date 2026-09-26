@@ -142,7 +142,7 @@ export default function LiffPage() {
       // requestFriendship() doesn't report the outcome; re-check on next visit.
     } catch (err) {
       console.warn('[liff] requestFriendship failed', err);
-      setFriendPromptError('友だち追加を開けませんでした。LINEアプリから直接追加してください。 / Could not open the friend-add dialog. Please add Real Deal from your LINE app.');
+      setFriendPromptError('友だち追加を開けませんでした。LINEアプリから直接追加してください。 / Could not open the friend-add dialog. Please add Reel Deal from your LINE app.');
     }
   }
 
@@ -159,7 +159,7 @@ export default function LiffPage() {
 
   return (
     <main style={styles.main}>
-      <h1 style={styles.brand}>Real Deal</h1>
+      <h1 style={styles.brand}>Reel Deal</h1>
       <p style={styles.tagline}>養殖業者の見舞金アプリ / Relief payouts for aquaculture farmers</p>
 
       {status === 'loading' && <p>読み込み中… / Loading…</p>}
@@ -200,7 +200,7 @@ export default function LiffPage() {
           {isFriend === false && (
             <div style={styles.card}>
               <p style={styles.cardTitleJa}>お知らせを受け取るには友だち追加してください</p>
-              <p style={styles.cardTitleEn}>Add Real Deal as a friend to receive payout notifications</p>
+              <p style={styles.cardTitleEn}>Add Reel Deal as a friend to receive payout notifications</p>
               <button type="button" style={styles.button} onClick={handleAddFriend}>
                 友だち追加 / Add friend
               </button>

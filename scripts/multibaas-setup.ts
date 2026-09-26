@@ -1,4 +1,4 @@
-// Curvegrid MultiBaas setup for Real Deal (issue #23): links ReliefPool, HumanRegistry and JPYC as
+// Curvegrid MultiBaas setup for Reel Deal (issue #23): links ReliefPool, HumanRegistry and JPYC as
 // contracts/addresses, uploads ABIs, enables event indexing, and registers the webhook.
 //
 // Docs used (cite: no single page covers all of this, so this script is built from several):
@@ -243,7 +243,7 @@ async function ensureWebhook(existing: WebhookEndpoint[]): Promise<void> {
 }
 
 async function main() {
-  console.log(`MultiBaas setup for Real Deal — ${APPLY ? 'APPLY mode (will write)' : 'dry run (read-only)'}`);
+  console.log(`MultiBaas setup for Reel Deal — ${APPLY ? 'APPLY mode (will write)' : 'dry run (read-only)'}`);
   console.log(`  MULTIBAAS_URL: ${process.env.MULTIBAAS_URL ?? '(unset)'}`);
 
   const plans = loadPlans();
