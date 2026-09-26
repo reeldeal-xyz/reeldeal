@@ -63,7 +63,7 @@ interface CheckoutPresentation {
 
 const split: ContributionSplitProps = {
   reference: 'Sample order · RD-LOT-001', saleAmount: '2800', sellerAmount: '2520', fundAmount: '280',
-  fundShareLabel: '10% example', state: 'pending',
+  fundShareLabel: '10% example', state: 'proposed',
   explanation: 'Illustrative allocation only. This is not a server quote, inventory reservation or transfer.',
 };
 
@@ -81,7 +81,8 @@ export const checkoutPreviews: Record<CheckoutPreviewState, CheckoutPresentation
   submitted: {
     heading: 'Awaiting confirmation',
     message: 'Example submitted state. Submission does not mark the order paid; confirmation requires a matching successful receipt and events.',
-    actionLabel: 'Waiting for confirmation', split,
+    actionLabel: 'Waiting for confirmation',
+    split: { ...split, state: 'pending', explanation: 'Synthetic submitted contribution awaiting confirmation. This is not a payment receipt.' },
   },
   confirmed: {
     heading: 'Sample payment confirmed',

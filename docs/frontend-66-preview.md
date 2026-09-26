@@ -12,6 +12,8 @@ This branch adds a frontend-only slice of [#66](https://github.com/ss251/reeldea
 
 All values and allocations are local presentation fixtures. The 10% contribution is an example, not a configured contribution policy. Submitted and confirmed remain separate, and no transaction hash or fabricated live receipt is displayed.
 
+Before approval and after wallet rejection, the contribution is labelled **Proposed split**. Only the submitted example uses **Pending**; **Paid** is reserved for the synthetic confirmed state. Checkout stories assert that approval/rejection do not display payment-status badges.
+
 ## Source reuse
 
 Inspected source [PR #37](https://github.com/superposition/reeldeal/pull/37) at `8218163160924ac78cb5a967988b5439336a392a`, plus the current source checkout's market components. Reused its bilingual browsing vocabulary, NFKC search normalization and species/availability filtering approach. The actual existing `MarketCard` remains in use.
