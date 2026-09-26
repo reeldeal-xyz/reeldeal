@@ -1,17 +1,17 @@
 {
   "name": "eth-global-tokyo",
   "private": true,
-  "workspaces": ["packages/*", "pipeline", "web"],
+  "workspaces": ["packages/*", "web"],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test && cd contracts && forge test",
+    "test": "bun run --filter '*' test && bun run pipeline:test && cd contracts && forge test",
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv",
     "abi": "bun scripts/export-abi.ts",
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
-    "pipeline": "bun run --filter pipeline start",
-    "keeper": "bun run --filter web keeper --"
+    "pipeline": "cd pipeline && uv run pipeline-serve",
+    "pipeline:test": "cd pipeline && uv run pytest"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

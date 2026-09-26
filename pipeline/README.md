@@ -335,7 +335,7 @@ These follow from this spec. Coordinate them with the app owner in one PR:
 - `REFERENCE_FIRES`: stays app-side. The pipeline's regression target becomes the daily `SST` series at 38.85N 141.66E for 2022–2025, which must reproduce those fire dates under the app's `RULES` (`heatFiredOn` in `rules.ts`) (`Q10`). `REFERENCE_FIRES` was derived from NASA MUR, which is no longer a source, so it must be re-derived from the JAXA SST series and re-agreed with the app owner.
 - Perils: `HEAT24` / `HEAT25` / `HEAT26` collapse into one `HEAT` peril. The temperature is a rule field (`tempC`), signed on chain as `Trigger.tempC`, and the app counts days from `SST`.
 - `Trigger.dataHash`: the consumer sets it from the `source.sha256` the pipeline returns with each value.
-- Root `package.json`: drop `pipeline` from bun workspaces and point `bun run pipeline` at `uv run` (`Q6`).
+- Root `package.json`: `pipeline` dropped from bun workspaces; `bun run pipeline` runs `uv run pipeline-serve` and `bun run pipeline:test` runs `uv run pytest` (done, `Q6`).
 
 ## 14. Running
 
@@ -357,7 +357,7 @@ uv run pytest tests/hab                               # one module's tests
 - **Q3** Plot inventory: are 海しる 区画漁業権 polygons usable (licence, bulk access), and are they granular enough (fishery-right areas are often larger than individual plots)?
 - **Q4** Species/operation list, and which index parameters (`h` for `HS_HOURS{h}`, depth z for `T_D{z}`) to precompute.
 - **Q5** AWS model priority for the hackathon: which module's model first (heat bias/forecast, HAB onset, storm nowcast/damage)?
-- **Q6** OK to change the root `package.json` / bun workspace now?
+- **Q6** ~~OK to change the root `package.json` / bun workspace now?~~ Resolved 2026-09-26: done (§13).
 - **Q7** Single source for index names and ids: Python generates JSON consumed by `packages/shared`, or the reverse?
 - **Q8** Coastal mask width, and storage: S3 bucket/region and who pays for it.
 - **Q9** JAXA Earth API coverage: what is the grid spacing of the global daily L3 SGLI SST and chl-a collections (250 m, 1 km or coarser), and does the v3 daily record start in 2018 or 2024 (the STAC metadata disagrees)? If the grid is too coarse for bays, is Himawari SST / chl-a from P-Tree (registration, 72 h NRT retention) an acceptable second JAXA source?
