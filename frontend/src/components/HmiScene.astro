@@ -15,7 +15,7 @@ import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
 import type { HabLayerResult } from '../lib/hab-layers.server';
-import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
+import { HAB_MONTHS } from '../lib/hab-layers';
 import { plotSpecies, speciesColor } from '../lib/plot-layer';
 import { selectHmiView } from '../lib/hmi-selection';
 
@@ -182,12 +182,12 @@ const languageHref = (locale: 'en' | 'ja') => {
         <span data-map-message-text></span>
         <button type="button" data-map-retry hidden>{copy.retry}</button>
       </div>
-      <div class="hab-chip" data-hab-chip hidden>
+    </div>
+    <div class="hab-chip" data-hab-chip hidden role="region" aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
         <p><strong>{ja ? 'クロロフィルa（JAXA）' : 'Chlorophyll-a (JAXA)'}</strong> · <span data-hab-chip-period></span></p>
         <div class="hab-ramp" data-hab-chip-ramp></div>
         <p class="hab-ramp-labels"><span data-hab-chip-min></span><span data-hab-chip-max></span></p>
         <p class="hab-chip-caveat">{ja ? '藻類量の指標。貝毒・出荷規制を示すものではありません。' : 'Bloom proxy only; not toxin status or shipment restrictions.'}</p>
-      </div>
     </div>
     <div class="map-tools" role="group" aria-label={copy.panels}>
       <button type="button" class="map-tool" data-shelf="layers" aria-expanded="false" aria-controls="layers-shelf"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 8 9-5 9 5-9 5Z M3 12l9 5 9-5M3 16l9 5 9-5" /></svg><span>{copy.layers}</span></button>
@@ -216,16 +216,6 @@ const languageHref = (locale: 'en' | 'ja') => {
       <div data-response-panel="hab">
         <div data-hab-source data-overlay={habOverlay}></div>
         <p id="hab-reason" class="shelf-note" aria-live="polite" hidden={!habText}>{habText}</p>
-        {habLayer?.tileScale && <section class="hab-legend" data-hab-legend hidden aria-label={ja ? 'クロロフィルa凡例' : 'Chlorophyll-a legend'}>
-          <p class="hab-legend-title">{habLayer.cadence === 'monthly' ? (ja ? `${habLayer.date.slice(0, 7)} 月合成` : `${habLayer.date.slice(0, 7)} monthly composite`) : habLayer.date}</p>
-          <div class="hab-ramp" style={`background: ${scaleGradient(habLayer.tileScale.colors)}`}></div>
-          <p class="hab-ramp-labels"><span>≤{habLayer.tileScale.min}</span><span>{Math.round(Math.sqrt(habLayer.tileScale.min * habLayer.tileScale.max) * 10) / 10}</span><span>≥{habLayer.tileScale.max} {habLayer.tileScale.unit}{habLayer.tileScale.kind === 'log' ? (ja ? '（対数）' : ' (log)') : ''}</span></p>
-          <p class="shelf-note">{ja ? '藻類量の指標。貝毒・出荷規制は示しません。' : 'Algae indicator; not toxin or closure status.'}</p>
-          <details class="layer-details"><summary>{ja ? 'データの詳細' : 'Data details'}</summary>
-            <p class="shelf-note">{ja ? `有効画素 ${(habLayer.validFraction * 100).toFixed(0)}% · 透明部は雲・陸・欠測` : `${(habLayer.validFraction * 100).toFixed(0)}% valid cells · transparent = cloud, land or no data`}</p>
-            <p class="shelf-note">{habLayer.product} · <code>{habLayer.sha256.slice(0, 12)}</code></p>
-          </details>
-        </section>}
       </div>
       <p class="shelf-note layer-date" data-layer-date hidden></p>
     </section>

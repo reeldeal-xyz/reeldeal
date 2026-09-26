@@ -36,10 +36,10 @@
 #hmi-map .leaflet-popup-content { font: 700 13px/1.4 var(--font-body); }
 .coast-stack { position: absolute; top: 94px; left: 12px; z-index: 800; display: grid; gap: 8px; width: min(260px, calc(100vw - 100px)); }
 .coast-label { display: grid; gap: 6px; padding: 9px 11px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
-/* Open panels hide only the label; pipeline status, tile/update messages and the HAB legend stay visible. */
+/* Keep status messages visible when panels open. */
 .hmi-page:has(.map-shelf[data-open]) .coast-label { visibility: hidden; }
 .pipeline-status { margin: 0; padding: 9px 11px; border: 1px solid #d9be9f; border-radius: 4px; background: #fff7ec; font-size: 12px; line-height: 1.45; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
-.hab-chip { padding: 8px 10px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); font-size: 11px; line-height: 1.4; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.hab-chip { position: absolute; z-index: 800; left: 12px; bottom: calc(126px + env(safe-area-inset-bottom)); width: min(260px,calc(100vw - 100px)); padding: 8px 10px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); font-size: 11px; line-height: 1.4; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
 .hab-chip p { margin: 0; }.hab-chip .hab-ramp { height: 8px; margin-top: 6px; }.hab-chip .hab-ramp-labels { font-size: 10px; }
 .hab-chip-caveat { margin-top: 4px !important; color: #526b6e; }
 .plot-picker select, .metric-picker select, .shelf-select select { appearance: none; width: 100%; min-width: 0; height: 44px; padding: 6px 28px 6px 10px; border: 1px solid #86aaa8; border-radius: 6px; color: var(--sea-ink); background: linear-gradient(45deg, transparent 50%, #526b6e 50%) right 12px center / 5px 5px no-repeat, linear-gradient(135deg, #526b6e 50%, transparent 50%) right 7px center / 5px 5px no-repeat, #fff; font: 600 13px var(--font-body); }
@@ -48,8 +48,6 @@
 .language-switch a[aria-current="page"] { color: var(--sea-ink); border-color: #123a3e; background: #e7f1e6; }
 .metric-picker, .shelf-select { display: grid; gap: 4px; margin: 4px 0 10px; color: #526b6e; font-size: 12px; font-weight: 750; }
 .shelf-select { margin: 10px 0 0; }
-.hab-legend { margin-top: 10px; padding-top: 8px; border-top: 1px solid #c5d8d1; overflow-wrap: anywhere; }
-.hab-legend-title { margin: 0; font-size: 12px; line-height: 1.4; }
 .hab-ramp { height: 10px; margin-top: 8px; border-radius: 2px; }
 .hab-ramp-labels { display: flex; justify-content: space-between; gap: 6px; margin: 3px 0 0; color: #526b6e; font-size: 11px; }
 .hmi-page:has(.side-shelf[data-open]) .observations-toggle { visibility: hidden; }
@@ -162,3 +160,7 @@
 
 .layer-details { margin-top: 8px; font-size: 12px; }
 .layer-details summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+
+@media (max-width: 699px) {
+  .hmi-page:has(.hab-chip:not([hidden])) .side-shelf { max-height: min(58dvh,calc(100dvh - 340px - env(safe-area-inset-bottom))); }
+}

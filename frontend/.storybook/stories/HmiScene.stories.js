@@ -112,6 +112,8 @@ export const MobileJapaneseHab = {
     await expect(canvas.getByRole('combobox', { name: 'クロロフィルaの月' })).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: 'レイヤーを閉じる' }));
     await waitFor(() => expect(canvasElement.querySelector('[data-hab-chip]')).toBeVisible());
+    await expect(canvas.getAllByRole('region', { name: 'クロロフィルa凡例' })).toHaveLength(1);
+    expect(canvasElement.querySelector('[data-hab-chip]').getBoundingClientRect().bottom).toBeLessThanOrEqual(canvasElement.querySelector('.coast-dock').getBoundingClientRect().top);
     await expect(canvas.getByText('藻類量の指標。貝毒・出荷規制を示すものではありません。')).toBeVisible();
     await userEvent.click(canvas.getByRole('button', { name: '範囲' }));
     await userEvent.click(canvas.getByRole('button', { name: '範囲を描く' }));

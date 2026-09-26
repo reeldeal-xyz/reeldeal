@@ -315,9 +315,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     const time = hmiLayerDate(seasonInput.value);
     const notes: string[] = [];
     const habSource = habOverlay();
-    const habLegend = scene!.querySelector<HTMLElement>('[data-hab-legend]');
     const habOn = selected.some((input) => input.value === 'hab') && !!habSource;
-    if (habLegend) habLegend.hidden = !habOn;
     const habControls = scene!.querySelector<HTMLElement>('[data-hab-controls]');
     if (habControls) habControls.hidden = !habOn && !!habSource;
     renderHabChip(habOn ? habSource : null);
@@ -330,7 +328,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       });
       watchTiles(overlay, () => copy.tilesFailed);
       activeOverlays.set('hab', overlay.addTo(map));
-      notes.push(habSource.note);
     }
     if (selected.some((input) => layers[input.value])) notes.unshift(`NASA GIBS · ${time}`);
     selected.forEach((input) => {
