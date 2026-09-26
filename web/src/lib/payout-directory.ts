@@ -20,6 +20,15 @@
 // NOT durable across instances on a read-only/ephemeral serverless filesystem (e.g. Vercel's default
 // runtime) -- #15 should move this to real shared KV (Vercel KV / Upstash) once cross-instance durability
 // matters; this module's two functions (`recordPlotWallet`, `bindWalletToLineUser`) are the seam to swap.
+//
+// Railway note (issue #15): Railway runs the web app as a single long-lived Node process (not serverless
+// per-invocation instances), so this JSON-file approach is durable enough there as-is -- the in-memory
+// `cache` and the file both live for the container's lifetime, same as local dev. `.data/` (gitignored) is
+// writable in a standard Railway container; PAYOUT_DIRECTORY_FILE can also point at `/tmp` if `.data/` isn't
+// writable in a given deploy. It only stops being "durable enough" once there's more than one instance
+// (horizontal scaling) or the container restarts/redeploys without a mounted volume -- neither applies to
+// this hackathon's single-service Railway deploy.
+
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env } from './env';
