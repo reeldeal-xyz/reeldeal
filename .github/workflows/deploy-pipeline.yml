@@ -62,7 +62,9 @@ jobs:
           git fetch -q origin $BRANCH
           git checkout -q -f -B $BRANCH $SHA
           cd pipeline
+          docker network inspect reeldeal >/dev/null 2>&1 || docker network create reeldeal
           GIT_SHA=$SHA docker compose up -d --build --wait
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
           docker compose exec -T api python -c \"import json, urllib.request; c = json.load(urllib.request.urlopen('http://127.0.0.1:8787/health'))['commit']; assert c == '$SHA', c; print('health reports', c)\"
           docker image prune -f"
           params=$(jq -nc --arg s "$script" '{commands: ["sudo -u ubuntu -H bash -c \(($s | @sh))"]}')

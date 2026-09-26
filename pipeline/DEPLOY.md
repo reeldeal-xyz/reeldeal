@@ -16,7 +16,7 @@ Files, all in `pipeline/`:
 |---|---|
 | `Dockerfile` | `python:3.12-slim` + uv; installs from `uv.lock` without dev deps; runs uvicorn on :8787 as a non-root user (uid 1000) |
 | `docker-compose.yml` | `api` (not exposed publicly) + `caddy` (ports 80/443) |
-| `Caddyfile` | Reverse proxy to `api:8787` for `$SITE_ADDRESS`; gets a Let's Encrypt certificate |
+| `caddy/Caddyfile` | Reverse proxy to `api:8787` for `$SITE_ADDRESS` and to the web app (`web:4321`, `frontend/DEPLOY.md`) for `app.$SITE_ADDRESS`; gets Let's Encrypt certificates. Deploys reload it. |
 | `.env.example` | Template for `pipeline/.env` on the server (hostname, Copernicus login, bucket) |
 
 ## 1. Local check (optional)
