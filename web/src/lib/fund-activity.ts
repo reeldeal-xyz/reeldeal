@@ -13,6 +13,7 @@ import { ReliefPoolAbi, JPYC } from '@repo/shared';
 import { Erc20Abi } from './erc20-abi';
 import { env } from './env';
 import { fetchMultiBaasEvents, type DonorLedgerEvent } from './multibaas';
+import { sepoliaTransport } from '@/lib/rpc';
 
 export const FUND_EVENT_NAMES = ['Donated', 'Attested', 'Paid', 'Held', 'Claimed', 'Swept'] as const;
 export type FundEventName = (typeof FUND_EVENT_NAMES)[number];
@@ -83,7 +84,7 @@ function fromDonorLedgerEvents(events: DonorLedgerEvent[]): FundActivityEvent[] 
 }
 
 async function fetchViaViem(poolAddress: Address, fromBlock: bigint, rpcUrl: string): Promise<FundActivityEvent[]> {
-  const client = createPublicClient({ chain: sepolia, transport: http(rpcUrl) });
+  const client = createPublicClient({ chain: sepolia, transport: sepoliaTransport(rpcUrl) });
   const events = FUND_EVENT_NAMES.map((name) => {
     try {
       return getAbiItem({ abi: ReliefPoolAbi, name }) as AbiEvent | undefined;
@@ -135,7 +136,7 @@ export function computeTotals(events: FundActivityEvent[], availableWei: string 
 async function readPoolBalance(poolAddress: Address | undefined, rpcUrl: string | undefined): Promise<string | null> {
   if (!poolAddress || !rpcUrl) return null;
   try {
-    const client = createPublicClient({ chain: sepolia, transport: http(rpcUrl) });
+    const client = createPublicClient({ chain: sepolia, transport: sepoliaTransport(rpcUrl) });
     const balance = await client.readContract({ address: JPYC, abi: Erc20Abi, functionName: 'balanceOf', args: [poolAddress] });
     return balance.toString();
   } catch (err) {

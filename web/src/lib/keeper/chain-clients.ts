@@ -15,6 +15,7 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { env } from '@/lib/env';
+import { sepoliaTransport } from '@/lib/rpc';
 
 export type KeeperPublicClient = Pick<
   PublicClient,
@@ -36,7 +37,7 @@ let cached: KeeperChainClients | null = null;
  *  `--dry-run` paths that never send a transaction. */
 export function getKeeperPublicClient(): KeeperPublicClient {
   if (cachedPublicClient) return cachedPublicClient;
-  cachedPublicClient = createPublicClient({ chain: sepolia, transport: http(env.sepoliaRpc()) });
+  cachedPublicClient = createPublicClient({ chain: sepolia, transport: sepoliaTransport() });
   return cachedPublicClient;
 }
 
@@ -45,7 +46,7 @@ export function getKeeperPublicClient(): KeeperPublicClient {
 export function getKeeperChainClients(): KeeperChainClients {
   if (cached) return cached;
   const account = privateKeyToAccount(env.keeperPrivateKey() as Hex);
-  const transport = http(env.sepoliaRpc());
+  const transport = sepoliaTransport();
   const publicClient = createPublicClient({ chain: sepolia, transport });
   const walletClient = createWalletClient({ account, chain: sepolia, transport });
   cached = { publicClient, walletClient, account, chain: sepolia };

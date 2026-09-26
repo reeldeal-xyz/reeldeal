@@ -8,6 +8,7 @@ import { DEPLOYED, signSaleQuote } from '@repo/shared';
 import { env } from '@/lib/env';
 import { getKeeperPublicClient } from '@/lib/keeper/chain-clients';
 import { buildQuote, randomBytes32, serializeQuote, soldListingsCall } from '@/lib/market/quote';
+import { sepoliaTransport } from '@/lib/rpc';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
   if (!key) return Response.json({ error: 'quote_signer_not_configured' }, { status: 503 });
   const router = DEPLOYED.SaleRouter as Address;
   const account = privateKeyToAccount(key as Hex);
-  const wallet = createWalletClient({ account, chain: sepolia, transport: http(env.sepoliaRpc()) });
+  const wallet = createWalletClient({ account, chain: sepolia, transport: sepoliaTransport() });
   const publicClient = getKeeperPublicClient();
 
   const body = await req.json().catch(() => null);
