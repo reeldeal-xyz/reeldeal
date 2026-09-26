@@ -1,0 +1,10 @@
+.wallet-connect { position: relative; }
+.wallet-connect__button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 48px; padding: 6px 10px; border: 1px solid #749b99; border-radius: 4px; background: #faf8ee; color: #123a3e; box-shadow: 0 1px 3px rgb(0 0 0 / .12); font: 800 12px/1.1 var(--font-body); white-space: nowrap; cursor: pointer; }
+.wallet-connect__button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wallet-connect__button:hover,.wallet-connect__button[aria-expanded='true'] { background: #b8ff36; }
+.wallet-connect__button:disabled { opacity: .65; cursor: wait; }
+.wallet-connect__panel,.wallet-connect__error { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1300; width: min(270px, calc(100vw - 24px)); padding: 12px; border: 1px solid #749b99; border-radius: 4px; background: #faf8ee; box-shadow: 0 2px 8px rgb(0 0 0 / .16); color: #123a3e; font: 12px/1.4 var(--font-body); }
+.wallet-connect__panel { display: grid; gap: 8px; }
+.wallet-connect__address { overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
+.wallet-connect__panel button { min-height: 44px; border: 1px solid #749b99; border-radius: 4px; background: white; color: inherit; font-weight: 750; cursor: pointer; }
+.wallet-connect__error { margin: 0; border-color: #b85c50; }

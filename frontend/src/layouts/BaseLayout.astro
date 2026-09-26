@@ -1,10 +1,11 @@
 ---
 import '../styles/global.css';
 import '../styles/market.css';
+import '../styles/wallet.css';
 import reeldealLogo from '../../../docs/assets/reeldeal-logo.svg?url';
 import BrandIntro from '../components/BrandIntro.astro';
 interface Props { title: string; description?: string; section?: string; lang?: 'en' | 'ja' }
-const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'workshop', lang = 'en' } = Astro.props;
+const { title, description = 'ReelDeal supports coastal communities through local goods.', section = 'market', lang = 'en' } = Astro.props;
 const ja = lang === 'ja';
 ---
 <!doctype html>
@@ -38,13 +39,13 @@ const ja = lang === 'ja';
           </svg>
         </a>
         <nav class="site-nav" style="grid-template-columns:repeat(3,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
-          <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
+          <a href="/market" aria-current={section === 'market' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
           <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{section === 'hmi' ? (ja ? '沿岸マップ · パイプラインの実データのみ' : 'Aquaculture HMI · live pipeline data only · incomplete layers are labeled') : 'Component preview · synthetic data · no payments or messages'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
     </div>
   </body>
 </html>

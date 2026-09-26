@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HmiScene from '../components/HmiScene.astro';
-import { NEXT_PUBLIC_REOWN_PROJECT_ID, PIPELINE_API_URL, QUOTE_SIGNER_PRIVATE_KEY } from 'astro:env/server';
+import { NEXT_PUBLIC_REOWN_PROJECT_ID, PIPELINE_API_URL } from 'astro:env/server';
 import { readHmiData } from '../lib/hmi.server';
 import { readHeatRisk } from '../lib/heat-risk.server';
 import { readSpecies } from '../lib/species.server';
@@ -37,8 +37,6 @@ const [risk, speciesInfo, hab] = await Promise.all([
   <HmiScene
     hmi={hmi} risk={risk} speciesInfo={speciesInfo} plotCode={plotCode} season={season} requestedSpecies={requestedSpecies}
     metric={metric} endpoint="/hmi" lang={lang} hab={hab} habMonth={month}
-    walletProjectId={NEXT_PUBLIC_REOWN_PROJECT_ID}
-    checkoutEnabled={Boolean(QUOTE_SIGNER_PRIVATE_KEY)}
-    checkoutUnavailableMessage={QUOTE_SIGNER_PRIVATE_KEY ? undefined : lang === 'ja' ? 'Sepoliaの見積署名者が未設定のため、購入はまだ利用できません。' : 'Checkout is awaiting Sepolia quote signer configuration.'}
+    walletProjectId={NEXT_PUBLIC_REOWN_PROJECT_ID} walletPreview={false}
   />
 </BaseLayout>

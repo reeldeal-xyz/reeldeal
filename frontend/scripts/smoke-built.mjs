@@ -47,18 +47,30 @@ await withServer(undefined, async (request) => {
   const root = await request('/');
   assert.equal(root.status, 302);
   assert.equal(root.headers.get('location'), '/hmi');
-  const hmi = await request('/hmi');
-  assert.equal(hmi.status, 200);
-  assert.match(await hmi.text(), /Coastal map · ReelDeal/);
-  const hmiJa = await request('/hmi?lang=ja');
-  assert.match(await hmiJa.text(), /<html lang="ja"[\s\S]*沿岸マップ · ReelDeal/);
   const health = await request('/health');
   assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await health.json(), { status: 'ok', service: 'umi-frontend' });
-  const workshop = await request('/workshop');
-  assert.equal(workshop.status, 200);
-  const html = await workshop.text();
-  assert(!html.includes(secret), 'Server-only env leaked into HTML');
+  const hmi = await request('/hmi');
+  assert.equal(hmi.status, 200);
+  const hmiHtml = await hmi.text();
+  assert.match(hmiHtml, /Coastal map · ReelDeal/);
+  assert(!hmiHtml.includes(secret), 'Server-only env leaked into HTML');
+  assert.match(hmiHtml, /id="hmi-map"/, 'HMI map container missing');
+  assert.match(hmiHtml, /aria-controls="market-shelf"/, 'HMI market shelf missing');
+  const hmiJa = await request('/hmi?lang=ja');
+  assert.match(await hmiJa.text(), /<html lang="ja"[\s\S]*沿岸マップ · ReelDeal/);
+
+  const market = await request('/market');
+  assert.equal(market.status, 200);
+  const marketHtml = await market.text();
+  assert(!marketHtml.includes(secret), 'Server-only env leaked into HTML');
+  assert.match(marketHtml, /No catch listed yet\./, 'Market empty state missing');
+  assert(!/SaleRouter|JPYC checkout|Open the app to buy|checkout-demo/.test(marketHtml), 'Market page still exposes the demo checkout');
+
+  for (const path of ['/workshop', '/market/checkout-demo', '/api/market/quote']) {
+    assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
+  }
+
   const heat = await request('/api/risk/heat/p1213-001?season=2025');
   assert.equal(heat.status, 503);
   assert.equal(heat.headers.get('cache-control'), 'no-store');
@@ -71,11 +83,7 @@ await withServer(undefined, async (request) => {
   assert.equal((await area([[[141, 38], [142, 39], [141, 39], [142, 38], [141, 38]]])).status, 400);
   assert.equal((await area([[[141, 38], [142, 38], [142, 39], [141, 39], [141, 38]]], '2025-01-01', '2026-01-02')).status, 400);
   assert.equal((await area([[[141, 38], [142, 38], [142, 39], [141, 39], [141, 38]]])).status, 503);
-  assert.match(html, /component-url="[^\"]*BidWorkshop\./);
-  assert.match(html, /component-url="[^\"]*WalletPreview\./);
-  for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
-    assert(html.includes(`/images/fish/${species}-ice.webp`), `Missing species illustration: ${species}`);
-  }
+
   let previewHtml = '';
   for (const [path, heading] of [
     ['/preview', 'Community journeys'],
@@ -93,8 +101,9 @@ await withServer(undefined, async (request) => {
     assert(!page.includes(secret), `Server-only env leaked into ${path}`);
     previewHtml += page;
   }
-  const assets = [...new Set([...(html + previewHtml).matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
-  assert(assets.length >= 6, 'Expected CSS, both islands, renderers, and a visible image');
+  const html = hmiHtml + marketHtml + previewHtml;
+  const assets = [...new Set([...html.matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
+  assert(assets.length >= 6, 'Expected CSS, the wallet island, renderers, the brand logo and preview images');
   for (const asset of assets) {
     const response = await request(asset);
     assert.equal(response.status, 200, `Missing asset: ${asset}`);
@@ -109,7 +118,7 @@ await withServer(undefined, async (request) => {
   for (const path of ['/unknown', '/api/world', '/map/extra', '/verify/']) {
     assert.equal((await request(path)).status, 404, `Unknown route should stay local: ${path}`);
   }
-  console.log(`PASS built health, workshop, six preview routes, ${assets.length} assets, missing-env routes, and local 404s`);
+  console.log(`PASS built health, HMI (en/ja)/market, six preview routes, ${assets.length} assets, removed demo routes, area validation, missing-env routes, and local 404s`);
 });
 
 await withServer('https://legacy.example.test/ignored-base', async (request) => {

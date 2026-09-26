@@ -85,7 +85,8 @@ export const MobileMarket = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
     await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
-    await waitFor(() => expect(canvas.getByRole('button', { name: 'Open the app to buy' })).toBeDisabled());
+    await expect(canvas.getByRole('heading', { name: 'No catch listed yet.' })).toBeVisible();
+    await expect(canvas.queryByRole('button', { name: /buy|checkout/i })).toBeNull();
   },
 };
 export const Desktop1440 = { globals: { viewport: { value: 'desktop1440', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };

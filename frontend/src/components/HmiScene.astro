@@ -4,10 +4,7 @@
 import SpeciesIcon from './SpeciesIcon.astro';
 import HmiObservations from './organisms/HmiObservations.astro';
 import WalletConnect from './react/WalletConnect';
-import CheckoutForm from './solid/CheckoutForm';
-import ContributionSplit from './molecules/relief/ContributionSplit.astro';
-import { DEMO_LISTING } from '../fixtures/market-checkout-demo';
-import { jpycFromBaseUnits } from '../lib/format-amount';
+import MarketEmpty from './molecules/marketplace/MarketEmpty.astro';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
 
@@ -21,16 +18,13 @@ import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
 interface Props {
   hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string;
   endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; lang?: 'en' | 'ja'; hab?: HabLayerResult | null; habMonth?: string;
-  walletProjectId?: string; checkoutEnabled?: boolean; checkoutUnavailableMessage?: string;
+  walletProjectId?: string; walletPreview?: boolean;
 }
 const {
   hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, lang = 'en', hab = null, habMonth = '08',
-  walletProjectId, checkoutEnabled = false, checkoutUnavailableMessage,
+  walletProjectId, walletPreview = true,
 } = Astro.props;
 const ja = lang === 'ja';
-const reliefAmount = DEMO_LISTING.totalWei * BigInt(DEMO_LISTING.reliefBps) / 10_000n;
-const listingPrice = Number(jpycFromBaseUnits(DEMO_LISTING.totalWei) ?? '0').toLocaleString('ja-JP');
-const listingForIsland = { listingId: DEMO_LISTING.listingId, sellerAddress: DEMO_LISTING.sellerAddress, totalWei: DEMO_LISTING.totalWei.toString(), reliefBps: DEMO_LISTING.reliefBps };
 const plots = hmi.status === 'available' ? hmi.plots : [];
 const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
 const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
@@ -160,7 +154,7 @@ const languageHref = (locale: 'en' | 'ja') => {
     <p id="hmi-map-help" class="sr-only">{ja ? '矢印キーで移動、＋／−で拡大・縮小します。区画は「養殖区画」の選択欄から選べます。' : 'Use the arrow keys to pan and +/− to zoom. Choose a plot with the Farm plot select.'}</p>
     <div class="market-actions">
       <button type="button" class="market-action" data-shelf="market" aria-expanded="false" aria-controls="market-shelf">{copy.market}</button>
-      <WalletConnect projectId={walletProjectId} preview={!checkoutEnabled} client:only="react" />
+      <WalletConnect projectId={walletProjectId} preview={walletPreview} client:only="react" />
     </div>
     <div class="coast-stack">
       <div class="coast-label">
@@ -258,27 +252,8 @@ const languageHref = (locale: 'en' | 'ja') => {
 
     <section id="market-shelf" class="map-shelf market-shelf" aria-labelledby="market-heading" inert>
       <header><h2 id="market-heading">{copy.market}</h2><button type="button" data-close-shelf aria-label={ja ? '魚市場を閉じる' : 'Close fish market'}>×</button></header>
-      <p class="shelf-kicker">{ja ? 'Sepolia · JPYC決済' : 'Sepolia · JPYC checkout'}</p>
-      <div class="market-listing">
-        <span class="market-listing__mark" aria-hidden="true">鰹</span>
-        <div><strong>{DEMO_LISTING.titleJa}</strong><span>{DEMO_LISTING.titleEn}</span></div>
-        <b>¥{listingPrice}</b>
-      </div>
-      <p class="shelf-note">{ja
-        ? 'デモ用の固定商品です。販売者アドレスは仮のもので、実際の注文ではなくSepoliaテストネットの取引です。'
-        : 'Fixed demo item. The seller address is a placeholder; this is a Sepolia test transaction, not a real fish order.'}</p>
-      {checkoutUnavailableMessage && <p class="market-shelf__status" role="status">{checkoutUnavailableMessage}</p>}
-      <ContributionSplit
-        reference={`listing:${DEMO_LISTING.listingId.slice(0, 10)}…`}
-        saleAmount={jpycFromBaseUnits(DEMO_LISTING.totalWei) ?? '0'}
-        sellerAmount={jpycFromBaseUnits(DEMO_LISTING.totalWei - reliefAmount) ?? '0'}
-        fundAmount={jpycFromBaseUnits(reliefAmount) ?? '0'}
-        fundShareLabel={`${DEMO_LISTING.reliefBps / 100}%`}
-        state="proposed"
-        explanation={ja ? '署名付き見積で、購入前にこの配分を確認します。' : 'The signed quote confirms this split before checkout.'}
-      />
-      <CheckoutForm listing={listingForIsland} enabled={checkoutEnabled} disabledLabel={checkoutUnavailableMessage ? (ja ? '購入は利用できません' : 'Checkout unavailable') : undefined} client:load />
-      <a class="market-shelf__all" href="/market">{ja ? '魚市場を見る' : 'Explore the fish market'} <span aria-hidden="true">↗</span></a>
+      <MarketEmpty lang={lang} />
+      <a class="market-shelf__all" href="/market">{ja ? '魚市場を見る' : 'View the fish market'}</a>
     </section>
 
     <section id="observations-shelf" class="map-shelf bottom-shelf" aria-labelledby="observations-heading" inert>
