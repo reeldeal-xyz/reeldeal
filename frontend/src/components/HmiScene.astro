@@ -5,7 +5,7 @@ import SpeciesIcon from './SpeciesIcon.astro';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
 
-import { heatCoverage, heatDays } from '@repo/shared';
+import { heatCoverage, heatDays, SPECIES } from '@repo/shared';
 import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
@@ -14,6 +14,7 @@ interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: Speci
 const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint } = Astro.props;
 const plots = hmi.status === 'available' ? hmi.plots : [];
 const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
+const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
 
 const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
 const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
@@ -62,7 +63,11 @@ const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a s
 const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
   : hmi.status === 'not-configured' ? 'Pipeline not configured' : 'Pipeline unavailable';
 const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
-const speciesNames: Record<string, string> = { scallop: 'Scallop', oyster: 'Oyster', hoya: 'Sea pineapple' };
+const speciesNames: Record<string, string> = {
+  scallop: 'Scallop', oyster: 'Oyster', hoya: 'Sea pineapple',
+  nori: 'Nori', wakame: 'Wakame', kombu: 'Kombu', yellowtail: 'Yellowtail',
+  'sea-bream': 'Sea bream', salmon: 'Salmon', 'bluefin-tuna': 'Bluefin tuna',
+};
 ---
 
   <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''}>
@@ -76,15 +81,15 @@ const speciesNames: Record<string, string> = { scallop: 'Scallop', oyster: 'Oyst
     </div>
 
     <section id="layers-shelf" class="map-shelf side-shelf" aria-labelledby="layers-heading" inert>
-      <header><h2 id="layers-heading">Map layers</h2><button type="button" data-close-shelf aria-label="Close layers">×</button></header>
+      <header><h2 id="layers-heading">Layers</h2><button type="button" data-close-shelf aria-label="Close layers">×</button></header>
       <fieldset class="layer-choices"><legend class="sr-only">Map imagery</legend>
-        <label><input type="radio" name="map-layer" value="satellite" checked /><span>Satellite<small>Coast & plot markers</small></span></label>
-        <label><input type="radio" name="map-layer" value="sst" /><span>Temperature<small>Sea surface · °C</small></span></label>
-        <label><input type="radio" name="map-layer" value="anom" /><span>Temperature anomaly<small>Difference from average</small></span></label>
-        <label><input type="radio" name="map-layer" value="chl" /><span>Chlorophyll<small>Ocean colour</small></span></label>
+        <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>Satellite</span></label>
+        <label><input type="checkbox" name="map-layer" value="sst" /><span>Sea temperature</span></label>
+        <label><input type="checkbox" name="map-layer" value="anom" /><span>Temp anomaly</span></label>
+        <label><input type="checkbox" name="map-layer" value="chl" /><span>Chlorophyll</span></label>
       </fieldset>
-      <p class="shelf-note" data-layer-date>Satellite imagery · Esri</p>
-      <p class="shelf-note">Chlorophyll shows ocean colour; it does not confirm a harmful algal bloom.</p>
+      <p class="shelf-note" data-layer-date>Satellite · Esri</p>
+      <p class="shelf-note" data-chlorophyll-note hidden>Chlorophyll shows ocean colour, not a confirmed bloom.</p>
     </section>
 
     <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
@@ -101,7 +106,7 @@ const speciesNames: Record<string, string> = { scallop: 'Scallop', oyster: 'Oyst
 
     <section id="forecast-shelf" class="map-shelf bottom-shelf" aria-labelledby="forecast-heading" inert>
       <header><h2 id="forecast-heading">Forecast</h2><button type="button" data-close-shelf aria-label="Close forecast">×</button></header>
-      <p class="shelf-kicker">Miyagi coast</p><p class="shelf-note">A forecast feed is not connected yet. The map and charts show observed conditions.</p>
+      <p class="shelf-kicker">Miyagi coast</p><p class="shelf-note">Forecast data is unavailable. The map and chart show observed conditions.</p>
     </section>
 
     <section id="observations-shelf" class="map-shelf bottom-shelf" aria-labelledby="observations-heading" inert>
@@ -122,7 +127,7 @@ const speciesNames: Record<string, string> = { scallop: 'Scallop', oyster: 'Oyst
       <input type="hidden" name="metric" value={metric} />
       <input type="hidden" name="season" value={season} />
       <fieldset class="species-picker"><legend class="sr-only">Species</legend>
-        {supportedSpecies.map((item) => <label title={speciesNames[item] ?? item}><input type="radio" name="species" value={item} checked={item === species} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
+        {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · No map plot yet`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
         {!supportedSpecies.length && <p class="shelf-note">No species data</p>}
       </fieldset>
       <div class="season-picker" aria-label="Observation season"><span>Season</span><div><button type="button" data-season-step="-1" aria-label="Previous season" disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label="Next season" disabled={Number(season) >= 2025}>›</button></div></div>
