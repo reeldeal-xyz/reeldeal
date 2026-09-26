@@ -115,6 +115,176 @@ RiskType
 - Units string  
   - concentration ppm, degrees Celsius, wind speed km/h 
 
+### Entity relationships
+
+```mermaid
+erDiagram
+    AquacultureFarmer ||--o{ Farm : owns
+    AquacultureFarmer }o--|| Fund : "member of"
+    Farm }o--|| Species : farms
+    Farm }o--|| Equipment : uses
+    Species ||--o{ Threshold : "tolerates up to"
+    RiskModel ||--o{ Threshold : "evaluated by"
+    RiskModel }o--|| RiskType : predicts
+    RiskModel }o--o{ RiskDataLayer : "reads inputs"
+    RiskDataProvider ||--o{ RiskDataLayer : publishes
+    Threshold ||--o{ Event : "crossed in"
+    Farm ||--o{ Event : "affected by"
+    Fund ||--o{ Event : "pays out for"
+    Fund ||--o{ Transaction : ledger
+    Buyer ||--o{ Transaction : "purchase fee"
+    Donor ||--o{ Transaction : donates
+    AquacultureFarmer |o--o{ Transaction : "pays fee"
+    Event |o--o{ Transaction : payout
+
+    AquacultureFarmer {
+        uuid id PK
+        uuid fund_id FK
+        string wallet "no PII on chain"
+    }
+    Farm {
+        uuid id PK
+        geometry location "GeoJSON polygon, EPSG:4326"
+        string species FK
+        string equipment FK
+        uuid farmer_id FK
+    }
+    Species {
+        string name PK
+    }
+    Equipment {
+        string type PK
+        string description
+    }
+    Threshold {
+        uuid id PK
+        string species FK
+        uuid risk_model_id FK
+        string op "above | below | between"
+        numeric low
+        numeric high
+    }
+    Event {
+        uuid id PK
+        uuid threshold_id FK
+        uuid farm_id FK
+        uuid fund_id FK
+        timestamptz datetime
+    }
+    Fund {
+        uuid id PK
+        numeric total_value "JPYC, 18 decimals"
+    }
+    Transaction {
+        uuid id PK
+        uuid fund_id FK
+        uuid buyer_id FK "nullable"
+        uuid donor_id FK "nullable"
+        uuid farmer_id FK "nullable, fee"
+        uuid event_id FK "nullable, payout"
+        numeric amount
+        string tx_hash
+    }
+    Buyer {
+        uuid id PK
+    }
+    Donor {
+        uuid id PK
+    }
+    RiskDataProvider {
+        string name PK "NASA, ESA, JAXA"
+    }
+    RiskDataLayer {
+        uuid id PK
+        string provider FK
+        string name "e.g. NASA SST"
+        int frequency_days "1 daily, 30 monthly"
+    }
+    RiskModel {
+        uuid id PK
+        string name "e.g. HAB Model v1"
+        string version
+        string risk_type FK
+    }
+    RiskType {
+        string name PK "HAB, Heat Stress, Storm Damage"
+        string units
+    }
+```
+
+Relationships inferred beyond the lists above:
+- "Thresholds by RiskModel" on Species is a `Threshold` row per (species, risk model).
+- Each RiskModel predicts one RiskType.
+- A Transaction has exactly one counterparty: a buyer (ReelDeal sale), a donor, a farmer (fee), or an event (payout).
+- `Fund.total_value` is derived from its Transactions and reconciled with the on-chain ReliefPool balance, which is the source of truth for money.
+- Farmers are stored off-chain. On chain there are only wallets, plot codes and nullifiers.
+
+## Deployment & team plan
+
+Target stack: **FastAPI** (`pipeline/`) for satellite analysis, an **Astro** frontend (replaces the Next.js app in `web/`), and **Postgres + PostGIS** as the system of record for the entities above. Everything runs on the existing single EC2 instance in Tokyo (`pipeline/DEPLOY.md`), extended from one service to four.
+
+```
+Caddy :443 ─┬─ app.<host> → astro  (Astro SSR, @astrojs/node, :4321)
+            └─ api.<host> → api    (FastAPI pipeline, :8787)          [exists]
+astro ─┬─> db: Postgres/PostGIS, schema `app`    (Drizzle migrations, TS)
+       ├─> api: risk index values                (types generated from OpenAPI)
+       └─> Sepolia (ReliefPool, JPYC), MultiBaas, LINE, World ID
+api  ───> db: schema `risk`                      (Alembic migrations, Python)
+cron ───> docker compose run api pipeline all build   (daily layers → S3 + out/)
+```
+
+- **Hosting:** EC2 t3.medium + Elastic IP + Caddy TLS stays as in `pipeline/DEPLOY.md`. sslip.io resolves subdomains (`app.1-2-3-4.sslip.io`). `docker-compose.yml` and `Caddyfile` move to a root `deploy/` so they cover all services.
+- **Database:** a `db` service (`postgis/postgis:16-3.4`) on a named volume, with a nightly `pg_dump` to the existing S3 bucket. Moving to RDS can wait until after the hackathon.
+- **Schema ownership.** This keeps the pipeline's "index values only" boundary. Either side may read the other's schema, but only the owner writes to it.
+  - `risk` is owned by the pipeline: RiskDataProvider, RiskDataLayer, RiskModel, RiskType, plots, zones and stations.
+  - `app` is owned by the app: Farm, AquacultureFarmer, Species, Equipment, Threshold, Event, Fund, Transaction, Buyer and Donor.
+- **Astro:** SSR with the Node adapter and React islands, so `MapCanvas`, `WorldVerify` and the wagmi providers carry over. The Next API routes (keeper, LINE/MultiBaas webhooks, World verify) become Astro endpoints in `src/pages/api/`. Their library code in `web/src/lib/` moves unchanged to `packages/app-core` first.
+- **Secrets** live only in the server's `.env`. Private keys are never `PUBLIC_*`.
+
+Planned layout: `frontend/` (Astro) · `pipeline/` · `packages/shared` (interface contract + generated pipeline types) · `packages/app-core` (server logic) · `contracts/` · `deploy/`. `web/` is removed once Astro reaches parity.
+
+### Workstreams (3–4 developers)
+
+Each workstream owns its paths through `CODEOWNERS`. Changes elsewhere need a review from the owner.
+
+| Owner | Area | Paths | First deliverables |
+|---|---|---|---|
+| **A: Jay** | Pipeline / risk data | `pipeline/**` | `risk` schema + Alembic; real `/heat/*` values for Kesennuma; OpenAPI export |
+| **B** | Astro frontend | `frontend/**` | Scaffold; port `/map`, `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, `/holder` |
+| **C** | App backend + DB | `packages/app-core/**`, `packages/shared/**`, `frontend/src/pages/api/**`, `deploy/db/**` | `app` schema (Drizzle) from the ER diagram; seed data; ported API routes; MultiBaas → Transaction indexer; keeper reads pipeline indices |
+| **D** (C with 3 devs) | Contracts + infra | `contracts/**`, `deploy/**`, `.github/**` | Root compose with `db` + `astro`; CI on PRs; deploy from `main` |
+
+### Interfaces to freeze before parallel work
+
+1. **ER diagram** (above). Changing it takes a PR reviewed by A and C.
+2. **Pipeline API types:** FastAPI's OpenAPI JSON is committed to `packages/shared/openapi/pipeline.json`, and `openapi-typescript` generates `packages/shared/src/generated/pipeline.ts` from it. CI fails if the generated file is stale.
+3. **`packages/shared` + `docs/INTERFACE.md`** stay the chain ↔ app contract (Trigger, ids, rules). See CLAUDE.md.
+4. **`.env.example`** lists every variable, grouped by service.
+
+### Git and CI
+
+- Trunk-based on `main`, with short-lived branches named `<area>/<issue#>-slug` (e.g. `frontend/12-map-page`). Use conventional commits that include the issue number.
+- Issues are labelled `area:pipeline|frontend|app|contracts|infra`, with one milestone per phase.
+- **`ci.yml`** runs on every PR, with jobs filtered by path:
+  - `bun run typecheck` and `bun test`
+  - `forge test`
+  - `uv run pytest`
+  - `astro check && astro build`
+  - OpenAPI drift check
+- **`deploy.yml`** generalizes `deploy-pipeline.yml`. It deploys on push to `main` over the existing OIDC + SSM path and rebuilds only the services whose paths changed (`docker compose up -d --build --wait <svc>`). Add `refs/heads/main` to the OIDC trust policy (`pipeline/DEPLOY.md` §5) and retire the `pipeline` deploy branch.
+- Protect `main`: require 1 approval and green CI.
+
+### Phases
+
+| Phase | Goal | Exit criteria |
+|---|---|---|
+| **0. Foundations** (~2 h, everyone) | Freeze the contracts | ER diagram merged; `CODEOWNERS`; `ci.yml`; `deploy/` compose with `db` and a placeholder Astro app live at `app.<host>` |
+| **1. Parallel build** | Each stream works against mocks | A: real `/heat/risk` for the demo plots. B: pages render from fixtures and generated types. C: migrations, seed data (Kesennuma farms, species, thresholds), ported API routes. D: contracts on Sepolia, addresses in `packages/shared/src/addresses.ts` |
+| **2. Integration** | Replace the mocks | Astro reads the live pipeline and DB. End to end: pipeline SST → keeper Trigger → ReliefPool payout → Transaction row → LINE push |
+| **3. Demo hardening** | A stable demo | Miyagi layers pre-built (`pipeline/DEPLOY.md` §6); DB seeded; `web/` removed; Setup below updated |
+
+Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml up db api`, then `bun run --filter frontend dev`.
+
 ## Repository Structure
 
 - `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
@@ -122,6 +292,7 @@ RiskType
 - `pipeline/` ocean data ingestion, indices, trigger signing, feed server (owner: Jay)
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
+- *Planned* (see Deployment & team plan): `frontend/` Astro app replacing `web/`; `packages/app-core/` server logic moved from `web/src/lib`; `deploy/` root Compose, Caddyfile, Postgres/PostGIS init.
 
 ## Setup
 
