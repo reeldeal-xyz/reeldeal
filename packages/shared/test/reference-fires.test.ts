@@ -4,7 +4,7 @@
 import { expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { computeIndices, evaluateRules, type SeriesDay } from '../src/compute';
+import { evaluateRules, type SeriesDay } from '../src/compute';
 import { REFERENCE_FIRES } from '../src/rules';
 
 const SNAPSHOT = join(import.meta.dir, '../../../pipeline/tests/heat/snapshots/kesennuma-sst-2022-2025.csv');
@@ -17,12 +17,13 @@ function seasonDays(season: string): SeriesDay[] {
   return rows
     .map((line) => line.split(','))
     .filter((r) => r[date]!.startsWith(season))
-    .map((r) => ({ date: r[date]!, sst: r[sst] === '' ? null : Number(r[sst]) }));
+    .map((r) => ({ date: r[date]!, value: r[sst] === '' ? null : Number(r[sst]) }));
 }
 
 for (const season of Object.keys(REFERENCE_FIRES)) {
   test(`REFERENCE_FIRES ${season} matches RULES on the pipeline's JAXA SST snapshot`, () => {
-    const fired = evaluateRules(computeIndices(seasonDays(season)));
+    // Trigger v2: evaluateRules takes the daily SST series directly and applies each HEAT rule's tempC.
+    const fired = evaluateRules(seasonDays(season));
     expect(Object.fromEntries(fired.map((f) => [f.label, f.firedOn]))).toEqual(REFERENCE_FIRES[season as keyof typeof REFERENCE_FIRES]);
   });
 }

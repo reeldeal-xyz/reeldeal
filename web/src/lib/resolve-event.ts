@@ -32,15 +32,15 @@ export async function resolveEvent(eventId: string): Promise<ResolvedEvent | nul
     combos.map(async ({ zone, season }) => ({ zone, season, result: await getTriggers(zone, season) })),
   );
 
-  for (const { zone, result } of results) {
-    for (const t of result.data.triggers) {
+  for (const { zone, season, result } of results) {
+    for (const t of result.data) {
       const species = t.species as Species;
       const peril = t.peril as Peril;
       const id = eventIdOf(zone, species, peril, t.trigger.tier, t.trigger.seasonLabel);
       if (id.toLowerCase() !== target) continue;
       return {
         zone,
-        dataSeason: result.data.season,
+        dataSeason: season,
         label: t.label,
         species,
         peril,

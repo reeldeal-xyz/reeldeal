@@ -118,9 +118,10 @@ describe.skipIf(!HAS_ANVIL)('keeper against a local anvil chain', () => {
       `[${pipelineAccount.address},${coopAccount.address}]`,
       '2',
     ]);
-    // setTierAmount(HEAT26, scallop, tier 2, 20000e18 per unit)
+    // setTierAmount(HEAT, scallop, tier 2, 20000e18 per unit) -- tempC 26 lives in Trigger.tempC now, not
+    // the peril id (Trigger v2, #55); tier alone still keys this uniquely for scallop.
     castSend(poolAddress, 'setTierAmount(bytes32,bytes32,uint8,uint256)', [
-      idOf('HEAT26'),
+      idOf('HEAT'),
       idOf('scallop'),
       '2',
       '20000000000000000000000',

@@ -10,12 +10,12 @@ const values: Record<EvidenceKey, string> = {
   fireDate: '1756339200 · 2025-08-28T00:00:00Z',
   windowStart: '1751328000 · 2025-07-01T00:00:00Z',
   windowEnd: '1759276799 · 2025-09-30T23:59:59Z',
-  rule: 'fixture-heat25-v1 · scallop · HEAT25 · tier 1',
+  rule: 'fixture-heat-v2 · scallop · HEAT (tempC 25) · tier 1',
   dataSeason: '2025',
   payoutSeason: '2026',
   chainId: '11155111 · Sepolia',
   deployment: `0x${'22'.repeat(20)}`,
-  abi: 'fixture-relief-pool-v1',
+  abi: 'fixture-relief-pool-v2',
 };
 const comparisons = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
   recorded: value, evidence: value, result: 'match',

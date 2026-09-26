@@ -1,6 +1,7 @@
 'use client';
 
-import { computeIndices, evaluateRules, parseErddapCsv, sha256Hex, type BuoyFile } from '@repo/shared';
+import { evaluateRules, parseErddapCsv, sha256Hex } from '@repo/shared';
+import type { BuoyFixture } from '@/fixtures/buoy';
 import { useEffect, useState } from 'react';
 import { FixtureBadge } from '@/components/ui/FixtureBadge';
 import type { FeedSource } from '@/lib/feed-client';
@@ -38,7 +39,7 @@ export interface VerifyClientProps {
   resolved: ResolvedEventProps;
   csv: { text: string; source: FeedSource; url: string } | null;
   onChain: OnChainProps;
-  buoy: { data: BuoyFile; source: FeedSource } | null;
+  buoy: { data: BuoyFixture; source: FeedSource } | null;
 }
 
 type Recompute = { status: 'pending' } | { status: 'error' } | { status: 'done'; hash: string; firedOn: string | null; index: number | null };
@@ -62,8 +63,7 @@ export function VerifyClient({ resolved, csv, onChain, buoy }: VerifyClientProps
     (async () => {
       try {
         const hash = await sha256Hex(csv.text);
-        const indices = computeIndices(parseErddapCsv(csv.text));
-        const fired = evaluateRules(indices).find(
+        const fired = evaluateRules(parseErddapCsv(csv.text)).find(
           (f) => f.rule.species === resolved.species && f.rule.peril === resolved.peril && f.rule.tier === resolved.tier,
         );
         if (!cancelled) setRecompute({ status: 'done', hash, firedOn: fired?.firedOn ?? null, index: fired?.index ?? null });
@@ -212,7 +212,7 @@ function OnChainCard({ onChain, recomputedHash }: { onChain: OnChainProps; recom
   );
 }
 
-function BuoyCard({ buoy, firedOn }: { buoy: { data: BuoyFile; source: FeedSource }; firedOn: string }) {
+function BuoyCard({ buoy, firedOn }: { buoy: { data: BuoyFixture; source: FeedSource }; firedOn: string }) {
   const idx = buoy.data.readings.findIndex((r) => r.at.startsWith(firedOn));
   const window = idx >= 0 ? buoy.data.readings.slice(Math.max(0, idx - 2), idx + 3) : buoy.data.readings.slice(0, 5);
   return (

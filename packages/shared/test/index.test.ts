@@ -15,8 +15,7 @@ import {
   TRIGGER_EIP712_TYPES,
   eip712Domain,
   Source,
-  BuoyFile,
-  TriggersFile,
+  IndicesFile,
 } from '../src/index';
 
 describe('identifiers', () => {
@@ -25,6 +24,7 @@ describe('identifiers', () => {
     expect(ZONES).toContain('kesennuma-bay');
     expect(SPECIES).toContain('scallop');
     expect(PERILS).toContain('BANWEEKS');
+    expect(PERILS).toContain('HEAT');
   });
 
   test('idOf is deterministic and 0x-prefixed 32-byte hex', () => {
@@ -40,7 +40,7 @@ describe('identifiers', () => {
     expect(base).toBe(eventIdOf('karakuwa-east', 'scallop', 'BANWEEKS', 1, '2026'));
     expect(base).not.toBe(eventIdOf('kesennuma-bay', 'scallop', 'BANWEEKS', 1, '2026'));
     expect(base).not.toBe(eventIdOf('karakuwa-east', 'hoya', 'BANWEEKS', 1, '2026'));
-    expect(base).not.toBe(eventIdOf('karakuwa-east', 'scallop', 'HEAT24', 1, '2026'));
+    expect(base).not.toBe(eventIdOf('karakuwa-east', 'scallop', 'HEAT', 1, '2026'));
     expect(base).not.toBe(eventIdOf('karakuwa-east', 'scallop', 'BANWEEKS', 2, '2026'));
     expect(base).not.toBe(eventIdOf('karakuwa-east', 'scallop', 'BANWEEKS', 1, '2025'));
   });
@@ -53,6 +53,13 @@ describe('rules and regression targets', () => {
     for (const r of banweeks) expect(r.threshold).toBe(4);
   });
 
+  test('RULES has a tempC for every HEAT rule, and none for BANWEEKS', () => {
+    for (const r of RULES) {
+      if (r.peril === 'HEAT') expect(typeof r.tempC).toBe('number');
+      else expect(r.tempC).toBeUndefined();
+    }
+  });
+
   test('REFERENCE_FIRES 2022 has no fires and 2023 matches the documented regression target', () => {
     expect(Object.keys(REFERENCE_FIRES['2022'])).toHaveLength(0);
     expect(REFERENCE_FIRES['2023']['scallop:2']).toBe('2023-08-14');
@@ -61,14 +68,14 @@ describe('rules and regression targets', () => {
 });
 
 describe('EIP-712 trigger shape', () => {
-  test('eip712Domain matches docs/INTERFACE.md (ReliefPool, v1, Sepolia)', () => {
+  test('eip712Domain matches docs/INTERFACE.md (ReliefPool, v2, Sepolia)', () => {
     const domain = eip712Domain('0x0000000000000000000000000000000000000001');
     expect(domain.name).toBe('ReliefPool');
-    expect(domain.version).toBe('1');
+    expect(domain.version).toBe('2');
     expect(domain.chainId).toBe(11155111);
   });
 
-  test('TRIGGER_EIP712_TYPES.Trigger field order matches the Trigger interface', () => {
+  test('TRIGGER_EIP712_TYPES.Trigger field order matches the Trigger interface, tempC just before dataHash', () => {
     const names = TRIGGER_EIP712_TYPES.Trigger.map((f) => f.name);
     expect(names).toEqual([
       'zoneId',
@@ -81,6 +88,7 @@ describe('EIP-712 trigger shape', () => {
       'firedAt',
       'index',
       'threshold',
+      'tempC',
       'dataHash',
       'deadline',
     ]);
@@ -88,64 +96,36 @@ describe('EIP-712 trigger shape', () => {
 });
 
 describe('feed schemas', () => {
-  test('Source requires a real URL and a 32-byte sha256 hex string', () => {
+  test('Source requires a product name and a 32-byte sha256 hex string', () => {
     expect(() =>
       Source.parse({
-        dataset: 'jplMURSST41',
-        url: 'https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41.csv',
+        product: 'GCOM-C_SGLI_L3-SST.nighttime.v3',
         sha256: 'a'.repeat(64),
+        url: 'https://gportal.jaxa.jp/gpr/search',
         fetchedAt: '2026-09-26T00:00:00Z',
       }),
     ).not.toThrow();
-    expect(() => Source.parse({ dataset: 'x', url: 'not-a-url', sha256: 'a'.repeat(64), fetchedAt: 'x' })).toThrow();
-    expect(() => Source.parse({ dataset: 'x', url: 'https://x.test', sha256: 'not-hex', fetchedAt: 'x' })).toThrow();
+    // url/fetchedAt are optional (e.g. a hand-transcribed prefecture bulletin has no query URL)
+    expect(() => Source.parse({ product: 'hab-bans-miyagi-2025', sha256: 'b'.repeat(64) })).not.toThrow();
+    expect(() => Source.parse({ product: 'x', sha256: 'not-hex' })).toThrow();
+    expect(() => Source.parse({ product: 'x', sha256: 'a'.repeat(64), url: 'not-a-url' })).toThrow();
   });
 
-  test('BuoyFile accepts an unsigned reading list with an optional vsSatellite', () => {
-    const parsed = BuoyFile.parse({
-      station: 'futatsune',
-      month: '2026-08',
-      source: {
-        dataset: 'futatsune-buoy',
-        url: 'http://hydro.browse.jp/hydrolift/54-miyagi/miyagi_data/data0_last.csv',
-        sha256: 'b'.repeat(64),
-        fetchedAt: '2026-09-26T00:00:00Z',
-      },
-      readings: [{ at: '2026-08-01T00:21:32+09:00', tempC: 21.9 }],
-      vsSatellite: { meanDiffC: -0.25, minDiffC: -1.22, maxDiffC: 0.71 },
-    });
-    expect(parsed.readings).toHaveLength(1);
-  });
-
-  test('TriggersFile accepts an unsigned trigger (empty signatures array)', () => {
-    const parsed = TriggersFile.parse({
+  test('IndicesFile accepts one daily series per index, keyed by module', () => {
+    const parsed = IndicesFile.parse({
+      module: 'heat',
+      module_version: 'heat-0.1.0',
       zone: 'karakuwa-east',
-      season: '2026',
-      triggers: [
+      season: '2023',
+      series: [
         {
-          label: 'scallop:1',
-          zone: 'karakuwa-east',
-          species: 'scallop',
-          peril: 'BANWEEKS',
-          firedOn: '2026-06-02',
-          trigger: {
-            zoneId: idOf('karakuwa-east'),
-            speciesId: idOf('scallop'),
-            perilId: idOf('BANWEEKS'),
-            tier: 1,
-            seasonLabel: '2026',
-            windowStart: '1',
-            windowEnd: '2',
-            firedAt: '2',
-            index: 4,
-            threshold: 4,
-            dataHash: `0x${'c'.repeat(64)}`,
-            deadline: '3',
-          },
-          signatures: [],
+          index: 'SST',
+          unit: 'degC',
+          source: { product: 'GCOM-C_SGLI_L3-SST.nighttime.v3', sha256: 'a'.repeat(64) },
+          days: [{ date: '2023-08-11', value: 26.4 }],
         },
       ],
     });
-    expect(parsed.triggers[0]?.signatures).toEqual([]);
+    expect(parsed.series[0]?.days[0]?.value).toBe(26.4);
   });
 });

@@ -22,8 +22,9 @@ contract ScaffoldTest is Test {
         IReliefPool.Trigger memory t;
         t.zoneId = keccak256("karakuwa-east");
         t.speciesId = keccak256("scallop");
-        t.perilId = keccak256("HEAT26");
+        t.perilId = keccak256("HEAT");
         t.tier = 2;
+        t.tempC = 26;
         t.seasonLabel = "2026";
         assertEq(pool.eventIdOf(t), keccak256(abi.encode(t.zoneId, t.speciesId, t.perilId, t.tier, t.seasonLabel)));
     }

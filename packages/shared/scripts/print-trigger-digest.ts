@@ -18,7 +18,7 @@ const idOf = (label: string) => keccak256(toBytes(label));
 const trigger: Trigger = {
   zoneId: idOf('karakuwa-east'),
   speciesId: idOf('scallop'),
-  perilId: idOf('HEAT25'),
+  perilId: idOf('HEAT'),
   tier: 1,
   seasonLabel: '2026',
   windowStart: 1690848000n, // 2023-08-01T00:00:00Z
@@ -26,6 +26,7 @@ const trigger: Trigger = {
   firedAt: 1691798400n, // 2023-08-12T00:00:00Z
   index: 20,
   threshold: 14,
+  tempC: 25, // RULES: scallop tier 1
   dataHash: keccak256(toBytes('eip712-vector-fixture')),
   deadline: 1735689600n, // 2025-01-01T00:00:00Z
 };

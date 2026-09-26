@@ -5,18 +5,20 @@
 // see web/test/fixtures.test.ts for the assertion. kesennuma-bay is derived from it with a coastal
 // offset, in the same spirit as the buoy-vs-satellite offset noted in docs/INTERFACE.md ("Aug 2026 mean
 // -0.25C, -1.22 to +0.71").
-import {
-  computeIndices,
-  computeTriggers,
-  sha256Hex,
-  type IndicesFile,
-  type SeriesDay,
-  type SeriesFile,
-  type TriggersFile,
-  type Zone,
-} from '@repo/shared';
+import { computeTriggers, sha256Hex, type ReplayTrigger, type SeriesDay, type Source, type Zone } from '@repo/shared';
 import type { Hex } from 'viem';
+import { computeHeatIndexDays, type HeatIndexDay } from '@/lib/heat-indices';
 import { BANWEEKS_SEASON, fixtureBanweeksTriggers } from './banweeks';
+
+/** The app's own local shape for a zone/season's SST series + provenance. Not a `@repo/shared` interchange
+ *  type: feed.ts dropped the old per-zone/season `SeriesFile` in Trigger v2 (#55) -- see docs/INTERFACE.md's
+ *  "Removed from the feed" note. `source` still uses the shared `Source` shape (product/sha256/url/fetchedAt). */
+export interface SstSeries {
+  zone: Zone;
+  season: string;
+  source: Source;
+  days: SeriesDay[];
+}
 
 const WINDOW_LEN = 92; // Jul 1 .. Sep 30 inclusive
 
@@ -78,15 +80,15 @@ function buildKarakuwaSeason(year: number, plan: { A: CategoryPlan; B: CategoryP
   const days: SeriesDay[] = [];
   for (let i = 1; i <= WINDOW_LEN; i++) {
     const category: Category = aDays.has(i) ? 'A' : bDays.has(i) ? 'B' : cDays.has(i) ? 'C' : 'D';
-    days.push({ date: dateForWindowDay(year, i), sst: tempFor(category, i) });
+    days.push({ date: dateForWindowDay(year, i), value: tempFor(category, i) });
   }
   return days;
 }
 
 // Category-count plan per replay season, tuned to reproduce REFERENCE_FIRES exactly at the reference
 // point (38.85N 141.66E). See docs/INTERFACE.md and packages/shared/src/rules.ts. Every A-day counts
-// toward HEAT24/25/26, every B-day toward HEAT24/25, every C-day toward HEAT24 only, so the cumulative
-// counts nest correctly (heat26 <= heat25 <= heat24).
+// toward tempC 24/25/26 (>=26), every B-day toward 24/25 (25-26), every C-day toward 24 only (24-25), so
+// the cumulative counts nest correctly (>=26 <= >=25 <= >=24) -- see lib/heat-indices.ts's HeatIndexDay.
 const KARAKUWA_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: CategoryPlan }> = {
   '2022': { A: { count: 0, last: null }, B: { count: 2, last: null }, C: { count: 8, last: null } },
   // 2023: scallop:1 (HEAT25) reaches 14 on Aug 13, the day before scallop:2 (HEAT26) reaches 12 on Aug 14.
@@ -99,9 +101,9 @@ const KARAKUWA_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: Cate
 const KESENNUMA_OFFSET_C = -0.4;
 
 function buildKesennumaSeason(karakuwa: SeriesDay[]): SeriesDay[] {
-  return karakuwa.map(({ date, sst }, i) => ({
+  return karakuwa.map(({ date, value }, i) => ({
     date,
-    sst: sst === null ? null : Number((sst + KESENNUMA_OFFSET_C + (((i * 53) % 10) / 10 - 0.5) * 0.3).toFixed(2)),
+    value: value === null ? null : Number((value + KESENNUMA_OFFSET_C + (((i * 53) % 10) / 10 - 0.5) * 0.3).toFixed(2)),
   }));
 }
 
@@ -120,7 +122,7 @@ const REFERENCE_POINT: Record<Zone, { lat: number; lon: number }> = {
 /** The exact ERDDAP `jplMURSST41` CSV text for `zone`/`season` — the "pinned" file #24 hashes and
  * re-derives indices from. Matches the shape `parseErddapCsv` (packages/shared) expects. */
 export function fixtureCsvText(zone: Zone, season: string): string {
-  const rows = seriesDaysFor(zone, season).map((d) => `${d.date}T09:00:00Z,${d.sst === null ? 'NaN' : d.sst}`);
+  const rows = seriesDaysFor(zone, season).map((d) => `${d.date}T09:00:00Z,${d.value === null ? 'NaN' : d.value}`);
   return ['time,analysed_sst', 'UTC,degree_C', ...rows].join('\n') + '\n';
 }
 
@@ -131,24 +133,24 @@ function erddapUrl(season: string, point: { lat: number; lon: number }): string 
   );
 }
 
-export async function fixtureSeries(zone: Zone, season: string): Promise<SeriesFile> {
+export async function fixtureSeries(zone: Zone, season: string): Promise<SstSeries> {
   const point = REFERENCE_POINT[zone];
   const csv = fixtureCsvText(zone, season);
   const sha256 = await sha256Hex(csv);
   return {
     zone,
     season,
-    source: { dataset: 'jplMURSST41', url: erddapUrl(season, point), sha256, fetchedAt: `${season}-10-01T00:00:00Z`, point },
+    source: { product: 'jplMURSST41', url: erddapUrl(season, point), sha256, fetchedAt: `${season}-10-01T00:00:00Z` },
     days: seriesDaysFor(zone, season),
   };
 }
 
-export function fixtureIndices(zone: Zone, season: string): IndicesFile {
-  return { zone, season, days: computeIndices(seriesDaysFor(zone, season)) };
+export function fixtureIndices(zone: Zone, season: string): HeatIndexDay[] {
+  return computeHeatIndexDays(seriesDaysFor(zone, season));
 }
 
-export async function fixtureTriggers(zone: Zone, season: string): Promise<TriggersFile> {
-  // Season 2026 is the current (non-replay) season and its trigger is a BANWEEKS toxin-ban event (#28),
+export async function fixtureTriggers(zone: Zone, season: string): Promise<ReplayTrigger[]> {
+  // Season 2026 is the current (non-replay) season and its trigger is a BANWEEKS toxin-ban event (#32),
   // not an SST HEAT rule — the plans above have no HEAT data for it. Delegate to the real, pinned fixture.
   if (season === BANWEEKS_SEASON) return fixtureBanweeksTriggers(zone);
 
@@ -157,5 +159,5 @@ export async function fixtureTriggers(zone: Zone, season: string): Promise<Trigg
   const dataHash = `0x${await sha256Hex(csv)}` as Hex;
   const year = Number(season);
   const deadline = BigInt(Math.floor(Date.UTC(year, 9, 31) / 1000)); // Oct 31 of the replay year
-  return { zone, season, triggers: computeTriggers({ zone, days, dataHash, deadline }) };
+  return computeTriggers({ zone, days, dataHash, deadline });
 }

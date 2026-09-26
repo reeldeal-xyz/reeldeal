@@ -48,7 +48,7 @@ contract ReliefPoolEnsForkTest is Test {
     string internal constant BRANCH_LABEL = "karakuwa";
     string internal constant ZONE_LABEL = "karakuwa-east";
     string internal constant SPECIES_LABEL = "scallop";
-    string internal constant PERIL_LABEL = "HEAT25";
+    string internal constant PERIL_LABEL = "HEAT";
     string internal constant SEASON_LABEL = "2026";
     uint64 internal constant REGISTRATION_DURATION = 365 days;
     uint64 internal constant PLOT_LICENCE_DURATION = 3650 days;
@@ -304,6 +304,7 @@ contract ReliefPoolEnsForkTest is Test {
         t.firedAt = uint64(block.timestamp - 2);
         t.index = index_;
         t.threshold = 14;
+        t.tempC = 25; // RULES: scallop tier 1
         t.dataHash = keccak256("fork-test-data");
         t.deadline = deadline_;
     }

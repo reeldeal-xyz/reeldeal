@@ -35,7 +35,8 @@ contract ReliefPoolTest is Test {
 
     bytes32 internal zoneId = keccak256(bytes("karakuwa-east"));
     bytes32 internal speciesId = keccak256(bytes("scallop"));
-    bytes32 internal perilId = keccak256(bytes("HEAT25"));
+    bytes32 internal perilId = keccak256(bytes("HEAT"));
+    uint8 internal constant TEMP_C = 25; // RULES: scallop tier 1
 
     function setUp() public {
         vm.warp(1_700_000_000); // fixed, comfortably > 30 days so _trigger()'s window math never underflows
@@ -93,6 +94,7 @@ contract ReliefPoolTest is Test {
         t.firedAt = uint64(block.timestamp - 2);
         t.index = index_;
         t.threshold = 14;
+        t.tempC = TEMP_C;
         t.dataHash = keccak256("data");
         t.deadline = deadline_;
     }
@@ -116,7 +118,7 @@ contract ReliefPoolTest is Test {
         (, string memory name, string memory version, uint256 chainId, address verifyingContract,,) =
             pool.eip712Domain();
         assertEq(name, "ReliefPool");
-        assertEq(version, "1");
+        assertEq(version, "2");
         assertEq(chainId, block.chainid);
         assertEq(verifyingContract, address(pool));
     }
@@ -409,6 +411,119 @@ contract ReliefPoolTest is Test {
         pool.attest(t, sigs);
     }
 
+    /// @notice Trigger v2 (#55): `tempC` is now hashed into TRIGGER_TYPEHASH just before `dataHash` (see
+    ///         packages/shared/src/trigger.ts / docs/INTERFACE.md). Tampering it after signing must invalidate
+    ///         the signature exactly like every other field -- this is the field the v1 -> v2 digest vector
+    ///         change was for, so it gets its own dedicated test in addition to the sweep below.
+    function test_attest_revertsOnTamperedTempCAfterSigning() public {
+        _seedThreeUnitsAndFunds();
+        IReliefPool.Trigger memory t = _trigger(20, uint64(block.timestamp + 1 days));
+        bytes[] memory sigs = _sign2of3(t);
+        t.tempC = t.tempC + 1; // 25 -> 26: still a byte-valid tempC, but the digest must still change
+
+        vm.expectRevert(IReliefPool.BadSignatures.selector);
+        pool.attest(t, sigs);
+    }
+
+    /// @notice Sweeps every remaining Trigger field (all but tempC/dataHash, covered above): tampering any one
+    ///         of them after signing must invalidate the 2-of-3 signatures set. Each tamper keeps every other
+    ///         attest() precondition satisfied (window elapsed, index >= threshold, deadline not passed) so
+    ///         the revert reason is unambiguously BadSignatures, not one of those other checks.
+    function test_attest_revertsWhenAnyOtherTriggerFieldChangesAfterSigning() public {
+        _seedThreeUnitsAndFunds();
+        uint64 deadline = uint64(block.timestamp + 1 days);
+
+        // zoneId
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.zoneId = keccak256("tampered-zone");
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // speciesId
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.speciesId = keccak256("tampered-species");
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // perilId
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.perilId = keccak256("tampered-peril");
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // tier
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.tier = t.tier + 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // seasonLabel
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.seasonLabel = "2027";
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // windowStart
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.windowStart = t.windowStart - 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // windowEnd (tampered earlier, so it's still <= block.timestamp -- isolates BadSignatures from
+        // WindowNotElapsed)
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.windowEnd = t.windowEnd - 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // firedAt
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.firedAt = t.firedAt - 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // index (tampered up, so it's still >= threshold -- isolates BadSignatures from ThresholdNotMet)
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.index = t.index + 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // threshold (tampered down, so index is still >= threshold)
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.threshold = t.threshold - 1;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+        // deadline (tampered further into the future, so it's still not Expired)
+        {
+            IReliefPool.Trigger memory t = _trigger(20, deadline);
+            bytes[] memory sigs = _sign2of3(t);
+            t.deadline = t.deadline + 1 days;
+            vm.expectRevert(IReliefPool.BadSignatures.selector);
+            pool.attest(t, sigs);
+        }
+    }
+
     // ---------------------------------------------------------------------
     // attest: threshold / deadline / window checks
     // ---------------------------------------------------------------------
@@ -438,7 +553,9 @@ contract ReliefPoolTest is Test {
         t.windowEnd = uint64(block.timestamp + 1 hours);
         bytes[] memory sigs = _sign2of3(t);
 
-        vm.expectRevert(abi.encodeWithSelector(ReliefPool.WindowNotElapsed.selector, t.windowEnd, uint64(block.timestamp)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ReliefPool.WindowNotElapsed.selector, t.windowEnd, uint64(block.timestamp))
+        );
         pool.attest(t, sigs);
     }
 
@@ -460,7 +577,7 @@ contract ReliefPoolTest is Test {
         vm.prank(donor);
         pool.donate(90_000e18, "");
 
-        bytes32 otherPeril = keccak256(bytes("HEAT26"));
+        bytes32 otherPeril = keccak256(bytes("BANWEEKS")); // a real peril, just never setTierAmount'd for this species/tier
         IReliefPool.Trigger memory t = _trigger(20, uint64(block.timestamp + 1 days));
         t.perilId = otherPeril;
         bytes[] memory sigs = _sign2of3(t);
@@ -536,10 +653,11 @@ contract ReliefPoolTest is Test {
     function test_attest_reservedAccumulatesAndShrinksFreeBalanceAcrossEvents() public {
         _enroll("p1213-017", zoneId, speciesId); // 1 unit for (zoneId, speciesId)
 
-        bytes32 tier2Peril = keccak256(bytes("HEAT26"));
+        // v2: scallop tier 1 (tempC 25) and tier 2 (tempC 26) share one perilId ("HEAT") -- `tier` alone
+        // still keys tierAmounts uniquely, since the temperature now lives in Trigger.tempC, not the peril.
         vm.startPrank(admin);
         pool.setTierAmount(perilId, speciesId, 1, 20_000e18);
-        pool.setTierAmount(tier2Peril, speciesId, 2, 50_000e18);
+        pool.setTierAmount(perilId, speciesId, 2, 50_000e18);
         vm.stopPrank();
 
         vm.prank(donor);
@@ -549,9 +667,9 @@ contract ReliefPoolTest is Test {
         pool.attest(t1, _sign2of3(t1)); // reserves min(20000e18, 30000e18/1) * 1 = 20000e18
 
         IReliefPool.Trigger memory t2 = _trigger(20, uint64(block.timestamp + 1 days));
-        t2.perilId = tier2Peril;
         t2.tier = 2;
         t2.threshold = 12;
+        t2.tempC = 26;
         pool.attest(t2, _sign2of3(t2)); // free = 30000e18 - 20000e18 = 10000e18 -> perUnit = min(50000e18, 10000e18)
 
         (,,,, uint256 perUnit2, uint256 reservedAmount2,,) = pool.attestations(pool.eventIdOf(t2));

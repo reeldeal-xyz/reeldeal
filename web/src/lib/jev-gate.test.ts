@@ -6,7 +6,7 @@ type GateChoice = 'attest_now' | 'co_op_review';
 type GateQuestion = { instructions: string; criteria: Record<GateChoice, string> };
 
 const STATE: AttestGateState = {
-  trigger: { zone: 'karakuwa-east', species: 'scallop', peril: 'HEAT25', tier: 1, index: 14, threshold: 14, firedAt: '2026-08-12T00:00:00.000Z' },
+  trigger: { zone: 'karakuwa-east', species: 'scallop', peril: 'HEAT', tier: 1, index: 14, threshold: 14, tempC: 25, firedAt: '2026-08-12T00:00:00.000Z' },
   buoyOffset: { meanDiffC: 0.12, minDiffC: -0.3, maxDiffC: 0.4, sampleCount: 96 },
   daysOfData: 92,
   sourceHashes: ['sha256:deadbeef'],

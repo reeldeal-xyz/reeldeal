@@ -38,7 +38,7 @@ contract ReliefPoolInvariantTest is Test {
         sset[0] = signer1;
         sset[1] = signer2;
         pool.setSigners(sset, 2);
-        pool.setTierAmount(keccak256(bytes("HEAT25")), keccak256(bytes("scallop")), 1, 1_000e18);
+        pool.setTierAmount(keccak256(bytes("HEAT")), keccak256(bytes("scallop")), 1, 1_000e18);
 
         handler = new ReliefPoolHandler(
             pool, jpyc, humans, plotResolver, slotResolver, signer1, signer1Key, signer2, signer2Key

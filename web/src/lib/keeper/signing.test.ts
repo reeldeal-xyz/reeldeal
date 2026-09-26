@@ -25,7 +25,7 @@ function triggersFileFor(signature: Hex) {
         label: 'scallop:2',
         zone: 'karakuwa-east',
         species: 'scallop',
-        peril: 'HEAT26',
+        peril: 'HEAT',
         firedOn: '2023-08-11',
         trigger: {
           zoneId: trigger.zoneId,
@@ -38,6 +38,7 @@ function triggersFileFor(signature: Hex) {
           firedAt: trigger.firedAt.toString(),
           index: trigger.index,
           threshold: trigger.threshold,
+          tempC: trigger.tempC,
           dataHash: trigger.dataHash,
           deadline: trigger.deadline.toString(),
         },

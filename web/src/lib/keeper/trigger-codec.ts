@@ -21,6 +21,7 @@ export function triggerFromJson(json: TriggerJson): Trigger {
     firedAt: BigInt(json.firedAt),
     index: json.index,
     threshold: json.threshold,
+    tempC: json.tempC,
     dataHash: json.dataHash as Hex,
     deadline: BigInt(json.deadline),
   };
@@ -61,8 +62,13 @@ export function buildFallbackTrigger(referenceEventId: string, opts: BuildFallba
   const now = opts.now ?? Date.now;
   const deadlineSeconds = opts.deadlineSeconds ?? 3600;
 
-  const windowStart = rule.window ? windowBoundary(year, rule.window.start, false) : unixSecondsAt(`${ref.dataSeason}-01-01`);
-  const windowEnd = rule.window ? windowBoundary(year, rule.window.end, true) : unixSecondsAt(`${ref.dataSeason}-12-31`);
+  // BANWEEKS (and any other non-HEAT peril) rules carry no rules.ts `window` -- fall back to the fired
+  // date for both bounds, same convention as packages/shared/src/compute.ts's buildTrigger. (Not a full
+  // calendar year: for an in-progress or recently-lifted episode like "2026-scallop-banweeks-karakuwa",
+  // a year-end windowEnd could still be in the future relative to "now", and attest() requires the window
+  // to have already elapsed.)
+  const windowStart = rule.window ? windowBoundary(year, rule.window.start, false) : unixSecondsAt(ref.firedOn);
+  const windowEnd = rule.window ? windowBoundary(year, rule.window.end, true) : unixSecondsAt(ref.firedOn);
 
   return {
     zoneId: idOf(ref.zone),
@@ -75,6 +81,7 @@ export function buildFallbackTrigger(referenceEventId: string, opts: BuildFallba
     firedAt: unixSecondsAt(ref.firedOn),
     index: rule.threshold,
     threshold: rule.threshold,
+    tempC: rule.tempC ?? 0, // HEAT: from the rule. Every other peril (BANWEEKS today): 0.
     dataHash: keccak256(toBytes(`fallback:no-pinned-csv:${ref.id}`)),
     deadline: BigInt(Math.floor(now() / 1000) + deadlineSeconds),
   };
