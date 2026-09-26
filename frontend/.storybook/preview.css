@@ -1,0 +1,5 @@
+.sb-show-main.sb-main-padded { min-height: 100vh; padding: 16px; background: var(--color-paper); }
+.sb-main-padded #storybook-root { width: 100%; max-width: 480px; margin-inline: auto; }
+.sb-main-fullscreen #storybook-root { width: 100%; }
+/* Full page stories own their gutters; component stories get one inset only. */
+.sb-main-padded .market-detail { width: 100%; margin: 0; padding: 0; }

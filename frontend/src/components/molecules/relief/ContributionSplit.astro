@@ -1,0 +1,26 @@
+---
+import Amount from '../../atoms/Amount.astro';
+import Badge from '../../atoms/Badge.astro';
+import Status from '../../atoms/Status.astro';
+import type { ContributionSplitProps } from './props';
+import './relief.css';
+
+interface Props extends ContributionSplitProps {}
+const { reference, saleAmount, sellerAmount, fundAmount, fundShareLabel, state, explanation } = Astro.props;
+---
+
+<section class="relief-card" aria-label="Sale contribution split">
+  <div class="relief-card__head">
+    <div>
+      <h2 class="relief-card__title">Sale contribution</h2>
+      <p class="relief-card__label">{reference}</p>
+    </div>
+    {state === 'proposed' ? <Badge label="Proposed split" tone="ink" /> : <Status state={state} />}
+  </div>
+  <dl class="relief-card__facts">
+    <div class="relief-card__fact"><dt>Buyer pays</dt><dd><Amount value={saleAmount} /></dd></div>
+    <div class="relief-card__fact"><dt>Seller receives</dt><dd><Amount value={sellerAmount} /></dd></div>
+    <div class="relief-card__fact relief-card__fact--fund"><dt>Relief fund · {fundShareLabel}</dt><dd><Amount value={fundAmount} /></dd></div>
+  </dl>
+  <p class="relief-card__note">{explanation}</p>
+</section>

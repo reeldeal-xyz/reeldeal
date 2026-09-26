@@ -1,0 +1,41 @@
+# Reel Deal
+
+## Product
+
+Fisheries and aquaculture relief funded by donations, with public ocean-data
+evidence and Solidity settlement. This spec describes repository boundaries;
+source presence does not prove a provider is live or a deployment is healthy.
+Decision context and consequences live in the [ADRs](../../docs/adrs/README.md),
+derived from the inspected code and owning issues. Keep their status separate from
+implementation and deployment evidence.
+
+## Observed architecture
+
+- `Contracts`: ReliefPool, HumanRegistry, ENS adapters/interfaces, Foundry tests,
+  deployment scripts, and recorded deployments.
+- `Shared`: Trigger/EIP-712 types, feed schemas, rules, computation, ABIs, addresses.
+- `Pipeline`: Python/FastAPI risk API scaffold (domain routes remain 501 stubs)
+  with EC2 deploy files, and pinned buoy, toxin, and geographic datasets. Dataset age
+  is not determined by file modification time.
+- `Application`: existing Next.js UI, API routes, keeper, identity, and LINE integration;
+  the `frontend/` Astro/Storybook foundation redirects legacy pages to `web/`.
+- `Tooling` and `Documentation`: repository operation and maintained contracts.
+
+## Planned integration
+
+| Planned system | Authoritative tickets | Acceptance boundary |
+|---|---|---|
+| Complete frontend migration and app-core | #54, #63, #67, #68 | Foundation exists; preserve existing routes and identity/money behavior |
+| FastAPI risk API | #75–#82 | Real heat values with source hashes; shared handoff #55/#79 |
+| Postgres app/risk schemas | #57, #59, #62 | Separate app/risk ownership and agreed geographic identity |
+| HMI | #32, #36, #40, #47 | Verified datasets first; later station/3D/scenario work |
+
+Plans are not observed source nodes. Update this spec and its source scopes when
+implementation lands. GitHub owns task status; do not copy the backlog here.
+
+## Validation
+
+`bun run dog:map` builds the observed inventory. `bun run dog:check` rejects stale
+maps, uncovered source files, and source/spec changes since explicit review.
+Run domain tests separately: these hashes detect change, not semantic correctness,
+ABI compatibility, dataset freshness, or live infrastructure health.

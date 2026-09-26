@@ -1,5 +1,14 @@
 # Architecture
 
+This describes the current source architecture. The [ADRs](adrs/README.md) record
+the Astro/FastAPI/Postgres target, open compatibility decisions, and the code/issue
+evidence behind each choice. A target decision does not imply a completed migration.
+
+Pipeline status after #84: `pipeline/` is a Python/FastAPI scaffold with stubbed
+domain routes. The diagram's pipeline-to-signed-Trigger segment describes the
+legacy feed boundary still expected by the keeper; the new risk-index handoff
+remains pending under #55/#64/#79.
+
 Donor-funded relief fund for Kesennuma aquaculture farmers. Pays JPYC on Sepolia to the owner of a plot's season slot on ENSv2 when public ocean data crosses a species threshold. Farmers use a LINE LIFF app; World ID caps payouts per real person.
 
 ```

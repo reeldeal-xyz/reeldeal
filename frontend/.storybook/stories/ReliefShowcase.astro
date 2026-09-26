@@ -1,0 +1,28 @@
+---
+import ContributionSplit from '../../src/components/molecules/relief/ContributionSplit.astro';
+import MeasurementRow from '../../src/components/molecules/relief/MeasurementRow.astro';
+import ProvenanceDetails from '../../src/components/molecules/relief/ProvenanceDetails.astro';
+import TransactionRow from '../../src/components/molecules/relief/TransactionRow.astro';
+import {
+  contributionPreviews,
+  measurementPreviews,
+  provenancePreviews,
+  reliefPreviewNotice,
+  transactionPreviews,
+} from '../../src/fixtures/relief-preview';
+
+type Props =
+  | { kind: 'contribution'; sample: keyof typeof contributionPreviews }
+  | { kind: 'measurement'; sample: keyof typeof measurementPreviews }
+  | { kind: 'provenance'; sample: keyof typeof provenancePreviews }
+  | { kind: 'transaction'; sample: keyof typeof transactionPreviews };
+const props = Astro.props as Props;
+---
+
+<div class="relief-preview">
+  <p class="relief-card__label">{reliefPreviewNotice}</p>
+  {props.kind === 'contribution' && <ContributionSplit {...contributionPreviews[props.sample]} />}
+  {props.kind === 'measurement' && <MeasurementRow {...measurementPreviews[props.sample]} />}
+  {props.kind === 'provenance' && <ProvenanceDetails {...provenancePreviews[props.sample]} />}
+  {props.kind === 'transaction' && <TransactionRow {...transactionPreviews[props.sample]} />}
+</div>

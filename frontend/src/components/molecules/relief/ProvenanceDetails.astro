@@ -1,0 +1,21 @@
+---
+import Status from '../../atoms/Status.astro';
+import type { ProvenanceDetailsProps } from './props';
+import './relief.css';
+
+interface Props extends ProvenanceDetailsProps {}
+const { sourceName, datasetLabel, observedAtLabel, retrievedAtLabel, evidenceLabel, state, explanation, open = false } = Astro.props;
+---
+
+<details class="relief-card relief-provenance" open={open}>
+  <summary>Source and provenance</summary>
+  {state === 'unavailable' && <p><Status state="unavailable" /></p>}
+  <dl class="relief-card__facts">
+    <div class="relief-card__fact"><dt>Provider</dt><dd>{sourceName}</dd></div>
+    <div class="relief-card__fact"><dt>Dataset</dt><dd>{datasetLabel}</dd></div>
+    <div class="relief-card__fact"><dt>Observed</dt><dd>{observedAtLabel}</dd></div>
+    <div class="relief-card__fact"><dt>Retrieved</dt><dd>{retrievedAtLabel}</dd></div>
+    <div class="relief-card__fact"><dt>Evidence</dt><dd>{evidenceLabel}</dd></div>
+  </dl>
+  {explanation && <p class="relief-card__note">{explanation}</p>}
+</details>

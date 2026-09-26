@@ -1,0 +1,10 @@
+---
+import Badge from './Badge.astro';
+type State = 'pending' | 'paid' | 'held' | 'loading' | 'unavailable' | 'advisory';
+interface Props { state: State; detail?: string }
+const { state, detail } = Astro.props;
+const labels = { pending: 'Pending', paid: 'Paid', held: 'Held', loading: 'Loading', unavailable: 'Unavailable', advisory: 'Advisory only' };
+const tones = { pending: 'yellow', paid: 'green', held: 'pink', loading: 'blue', unavailable: 'ink', advisory: 'blue' } as const;
+const displayState = Object.hasOwn(labels, state) ? state : 'unavailable';
+---
+<Badge label={labels[displayState]} tone={tones[displayState]} detail={detail} />

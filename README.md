@@ -1,6 +1,6 @@
-Umi is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
+# Reel Deal
 
-## **What is insurance / relief?**
+Reel Deal is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
 
 Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event.
 
@@ -289,7 +289,7 @@ Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml u
 
 - `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
 - `web/` Next.js: donor, co-op, holder screens, `/liff` farmer app, `/verify/[eventId]`, API routes
-- `pipeline/` ocean data ingestion, indices, trigger signing, feed server (owner: Jay)
+- `pipeline/` Python (uv, FastAPI): risk API scaffold for heat, HAB and storm; domain routes remain stubs (501), with index values planned and no Triggers (owner: Jay). Spec: `pipeline/README.md`
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
 - *Planned* (see Deployment & team plan): `frontend/` Astro app replacing `web/`; `packages/app-core/` server logic moved from `web/src/lib`; `deploy/` root Compose, Caddyfile, Postgres/PostGIS init.
@@ -297,12 +297,15 @@ Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml u
 ## Setup
 
 ```sh
-git clone --recurse-submodules <repo> && cd eth-global-tokyo
+git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
+cd reeldeal
 cp .env.example .env
 bun install
+(cd pipeline && uv sync)
 bun run contracts:build && bun run contracts:test
 bun run typecheck
-bun run pipeline   # feed on :8787
+bun run pipeline   # pipeline API on :8787 (uv run pipeline-serve)
+bun run pipeline:test
 bun run dev        # web on :3000
 ```
 

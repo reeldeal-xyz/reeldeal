@@ -1,0 +1,26 @@
+---
+import Address from '../../atoms/Address.astro';
+import Amount from '../../atoms/Amount.astro';
+import Status from '../../atoms/Status.astro';
+import type { TransactionRowProps } from './props';
+import './relief.css';
+
+interface Props extends TransactionRowProps {}
+const { reference, label, amount, recipient, state, timeLabel, explanation } = Astro.props;
+---
+
+<section class="relief-card" aria-label={label}>
+  <div class="relief-card__head">
+    <div>
+      <h2 class="relief-card__title">{label}</h2>
+      <p class="relief-card__label">{reference}</p>
+    </div>
+    <Status state={state} />
+  </div>
+  <p class="relief-card__value"><Amount value={amount} /></p>
+  <dl class="relief-card__facts">
+    <div class="relief-card__fact"><dt>Recipient</dt><dd><Address value={recipient} compact /></dd></div>
+    <div class="relief-card__fact"><dt>Updated</dt><dd>{timeLabel}</dd></div>
+  </dl>
+  <p class="relief-card__note">{explanation}</p>
+</section>

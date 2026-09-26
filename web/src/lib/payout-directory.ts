@@ -20,6 +20,15 @@
 // NOT durable across instances on a read-only/ephemeral serverless filesystem (e.g. Vercel's default
 // runtime) -- #15 should move this to real shared KV (Vercel KV / Upstash) once cross-instance durability
 // matters; this module's two functions (`recordPlotWallet`, `bindWalletToLineUser`) are the seam to swap.
+//
+// Railway note (issue #15): Railway runs the web app as a single long-lived Node process (not serverless
+// per-invocation instances), so this JSON-file approach is durable enough there as-is -- the in-memory
+// `cache` and the file both live for the container's lifetime, same as local dev. `.data/` (gitignored) is
+// writable in a standard Railway container; PAYOUT_DIRECTORY_FILE can also point at `/tmp` if `.data/` isn't
+// writable in a given deploy. It only stops being "durable enough" once there's more than one instance
+// (horizontal scaling) or the container restarts/redeploys without a mounted volume -- neither applies to
+// this hackathon's single-service Railway deploy.
+
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { env } from './env';
@@ -100,3 +109,20 @@ export const payoutDirectory: PayoutDirectory = {
     return data.walletLine[wallet] ?? null;
   },
 };
+
+/** The wallet this LINE user was first linked to, if any (reverse of `walletLine`). */
+export function walletForLineUser(lineUserId: string): string | null {
+  const data = load();
+  for (const [wallet, user] of Object.entries(data.walletLine)) if (user === lineUserId) return wallet;
+  return null;
+}
+
+/** One stable wallet per LINE user: the first wallet a user presents is pinned, and later sessions (a new
+ *  browser context with its own localStorage, a reinstall) get that same wallet back instead of a new one. */
+export function pinWalletForLineUser(lineUserId: string, candidate: string | null): string | null {
+  const existing = walletForLineUser(lineUserId);
+  if (existing) return existing;
+  if (!candidate) return null;
+  bindWalletToLineUser(candidate, lineUserId);
+  return normalizeWallet(candidate);
+}

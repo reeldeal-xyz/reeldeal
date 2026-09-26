@@ -1,0 +1,38 @@
+---
+import Amount from '../../atoms/Amount.astro';
+import Button from '../../atoms/Button.astro';
+import Badge from '../../atoms/Badge.astro';
+import Status from '../../atoms/Status.astro';
+import ContributionSplit from '../../molecules/relief/ContributionSplit.astro';
+import { checkoutPreviews, type CheckoutPreviewState } from '../../../fixtures/marketplace-preview';
+
+interface Props { state?: CheckoutPreviewState }
+const { state = 'approval' } = Astro.props;
+const scenario = checkoutPreviews[state];
+---
+
+<section class="marketplace-checkout" aria-label="Checkout preview">
+  <p class="notice">Synthetic checkout state · no quote, wallet request or money movement.</p>
+  <header class="marketplace-checkout__heading">
+    <div><p class="market-kicker">カツオ / Katsuo</p><h1>{scenario.heading}</h1></div>
+    {state === 'confirmed' ? <Status state="paid" /> : state === 'submitted' ? <Status state="pending" /> : state === 'unavailable' ? <Status state="unavailable" /> : <Badge label={state === 'approval' ? 'Review' : state === 'rejected' ? 'Declined' : 'Failed'} tone={state === 'approval' ? 'yellow' : 'pink'} />}
+  </header>
+  <div class="marketplace-checkout__amount">
+    <span>Example total</span>
+    <strong><Amount value={scenario.split.saleAmount} /></strong>
+  </div>
+  <ContributionSplit {...scenario.split} />
+  <p class="marketplace-checkout__message" role="status">{scenario.message}</p>
+  <Button fullWidth disabled>{scenario.actionLabel}</Button>
+  <p class="marketplace-checkout__note">Controls are disabled in these saved preview states. No order can be approved or submitted here.</p>
+</section>
+
+<style is:inline>
+  .marketplace-checkout { display: grid; gap: var(--space-5); max-width: 600px; margin-inline: auto; background: var(--color-paper); }
+  .marketplace-checkout__heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-4); }
+  .marketplace-checkout__heading h1 { margin: var(--space-3) 0 0; font: 900 1.75rem/1.15 var(--font-impact); }
+  .marketplace-checkout__amount { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+  .marketplace-checkout__amount strong { font-size: 1.75rem; }
+  .marketplace-checkout__message { margin: 0; padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); }
+  .marketplace-checkout__note { margin: 0; font-size: .875rem; color: var(--color-ink-soft); }
+</style>

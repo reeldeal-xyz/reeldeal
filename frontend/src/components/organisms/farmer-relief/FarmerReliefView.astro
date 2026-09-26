@@ -1,0 +1,102 @@
+---
+import Address from '../../atoms/Address.astro';
+import Badge from '../../atoms/Badge.astro';
+import Status from '../../atoms/Status.astro';
+import FarmCard from '../../molecules/relief/FarmCard.astro';
+import TransactionRow from '../../molecules/relief/TransactionRow.astro';
+import ProvenanceDetails from '../../molecules/relief/ProvenanceDetails.astro';
+import ReliefPreviewAction from './react/ReliefPreviewAction';
+import { heldReasonCopy, type FarmerReliefProps } from './props';
+import { claimPreviewState } from './claim-preview';
+import styles from './farmer-relief.css?inline';
+
+interface Props extends FarmerReliefProps {}
+const { farm, plotLabel, seasonLabel, wallet, identityLevel, slot, outcome, updatedAtLabel, provenance, verificationCancelled } = Astro.props;
+const identityKnown = identityLevel === 0 || identityLevel === 1 || identityLevel === 2;
+const verified = identityLevel === 1 || identityLevel === 2;
+const held = outcome.kind === 'held' ? heldReasonCopy[outcome.reason] : null;
+const slotLabels = { unissued: 'Not issued', requested: 'Request pending', issued: 'Issued', expired: 'Expired', revoked: 'Revoked', unavailable: 'Unavailable' };
+const slotCopy = {
+  unissued: 'No season slot is issued to this example account.',
+  requested: 'The co-op has an example request to review. A request is not an issued slot or a payout approval.',
+  issued: 'This example season slot is issued. Slot ownership alone does not establish payout eligibility.',
+  expired: 'This season slot is expired. Contact the co-op about the registration.',
+  revoked: 'This example slot request or registration was revoked. Contact the co-op before requesting it again.',
+  unavailable: 'The current season-slot registration could not be loaded.',
+};
+const claimPreview = claimPreviewState({ outcome, identityLevel, slot, wallet });
+const claimCopy = {
+  'not-applicable': held?.next,
+  'identity-required': held?.next,
+  'identity-unavailable': 'Current identity status is unavailable. The recorded hold does not establish the current verification level, so no claim preview is available.',
+  'wallet-unavailable': 'Identity is verified in this example, but a valid recipient wallet is missing. No claim preview is available.',
+  'slot-required': `${slotCopy[slot]} No claim preview is available without a currently issued slot.`,
+  ready: 'The example identity is now verified and its slot is issued. A claim can be previewed, but the recorded Held outcome remains until confirmation.',
+};
+const heldTitle = outcome.kind === 'held' && outcome.reason === 'UNVERIFIED'
+  ? verified ? 'Identity verified · relief still held' : 'Recorded hold: identity check'
+  : held?.title;
+---
+
+<style is:inline set:html={styles} />
+<article class="farmer-relief" aria-label="Farmer relief preview">
+  <header class="farmer-relief__heading">
+    <p lang="ja">養殖場の支援状況</p>
+    <h1>My relief status</h1>
+    <p>Season {seasonLabel} · {plotLabel}</p>
+  </header>
+  <p class="notice">Synthetic preview · no live identity, farm registration, payment or notification.</p>
+
+  <section class="relief-card farmer-relief__identity" aria-label="Identity and season slot">
+    <div class="relief-card__head">
+      <h2 class="relief-card__title">Identity</h2>
+      {!identityKnown ? <Status state="unavailable" /> : <Badge label={verified ? `Verified · Level ${identityLevel}` : 'Unverified · Level 0'} tone={verified ? 'lime' : 'yellow'} />}
+    </div>
+    <p class="farmer-relief__body">{!identityKnown ? 'Identity status could not be loaded. This does not mean the farmer is unverified.' : verified ? 'Example verified identity. The season slot, event and claim window still determine eligibility.' : 'Identity verification is not complete in this example.'}</p>
+    <dl class="relief-card__facts">
+      <div class="relief-card__fact"><dt>Example wallet</dt><dd><Address value={wallet} compact /></dd></div>
+      <div class="relief-card__fact"><dt>Season slot</dt><dd>{slotLabels[slot]}</dd></div>
+    </dl>
+    <p class="relief-card__note">{slotCopy[slot]}</p>
+    {identityLevel === 0 && outcome.kind !== 'expired' && <ReliefPreviewAction mode="verify" initiallyCancelled={verificationCancelled} client:load />}
+    {slot === 'unissued' && outcome.kind === 'none' && <ReliefPreviewAction mode="request" client:load />}
+  </section>
+
+  {outcome.kind === 'none' && <section class="relief-card" aria-label="Relief outcome">
+    <div class="relief-card__head"><h2 class="relief-card__title">Relief</h2><Badge label="No payout recorded" tone="ink" /></div>
+    <p class="farmer-relief__body">No Paid or Held outcome is recorded for this example. No relief amount or eligibility decision is implied.</p>
+  </section>}
+
+  {(outcome.kind === 'held' || outcome.kind === 'paid') && <TransactionRow
+    reference={`Example event · demo-relief-001 · ${plotLabel}`}
+    label="Farmer relief"
+    amount={outcome.amount}
+    recipient={outcome.kind === 'held' && ['NO_FARMER', 'ZONE_MISMATCH'].includes(outcome.reason) ? undefined : wallet}
+    state={outcome.kind}
+    timeLabel={updatedAtLabel}
+    explanation={outcome.kind === 'paid'
+      ? 'Synthetic confirmed-payment state. This preview has no real transfer or transaction receipt.'
+      : 'Example event allocation only. Held means no payment has been released; the amount is not a receipt.'}
+  />}
+
+  {outcome.kind === 'held' && held && <section class="relief-card" aria-label="Why relief is held">
+    <h2 class="relief-card__title">{heldTitle}</h2>
+    <p class="relief-card__note">{held.detail}</p>
+    <p class="relief-card__note">{claimCopy[claimPreview]}</p>
+    {claimPreview === 'ready' && <ReliefPreviewAction mode="claim" initiallyPending={outcome.claimPending} client:load />}
+  </section>}
+
+  {outcome.kind === 'expired' && <section class="relief-card" aria-label="Claim window closed">
+    <div class="relief-card__head"><h2 class="relief-card__title">Claim window closed</h2><Badge label="Expired" tone="ink" /></div>
+    <p class="farmer-relief__body">This example represents a previously Held allocation whose claim window elapsed and reserve was returned to the pool. It is no longer available to claim.</p>
+    <p class="relief-card__note">Contact the co-op. No payment receipt or currently held balance is shown.</p>
+  </section>}
+
+  {outcome.kind === 'unavailable' && <section class="relief-card" aria-label="Relief status unavailable">
+    <div class="relief-card__head"><h2 class="relief-card__title">Relief status</h2><Status state="unavailable" /></div>
+    <p class="farmer-relief__body">The current outcome could not be loaded. No amount, claim eligibility or payment status can be confirmed.</p>
+  </section>}
+
+  <FarmCard {...farm} />
+  <ProvenanceDetails {...provenance} />
+</article>
