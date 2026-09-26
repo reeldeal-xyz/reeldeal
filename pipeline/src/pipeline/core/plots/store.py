@@ -115,16 +115,12 @@ def lookup(plot_code: str) -> PlotRecord | None:
 
 
 def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    """Current DB inventory, with seed rows only for codes missing from the reachable database."""
+    """Current DB inventory when reachable; reviewed seed only when the database is unavailable."""
     from pipeline.core import db
 
     from . import inventory
 
-    seed = {p.plot_code: p for p in query(bbox, species)}
     try:
-        live = inventory.query(bbox, species)
+        return inventory.query(bbox, species)
     except db.NoDatabase:
-        return list(seed.values())
-
-    seed.update({p.plot_code: p for p in live})
-    return [seed[code] for code in sorted(seed)]
+        return query(bbox, species)
