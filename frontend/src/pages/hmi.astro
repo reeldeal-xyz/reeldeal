@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import HmiScene from '../components/HmiScene.astro';
 import { NEXT_PUBLIC_REOWN_PROJECT_ID, PIPELINE_API_URL } from 'astro:env/server';
 import { readHmiData } from '../lib/hmi.server';
+import { selectHmiView } from '../lib/hmi-selection';
 import { readHeatRisk } from '../lib/heat-risk.server';
 import { readSpecies } from '../lib/species.server';
 import { habMonth } from '../lib/hab-layers';
@@ -14,14 +15,12 @@ const plotCode = Astro.url.searchParams.get('plot') ?? '';
 // The season stepper covers 2022-2026 (#148; 2026 is current and the default); clamp anything else so the page
 // and the stepper agree.
 const requestedSeason = Number(/^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season') : 2026);
-const season = String(Math.min(2026, Math.max(2022, requestedSeason)));
+const season = String(Math.min(new Date().getUTCFullYear(), Math.max(2022, requestedSeason)));
 const requestedSpecies = Astro.url.searchParams.get('species') ?? '';
 const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
   : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
 const plots = hmi.status === 'available' ? hmi.plots : [];
-const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
-const species = plots.flatMap((item) => item.species).includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
+const { plot, species } = selectHmiView(plots, plotCode, requestedSpecies);
 const month = habMonth(Astro.url.searchParams.get('habMonth'));
 const [risk, speciesInfo, hab] = await Promise.all([
   plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,

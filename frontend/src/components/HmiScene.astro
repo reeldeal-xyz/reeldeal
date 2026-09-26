@@ -15,6 +15,7 @@ import type { SpeciesResult } from '../lib/species.server';
 import type { HabLayerResult } from '../lib/hab-layers.server';
 import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
 import { operationColor } from '../lib/plot-layer';
+import { selectHmiView } from '../lib/hmi-selection';
 
 interface Props {
   hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string;
@@ -27,14 +28,9 @@ const {
 } = Astro.props;
 const ja = lang === 'ja';
 const plots = hmi.status === 'available' ? hmi.plots : [];
-const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
+const { plot, species, supportedSpecies, speciesPlots } = selectHmiView(plots, plotCode, requestedSpecies);
 const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
 
-// Default to a plot with species: most fishery-right plots have none recorded, and a species drives every panel.
-const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots.find((item) => item.species.length) ?? plots[0];
-const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
-const speciesPlots = plots.filter((item) => item.species.includes(species));
 
 const copy = ja ? {
   mapLabel: '日本のインタラクティブ地図（宮城県を初期表示）', coast: '日本沿岸', online: '衛星・海洋観測', panels: '地図パネル', market: '魚市場',
@@ -59,6 +55,8 @@ const copy = ja ? {
   overlayUnavailable: '{layer}の画像は{time}には利用できません。',
   plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を集計中…',
   plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNone: '{season}年の海面水温データはありません',
+  plotHeatUnavailable: '{season}年の観測データに接続できません。',
+  plotHeatInvalid: '区画の観測データを検証できませんでした。',
 } : {
   mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
@@ -82,6 +80,8 @@ const copy = ja ? {
   overlayUnavailable: '{layer} imagery is unavailable for {time}.',
   plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
   plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
+  plotHeatUnavailable: 'Observation service unavailable for {season}.',
+  plotHeatInvalid: 'Plot observation response failed validation.',
 };
 const speciesNames: Record<string, string> = ja ? {
   scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', yellowtail: 'ブリ',
@@ -95,8 +95,8 @@ const metricNames = ja
   ? { SST: '海面水温', SST_ANOM: '水温偏差', SST_MONTH: '月平均水温' }
   : { SST: 'Sea temperature', SST_ANOM: 'Temperature anomaly', SST_MONTH: 'Monthly temperature' };
 
-const data = risk?.data ?? null;
-const speciesData = speciesInfo?.data ?? null;
+const data = risk?.data?.plot.plotCode === plot?.plotCode ? risk?.data ?? null : null;
+const speciesData = speciesInfo?.data?.id === species ? speciesInfo.data : null;
 const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
 const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
 const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
@@ -149,6 +149,7 @@ const clientCopy = JSON.stringify({
   updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
   overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl, habLog: ja ? '（対数）' : '(log)',
   plotSelect: copy.plotSelect, plotHeatLoading: copy.plotHeatLoading, plotHeat: copy.plotHeat, plotHeatNone: copy.plotHeatNone,
+  plotHeatUnavailable: copy.plotHeatUnavailable, plotHeatInvalid: copy.plotHeatInvalid,
 });
 const sourceNames: Record<string, string> = ja
   ? { demo: 'デモ用形状', msil: 'MSIL区画形状', fishery_right: '区画漁業権の許可区画', upload: '登録区画形状' }
@@ -181,7 +182,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         <label class="plot-picker"><span class="sr-only">{copy.plot}</span>
           <select name="plot" form="hmi-view" disabled={!speciesPlots.length}>
             {speciesPlots.length
-              ? speciesPlots.map((item) => <option value={item.plotCode} selected={item.plotCode === plot?.plotCode}>{item.plotCode}{item.source === 'demo' ? (ja ? ' · デモ' : ' · demo') : ''}</option>)
+              ? speciesPlots.map((item) => <option value={item.plotCode} selected={item.plotCode === plot?.plotCode}>{item.plotCode}{!item.species.length ? (ja ? ' · 魚種未登録' : ' · species unrecorded') : item.source === 'demo' ? (ja ? ' · デモ' : ' · demo') : ''}</option>)
               : <option value="">{copy.noPlot}</option>}
           </select>
         </label>
@@ -300,7 +301,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
         {!supportedSpecies.length && <p class="shelf-note">{copy.noSpecies}</p>}
       </fieldset>
-      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= 2026}>›</button></div></div>
+      <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= new Date().getUTCFullYear()}>›</button></div></div>
       <p class="dock-status sr-only" data-view-status role="status"></p>
       <noscript><button type="submit">{copy.show}</button></noscript>
     </form>

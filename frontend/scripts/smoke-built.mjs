@@ -24,7 +24,10 @@ async function withServer(legacyOrigin, check) {
   let spawnError;
   child.on('error', (error) => { spawnError = error; });
   const stopped = once(child, 'exit');
-  const request = (path, init = {}) => fetch(origin + path, { ...init, redirect: 'manual', signal: AbortSignal.timeout(3000) });
+  const request = async (path, init = {}) => {
+    try { return await fetch(origin + path, { ...init, redirect: 'manual', signal: AbortSignal.timeout(3000) }); }
+    catch (cause) { throw new Error(`Built smoke request failed: ${path}`, { cause }); }
+  };
   try {
     let ready = false;
     for (let attempt = 0; attempt < 100; attempt++) {

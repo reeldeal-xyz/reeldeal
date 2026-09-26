@@ -5,7 +5,7 @@ export const pipelineDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
 }, 'Invalid calendar date');
 const text = z.string().trim().min(1).max(200);
-export const pipelinePlotCode = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/);
+export const pipelinePlotCode = z.string().regex(/^(?:upload:)?[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/);
 export const pipelineSeason = z.string().regex(/^20\d{2}$/);
 const source = z.object({ product: text, sha256: z.string().regex(/^[a-fA-F0-9]{64}$/) }).strict();
 const pixels = z.object({
