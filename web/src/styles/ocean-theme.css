@@ -1,0 +1,66 @@
+/*
+ * Dark-ocean design tokens for the map (#18) and verify (#24) routes only. Scoped under `.oceanRoot` so
+ * nothing leaks into the rest of the app — other routes (donor/holder/co-op/LIFF) are being built in
+ * parallel and keep the plain default styling from app/layout.tsx.
+ *
+ * Palette: a bioluminescent cyan signature against a near-black sea, coral for "the line crossed the
+ * threshold", amber for "this is fixture/synthetic data, not the real feed". Sized for a projector: large
+ * type, high contrast, generous spacing.
+ */
+.oceanRoot {
+  --ocean-950: #050f14;
+  --ocean-900: #081a22;
+  --ocean-850: #0a2029;
+  --ocean-800: #0d2933;
+  --ocean-700: #123543;
+  --ocean-600: #1b4a5c;
+  --ocean-500: #2c6478;
+
+  --foam-100: #eaf6f5;
+  --foam-300: #b9d8d8;
+  --tide-500: #7ba3ad;
+
+  --bioluminescent: #3df0c9;
+  --bioluminescent-dim: #2a9c82;
+  --heat-500: #ff6a42;
+  --heat-300: #ffab8a;
+  --success-500: #4ade80;
+  --danger-500: #ff5577;
+  --amber-400: #f2b84a;
+
+  --font-display: ui-serif, Georgia, 'Iowan Old Style', 'Noto Serif JP', 'Times New Roman', serif;
+  --font-body: -apple-system, 'Segoe UI', system-ui, Roboto, 'Hiragino Sans', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', 'Noto Sans Mono', monospace;
+
+  background: var(--ocean-950);
+  color: var(--foam-100);
+  font-family: var(--font-body);
+  min-height: 100dvh;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.oceanRoot * {
+  box-sizing: border-box;
+}
+
+.oceanRoot a {
+  color: var(--bioluminescent);
+}
+
+.oceanRoot ::selection {
+  background: var(--bioluminescent-dim);
+  color: var(--ocean-950);
+}
+
+.oceanRoot :focus-visible {
+  outline: 2px solid var(--bioluminescent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oceanRoot * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

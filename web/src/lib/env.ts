@@ -36,4 +36,6 @@ export const env = {
   // so these read plain process.env instead of throwing via need().
   multibaasUrl: () => process.env.MULTIBAAS_URL,
   multibaasApiKey: () => process.env.MULTIBAAS_API_KEY,
+  /** Deployed ReliefPool address (issue #16). Not required: unset means "not deployed yet". */
+  reliefPoolAddress: () => process.env.RELIEF_POOL || undefined,
 };
