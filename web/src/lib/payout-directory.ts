@@ -109,3 +109,20 @@ export const payoutDirectory: PayoutDirectory = {
     return data.walletLine[wallet] ?? null;
   },
 };
+
+/** The wallet this LINE user was first linked to, if any (reverse of `walletLine`). */
+export function walletForLineUser(lineUserId: string): string | null {
+  const data = load();
+  for (const [wallet, user] of Object.entries(data.walletLine)) if (user === lineUserId) return wallet;
+  return null;
+}
+
+/** One stable wallet per LINE user: the first wallet a user presents is pinned, and later sessions (a new
+ *  browser context with its own localStorage, a reinstall) get that same wallet back instead of a new one. */
+export function pinWalletForLineUser(lineUserId: string, candidate: string | null): string | null {
+  const existing = walletForLineUser(lineUserId);
+  if (existing) return existing;
+  if (!candidate) return null;
+  bindWalletToLineUser(candidate, lineUserId);
+  return normalizeWallet(candidate);
+}

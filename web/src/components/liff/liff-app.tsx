@@ -195,8 +195,10 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
     try {
       const level = await fetchWorldLevel(publicClient, addresses.humanRegistry, address);
       setWorldLevel(level);
+      return level;
     } catch (err) {
       console.warn('[liff] failed to read World ID level', err);
+      return null;
     }
   }, [publicClient, addresses.humanRegistry, address]);
 
@@ -250,9 +252,9 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
         const res = await fetch('/api/liff/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({ idToken, wallet: getOrCreateWalletAddress() }),
         });
-        const json = (await res.json()) as { ok?: boolean; user?: SessionUser; error?: string };
+        const json = (await res.json()) as { ok?: boolean; user?: SessionUser; wallet?: string | null; error?: string };
         if (res.status === 401 && !sessionStorage.getItem(RELOGIN_KEY)) {
           // LIFF keeps returning its cached ID token after it expires (~1h), which LINE then rejects.
           // Log out and back in once to get a fresh token; the flag stops a redirect loop.
@@ -269,8 +271,10 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
         if (cancelled) return;
         setUser(json.user);
 
-        // In-app wallet: generated on-device, never leaves this browser as a raw key.
-        setAddress(getOrCreateWalletAddress());
+        // In-app wallet: generated on-device, never leaves this browser as a raw key. The server pins the first
+        // wallet a LINE user presents, so a different browser context shows that same wallet (payouts and
+        // claims are relayed, so this device never needs the pinned wallet's key).
+        setAddress((json.wallet as `0x${string}` | null | undefined) ?? getOrCreateWalletAddress());
 
         // "Request this season's slot" via a QR from the co-op screen: https://liff.line.me/<id>?plot=<label>.
         // LIFF restores the original query string onto the endpoint URL before this code runs, so it's
@@ -376,7 +380,12 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
           console.warn('[liff] world-bind (LINE mapping) failed', err);
         }
       }
-      refreshLevel();
+      // The bind tx may still be pending: re-read the level until it shows up (up to ~45s).
+      for (let i = 0; i < 15; i++) {
+        const level = await refreshLevel();
+        if (level && level > 0) break;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
       refreshStatus();
     } else {
       setWorldBanner({ kind: 'error', message: outcome.message });
