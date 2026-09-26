@@ -55,8 +55,15 @@ bun run storybook:build
 ```
 
 The focused tests exercise missing bytes/deployment/replay season, malformed
-temperature, contradictory match flags, advisory context and independent pending payment state. Storybook
-play checks cover the source disclosure and refusal to show a match for
-advisory/incomplete records. A browser run is still needed to execute those
-play checks and inspect 320/390/1440px layouts. Inline styles preserve this
-organism's CSS in static Storybook; no new shared CSS import is required.
+temperature, contradictory match flags, advisory context and independent
+pending payment state. Storybook play checks cover the source disclosure and
+refusal to show a match for advisory/incomplete records.
+
+Browser review passed the Matching play assertions and the final AdvisoryOnly
+play assertions at 390px, with no observed provenance or payment record shown
+for the forecast. IncompleteEvidence at 320px displayed the unavailable result
+and readable wrapped values. These checks do not establish live verification;
+the remaining story variants and 1440px view still need visual review.
+
+Inline styles preserve this organism's CSS in static Storybook; no new shared
+CSS import is required.
