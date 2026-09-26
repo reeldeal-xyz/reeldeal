@@ -17,14 +17,6 @@
         "zod": "^3.25.0",
       },
     },
-    "pipeline": {
-      "name": "pipeline",
-      "dependencies": {
-        "@repo/shared": "workspace:*",
-        "viem": "^2.56.9",
-        "zod": "^3.25.0",
-      },
-    },
     "web": {
       "name": "web",
       "dependencies": {
