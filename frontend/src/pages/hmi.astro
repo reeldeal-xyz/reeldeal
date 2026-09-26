@@ -1,0 +1,165 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { PIPELINE_API_URL } from 'astro:env/server';
+import { RULES } from '@repo/shared';
+import { heatCoverage } from '@repo/shared';
+import { readHeatRisk } from '../lib/heat-risk.server';
+import { geoPath, geoPoint, readHmiData } from '../lib/hmi.server';
+
+const hmi = await readHmiData(PIPELINE_API_URL);
+const plotCode = Astro.url.searchParams.get('plot') ?? '';
+const season = /^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season')! : '2025';
+const plot = hmi.status === 'available' ? hmi.plots.find((item) => item.plotCode === plotCode) ?? hmi.plots[0] : undefined;
+const selectedSpecies = Astro.url.searchParams.get('species') ?? plot?.species[0] ?? '';
+const supportedSpecies = plot?.species ?? [];
+const species = supportedSpecies.includes(selectedSpecies) ? selectedSpecies : supportedSpecies[0] ?? '';
+const risk = plot ? await readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null;
+const data = risk?.data ?? null;
+const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
+  : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
+const series = data?.indices.filter((item) => item.index === metric) ?? [];
+const values = series.flatMap((item) => item.value === null ? [] : [item.value]);
+const min = values.length ? Math.min(...values) : 0;
+const max = values.length ? Math.max(...values) : 1;
+const chartSegments: string[] = [];
+let chartSegment: string[] = [];
+series.forEach((item, index) => {
+  if (item.value === null) {
+    if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
+    chartSegment = [];
+    return;
+  }
+  chartSegment.push(`${(index / Math.max(series.length - 1, 1) * 760 + 20).toFixed(1)},${(180 - ((item.value - min) / Math.max(max - min, 0.1)) * 140).toFixed(1)}`);
+});
+if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
+const coverage = data ? heatCoverage(data) : null;
+const provenance = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()].slice(0, 4);
+const heatRules = RULES.filter((rule) => rule.species === species && rule.peril === 'HEAT');
+const sst = data?.indices.filter((item) => item.index === 'SST') ?? [];
+const counts = heatRules.map((rule) => ({ rule, count: sst.filter((item) => item.value !== null
+  && item.asOf.slice(5) >= (rule.window?.start ?? '07-01')
+  && item.asOf.slice(5) <= (rule.window?.end ?? '09-30')
+  && item.value >= (rule.tempC ?? Infinity)).length }));
+const statusText = hmi.status === 'not-configured' ? 'Pipeline is not configured for this deployment.'
+  : hmi.status === 'unavailable' ? 'Live plot and zone data are unavailable.'
+  : hmi.status === 'invalid-payload' ? 'Pipeline map data failed validation.' : '';
+const riskText = !plot ? '' : risk?.status === 'not-configured' ? 'Heat data is not configured for this deployment.'
+  : risk?.status === 'unimplemented' ? 'Heat analysis is not implemented by the connected pipeline.'
+  : risk?.status === 'not-found' ? `No heat data for ${plot.plotCode} in ${season}.`
+  : risk?.status === 'stale' ? 'Heat data does not reach the selected season’s required observation date.'
+  : risk?.status === 'partial' ? 'Heat observations have missing or null days.'
+  : risk?.status === 'invalid-payload' ? 'Heat response failed validation.'
+  : risk?.status === 'timeout' || risk?.status === 'unavailable' ? 'Heat service is unavailable.' : '';
+const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a surveyed farm'
+  : plot?.source === 'msil' ? 'MSIL plot geometry' : plot ? 'Uploaded plot geometry' : '';
+const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
+  : hmi.status === 'not-configured' ? 'Pipeline not configured' : 'Pipeline unavailable';
+---
+<BaseLayout title="Aquaculture HMI" description="Japan coastal aquaculture map and species-specific observed heat indicators." section="hmi">
+  <div class="hmi-page">
+    <header class="hmi-heading">
+      <div><p class="eyebrow">REELDEAL · COASTAL INTELLIGENCE</p><h1>Aquaculture HMI</h1><p>Japan coastal plots, observed conditions, and species-specific heat thresholds.</p></div>
+      <span class:list={['live-badge', hmi.status !== 'available' && 'offline']}><i></i>{pipelineStatus}</span>
+    </header>
+    <div class="hmi-workspace">
+      <aside class="hmi-rail" aria-label="Map and risk controls">
+        <form method="get" class="controls">
+          {plot && <input type="hidden" name="plot" value={plot.plotCode} />}
+          <label>Species
+            <select name="species" disabled={!supportedSpecies.length}>
+              {supportedSpecies.map((item) => <option value={item} selected={item === species}>{item.replaceAll('_', ' ')}</option>)}
+            </select>
+          </label>
+          <label>Season
+            <select name="season">
+              {[2025, 2024, 2023, 2022].map((year) => <option value={year} selected={String(year) === season}>{year}</option>)}
+            </select>
+          </label>
+          <label>Observed layer
+            <select name="metric">
+              <option value="SST" selected={metric === 'SST'}>Sea surface temperature</option>
+              <option value="SST_ANOM" selected={metric === 'SST_ANOM'}>Temperature anomaly</option>
+              <option value="SST_MONTH" selected={metric === 'SST_MONTH'}>Monthly temperature</option>
+            </select>
+          </label>
+          <button type="submit">Update view</button>
+        </form>
+        <section class="layer-list" aria-labelledby="layers-title">
+          <h2 id="layers-title">Risk layers</h2>
+          <p class="layer-row"><span class="swatch heat"></span>Heat <small>{data ? 'Observed' : 'Unavailable'}</small></p>
+          <p class="layer-row disabled"><span class="swatch hab"></span>HAB <small>Pipeline 501</small></p>
+          <p class="layer-row disabled"><span class="swatch storm"></span>Storm <small>Pipeline 501</small></p>
+          <p class="layer-note">Environmental observations are shared across species. Species selection changes only the displayed trigger references.</p>
+        </section>
+        <section class="mode-panel" aria-labelledby="mode-title">
+          <h2 id="mode-title">Map mode</h2>
+          <div class="mode-switch"><button type="button" aria-pressed="true">2D</button><button type="button" disabled title="No validated bathymetry or 3D map source is available">3D unavailable</button></div>
+          <p>Bathymetry and validated 3D layers are not connected yet.</p>
+        </section>
+      </aside>
+      <section class="map-panel" aria-labelledby="map-title">
+        <div class="panel-heading"><div><p class="eyebrow">MIYAGI · NORTHEAST JAPAN</p><h2 id="map-title">Farm and sea-area map</h2></div><span class="map-scale">38.8°N · 141.6°E</span></div>
+        {statusText && <p class="notice" role="status">{statusText}</p>}
+        <div class="map-wrap">
+          <svg class="map" viewBox="0 0 800 620" role="img" aria-label="Map of Miyagi coastal sea areas and pipeline plot records">
+            <rect width="800" height="620" fill="#cbe9e8" />
+            <g class="graticule"><path d="M0 155H800M0 310H800M0 465H800M200 0V620M400 0V620M600 0V620" /></g>
+            {hmi.status === 'available' && hmi.zones.map((zone) => zone.geometry && <path d={geoPath(zone.geometry)} class="zone" fill-rule="evenodd"><title>{zone.nameJa ?? zone.name} · approximate monitoring zone</title></path>)}
+            {hmi.status === 'available' && hmi.plots.map((item) => { const [x,y] = geoPoint(item.centroid); const href = `/hmi?plot=${encodeURIComponent(item.plotCode)}&season=${season}&species=${encodeURIComponent(species)}&metric=${metric}`; return <g class={item.source === 'demo' ? 'farm demo' : 'farm'}><path d={geoPath(item.geometry)} class="farm-area"><title>{item.plotCode} · {item.source === 'demo' ? 'synthetic demo' : item.source}</title></path><a href={href} aria-label={`Select plot ${item.plotCode}`}><circle cx={x} cy={y} r={item.plotCode === plot?.plotCode ? 9 : 6} class="plot"><title>{item.plotCode} · select plot</title></circle></a></g>; })}
+            <text x="600" y="570" class="map-label">PACIFIC OCEAN</text>
+            <text x="30" y="594" class="coord">140.5°E — 143.1°E</text>
+          </svg>
+          {!statusText && hmi.status === 'available' && !hmi.plots.length && <p class="empty-map">No plot records in the Miyagi map extent.</p>}
+        </div>
+        <div class="map-legend"><span><i class="legend-plot"></i>Plot record</span><span><i class="legend-demo"></i>Synthetic demo plot</span><span><i class="legend-zone"></i>Approximate sea-area boundary</span></div>
+        {plot && <p class="source-note">Selected {plot.plotCode} · {plotSource} · {plot.prefecture ?? 'Japan'}{plot.seaArea ? ` · ${plot.seaArea}` : ''}</p>}
+      </section>
+      <aside class="detail-rail" aria-label="Selected plot observations">
+        <section class="detail-card">
+          <p class="eyebrow">SELECTED PLOT</p>
+          {plot ? <><h2>{plot.plotCode}</h2><p>{plot.species.map((item) => item.replaceAll('_', ' ')).join(' · ')}</p><p class="source-note">{plotSource}</p></> : <><h2>Live plot data required</h2><p>Plot details appear when the configured pipeline returns records.</p></>}
+        </section>
+        <section class="detail-card">
+          <div class="section-title"><div><p class="eyebrow">OBSERVED · {season}</p><h2>{metric.replace('_', ' ')}</h2></div><span class="unit">°C</span></div>
+          {data && values.length > 1 ? <svg class="chart" viewBox="0 0 800 210" role="img" aria-label={`${metric} observed time series for ${plot?.plotCode}`}><path class="chart-grid" d="M20 40H780M20 110H780M20 180H780"/>{chartSegments.map((points) => <polyline points={points} />)}<text x="20" y="202">{series[0]?.asOf}</text><text x="690" y="202">{series.at(-1)?.asOf}</text></svg> : <p class="empty-chart">{riskText || 'No validated observations to chart.'}</p>}
+          {coverage && <p class="coverage">{coverage.observedDays} observed days · {coverage.nullDays} null · {coverage.omittedDays} missing from response</p>}
+          {!!provenance.length && <p class="coverage">Products: {provenance.map((source) => `${source.product} · ${source.sha256.slice(0, 12)}`).join(' / ')}</p>}
+        </section>
+        <section class="detail-card">
+          <p class="eyebrow">SPECIES RESPONSE REFERENCES</p><h2>{species ? species.replaceAll('_', ' ') : 'Select a species'}</h2>
+          {counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>Tier {rule.tier}</strong><span>{rule.tempC}°C · {rule.window?.start} to {rule.window?.end}</span></div><b>{count}/{rule.threshold} days</b></div>) : <p>No heat threshold is defined for this species.</p>}
+          <p class="layer-note">Observed count only. This screen does not determine eligibility or relief payment.</p>
+        </section>
+        <section class="detail-card forecast-card"><p class="eyebrow">FORECAST & EVENT REPLAY</p><h2>Unavailable</h2><p>Storm #25/#26 replay and forecast require validated event tracks and impact data. No forecast is inferred from current observations.</p></section>
+      </aside>
+    </div>
+    <footer class="hmi-foot">Data source: pipeline response provenance is retained per observation. Sea-area boundaries are approximate; plot records may be synthetic.</footer>
+  </div>
+</BaseLayout>
+<style>
+  :global(.app-frame:has(.hmi-page)) { width: min(calc(100% - 32px), 1500px); height: auto; min-height: min(900px, calc(100dvh - 32px)); max-height: none; overflow: visible; border-radius: 22px; }
+  :global(.app-frame:has(.hmi-page) > main) { min-height: 0; }
+  .hmi-page { --hmi-ink: #102a30; --hmi-muted: #587078; width: min(100% - 36px, 1420px); margin: 24px auto 18px; color: var(--hmi-ink); }
+  .hmi-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 20px; }
+  h1,h2,p { margin: 0; } h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.04em; } h2 { font-size: 1.05rem; line-height: 1.2; }
+  .hmi-heading > div > p:last-child { margin-top: 8px; color: var(--hmi-muted); }
+  .eyebrow { margin-bottom: 6px; color: #39717a; font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+  .live-badge { flex: none; padding: 8px 11px; border: 1px solid #96b9b5; border-radius: 999px; color: #335e61; background: #edf7f2; font-size: .72rem; }.live-badge.offline { border-color: #cfb4a1; color: #785545; background: #faf1e8; }.live-badge.offline i { background: #c77b50; }
+  .live-badge i,.swatch { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #178c73; }
+  .hmi-workspace { display: grid; grid-template-columns: 208px minmax(350px, 1fr) 300px; gap: 14px; align-items: start; }
+  .hmi-rail,.detail-rail { display: grid; gap: 12px; }
+  .controls,.layer-list,.mode-panel,.map-panel,.detail-card { padding: 15px; border: 1px solid #c7d6d1; border-radius: 10px; background: #fbfcf8; box-shadow: 0 2px 7px #163e4410; }
+  .controls { display: grid; gap: 11px; } label { display: grid; gap: 4px; color: var(--hmi-muted); font-size: .76rem; font-weight: 700; }
+  select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid #a6bdb8; border-radius: 6px; color: var(--hmi-ink); background: white; font: inherit; text-transform: capitalize; }
+  .controls button { min-height: 40px; border: 0; border-radius: 6px; color: white; background: #124750; font: inherit; font-weight: 750; cursor: pointer; }
+  .layer-list h2,.mode-panel h2 { margin-bottom: 10px; }
+  .layer-row { display: flex; align-items: center; padding: 7px 0; border-top: 1px solid #e1e9e4; font-size: .82rem; text-transform: capitalize; }
+  .layer-row small { margin-left: auto; color: var(--hmi-muted); font-size: .66rem; text-transform: none; }
+  .swatch.heat { background: #db714d; }.swatch.hab { background: #8d60a9; }.swatch.storm { background: #547bca; }.disabled { opacity: .62; }
+  .layer-note,.mode-panel > p,.source-note,.coverage { margin-top: 9px; color: var(--hmi-muted); font-size: .7rem; line-height: 1.45; }
+  .mode-switch { display: flex; gap: 5px; }.mode-switch button { min-height: 34px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; font-size: .72rem; font-weight: 700; }.mode-switch [aria-pressed="true"] { color: white; background: #124750; }.mode-switch button:disabled { opacity: .6; }
+  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: auto; min-height: 370px; }.graticule { fill: none; stroke: #66999c; stroke-width: .7; opacity: .26; }.zone { fill: #b8bb88; fill-opacity: .2; stroke: #75846c; stroke-width: 1.5; stroke-dasharray: 5 4; }.farm-area { fill: #df6948; fill-opacity: .22; stroke: #c65339; stroke-width: 2; }.farm.demo .farm-area { fill: #dfa83f; stroke: #57461e; stroke-dasharray: 5 3; }.plot { fill: #e15f43; stroke: white; stroke-width: 3; }.map-label { fill: #4a7e83; font-size: 18px; font-weight: 800; letter-spacing: 3px; opacity: .75; }.coord { fill: #526b6a; font-size: 12px; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }
+  .detail-card h2 { margin-bottom: 7px; text-transform: capitalize; }.detail-card > p:not(.eyebrow) { color: var(--hmi-muted); font-size: .78rem; line-height: 1.45; }.section-title { align-items: end; }.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }.chart polyline { fill: none; stroke: #ce6548; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }.chart-grid { fill: none; stroke: #d9e3dd; stroke-width: 1; }.chart text { fill: var(--hmi-muted); font-size: 11px; }.empty-chart { margin-top: 12px; }.threshold { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e9e4; font-size: .75rem; }.threshold div { display: grid; gap: 2px; }.threshold span { color: var(--hmi-muted); font-size: .67rem; }.threshold b { white-space: nowrap; }.forecast-card { border-color: #dbcbc1; background: #faf6f0; }.hmi-foot { padding-top: 13px; color: var(--hmi-muted); font-size: .68rem; }
+  @media(max-width: 980px) { .hmi-workspace { grid-template-columns: 190px minmax(0,1fr); }.detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); }.detail-card { min-width: 0; } }
+  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.live-badge { display: inline-block; margin-top: 12px; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.map { min-height: 260px; }.panel-heading { align-items: start; }.map-scale { text-align: right; } }
+</style>

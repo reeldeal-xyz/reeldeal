@@ -16,6 +16,7 @@
         "@astrojs/node": "11.1.6",
         "@astrojs/react": "7.0.0",
         "@astrojs/solid-js": "7.0.2",
+        "@repo/shared": "workspace:*",
         "astro": "7.3.5",
         "cookie": "2.0.1",
         "react": "^19.2.0",

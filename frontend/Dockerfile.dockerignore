@@ -3,6 +3,8 @@
 !package.json
 !bun.lock
 !packages/shared/package.json
+!packages/shared/src/
+!packages/shared/src/**
 !web/package.json
 !frontend/
 frontend/node_modules
