@@ -1,7 +1,7 @@
 // Calls HumanRegistry.bind / HumanRegistry.upgrade as the binder key, on Sepolia.
 //
 // bind() is for a wallet that has never bound an identity: it accepts a level 1 (schema 11) or
-// level 2 (schema 1/9303/9310) proof. upgrade() moves an *already-bound* wallet to a level 2
+// level 2 (schema 1, Orb) proof. upgrade() moves an *already-bound* wallet to a level 2
 // schema; it requires the wallet's currently-recorded nullifier (not the new proof's nullifier --
 // bind and upgrade normally run under different World ID actions, so they have different
 // nullifiers for the same person) as a compare-and-swap guard, so we always read humanOf(wallet)

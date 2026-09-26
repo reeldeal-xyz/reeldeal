@@ -160,7 +160,7 @@ export async function handleWorldVerify(raw: unknown, deps: HandleWorldVerifyDep
       txHash,
     });
     // schemaId is included so the LIFF wallet tab (issue #15) can show which credential verified the farmer
-    // (11 Selfie Check, 1 Orb/Proof of Human, 9303 passport, 9310 My Number Card -- see lib/world/schema.ts)
+    // (11 Selfie Check, 1 Orb/Proof of Human -- see lib/world/schema.ts)
     // without a second on-chain read right after this call returns.
     return { status: 200, body: { ok: true, call, level: credential.level, schemaId: credential.issuerSchemaId, txHash } };
   } catch (err) {

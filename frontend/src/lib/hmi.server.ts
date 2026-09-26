@@ -1,9 +1,8 @@
-import { pipelinePlotRecord, pipelineZoneRecord, type PipelinePlotRecord, type PipelineZoneRecord } from '@repo/shared';
+import { pipelinePlotRecord, type PipelinePlotRecord } from '@repo/shared';
 
 export type HmiPlot = PipelinePlotRecord;
-export type HmiZone = PipelineZoneRecord;
-export type HmiData = { status: 'available'; plots: HmiPlot[]; zones: HmiZone[] }
-  | { status: 'not-configured' | 'unavailable' | 'invalid-payload'; plots: []; zones: [] };
+export type HmiData = { status: 'available'; plots: HmiPlot[] }
+  | { status: 'not-configured' | 'unavailable' | 'invalid-payload'; plots: [] };
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const REGION_BBOX = '140.5,37.2,143.1,40.5';
@@ -32,13 +31,13 @@ async function json(response: Response, signal: AbortSignal): Promise<unknown> {
 }
 
 export async function readHmiData(origin: string | undefined): Promise<HmiData> {
-  if (!origin) return { status: 'not-configured', plots: [], zones: [] };
+  if (!origin) return { status: 'not-configured', plots: [] };
   let base: URL;
   try {
     base = new URL(origin);
     if (!['http:', 'https:'].includes(base.protocol) || base.username || base.password || base.search || base.hash)
-      return { status: 'not-configured', plots: [], zones: [] };
-  } catch { return { status: 'not-configured', plots: [], zones: [] }; }
+      return { status: 'not-configured', plots: [] };
+  } catch { return { status: 'not-configured', plots: [] }; }
   const signal = AbortSignal.timeout(5000);
   const request = async (path: string) => {
     const url = new URL(base);
@@ -48,26 +47,22 @@ export async function readHmiData(origin: string | undefined): Promise<HmiData> 
     return fetch(url, { signal, redirect: 'error', cache: 'no-store', headers: { accept: 'application/json' } });
   };
   try {
-    const [plotResponse, zoneResponse] = await Promise.all([
-      request(`/plots?bbox=${encodeURIComponent(REGION_BBOX)}`), request('/zones'),
-    ]);
-    if (!plotResponse.ok || !zoneResponse.ok) {
-      await Promise.all([plotResponse.body?.cancel(), zoneResponse.body?.cancel()]);
-      return { status: 'unavailable', plots: [], zones: [] };
+    const plotResponse = await request(`/plots?bbox=${encodeURIComponent(REGION_BBOX)}`);
+    if (!plotResponse.ok) {
+      await plotResponse.body?.cancel();
+      return { status: 'unavailable', plots: [] };
     }
-    const [plots, zones] = await Promise.all([json(plotResponse, signal), json(zoneResponse, signal)]);
-    const validPlots = pipelinePlotRecord.array().max(5000).safeParse(plots);
-    const validZones = pipelineZoneRecord.array().max(500).safeParse(zones);
-    if (!validPlots.success || !validZones.success) return { status: 'invalid-payload', plots: [], zones: [] };
-    return { status: 'available', plots: validPlots.data, zones: validZones.data };
+    const validPlots = pipelinePlotRecord.array().max(5000).safeParse(await json(plotResponse, signal));
+    if (!validPlots.success) return { status: 'invalid-payload', plots: [] };
+    return { status: 'available', plots: validPlots.data };
   } catch {
-    return { status: 'unavailable', plots: [], zones: [] };
+    return { status: 'unavailable', plots: [] };
   }
 }
 
 export const HMI_REGION = { west: 140.5, south: 37.2, east: 143.1, north: 40.5 } as const;
 
-export function geoPath(shape: HmiPlot['geometry'] | HmiZone['geometry']): string {
+export function geoPath(shape: HmiPlot['geometry']): string {
   if (!shape) return '';
   const projectRing = (points: [number, number][]) => points.map(([lon, lat], index) => {
     const x = ((lon - HMI_REGION.west) / (HMI_REGION.east - HMI_REGION.west)) * 800;

@@ -28,7 +28,7 @@ Contracts (Solidity, Foundry, OpenZeppelin v5, Sepolia): ReliefPool v2 holds don
 
 ENSv2 (Sepolia): umi.eth -> karakuwa.umi.eth -> p1213-001..015. Each plot has its own registry holding a non-transferable, expiring "2026" season slot issued by the licence holder. ReliefPool reads slot ownership on-chain through small ENS adapter contracts, so ownership is never copied off-chain.
 
-World ID (IDKit v4): level 1 Selfie Check and level 2 (My Number Card / passport / Orb) proofs are verified server-side against the v4 API and bound to the farmer's wallet in a HumanRegistry that caps payout units per real person (3 vs 12).
+World ID (IDKit v4): level 1 Selfie Check and level 2 Orb proofs are verified server-side against the v4 API and bound to the farmer's wallet in a HumanRegistry that caps payout units per real person (3 vs 12).
 
 LINE: a LIFF mini-app (LINE Login, on-device wallet, slot request, World ID, payout status, claim, gasless JPYC sends via EIP-3009 relayed by our keeper) plus Messaging API push cards. People without LINE sign in with Reown AppKit (WalletConnect) + SIWE into the same UI.
 

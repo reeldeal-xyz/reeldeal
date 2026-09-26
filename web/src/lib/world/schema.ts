@@ -1,15 +1,16 @@
-// Schema <-> level mapping. Must match contracts/src/HumanRegistry.sol::_levelForSchema exactly:
-// 11 -> level 1 (Selfie Check). 1, 9303, 9310 -> level 2 (Orb Proof of Human, passport, My Number Card).
+// Schema <-> level mapping. 11 -> level 1 (Selfie Check). 1 -> level 2 (World ID Orb, Proof of Human).
+// The deployed HumanRegistry also recognises 9303/9310 (passport / My Number Card) as level 2, but the app
+// never requests or accepts them: we haven't integrated or tested those credentials, so level 2 is Orb only.
 import { env } from '@/lib/env';
 
 export type WorldLevel = 'level1' | 'level2';
 
 export const LEVEL1_SCHEMA = 11;
-export const LEVEL2_SCHEMAS = [1, 9303, 9310] as const;
+export const LEVEL2_SCHEMAS = [1] as const;
 
 /** Credential identifiers IDKit returns for each level (see IDKit ResponseItemV4/SelfieCheckResponseItemV4). */
 export const LEVEL1_IDENTIFIERS = ['selfie'] as const;
-export const LEVEL2_IDENTIFIERS = ['mnc', 'passport', 'proof_of_human'] as const;
+export const LEVEL2_IDENTIFIERS = ['proof_of_human'] as const;
 
 /** Maps a credential issuer_schema_id to the on-chain level, or null if unrecognized. */
 export function levelForSchema(schemaId: number): 1 | 2 | null {
@@ -28,12 +29,10 @@ export function identifiersForLevel(level: WorldLevel): readonly string[] {
   return level === 'level1' ? LEVEL1_IDENTIFIERS : LEVEL2_IDENTIFIERS;
 }
 
-// Bilingual label for level 2: the action intentionally accepts any of My Number Card, passport, or World ID
-// (Orb) -- schemaId 1 (Proof of Human/Orb), 9303 (passport), 9310 (My Number Card), see LEVEL2_SCHEMAS above.
-// Use this label everywhere level 2 is surfaced (badges, button copy, confirmation text) so the three
-// accepted credentials are never implied to be just one of them.
-export const LEVEL2_LABEL_JA = 'レベル2:マイナンバーカード・パスポート・World ID(Orb)';
-export const LEVEL2_LABEL_EN = 'Level 2: My Number Card, passport or World ID (Orb)';
+// Bilingual label for level 2 (World ID Orb, schemaId 1). Use it everywhere level 2 is surfaced (badges,
+// button copy, confirmation text).
+export const LEVEL2_LABEL_JA = 'レベル2:World ID(Orb)';
+export const LEVEL2_LABEL_EN = 'Level 2: World ID (Orb)';
 export const LEVEL2_LABEL_BILINGUAL = `${LEVEL2_LABEL_JA} / ${LEVEL2_LABEL_EN}`;
 
 /** Bilingual label for which specific credential verified a wallet, keyed by issuer_schema_id. Null for an
@@ -41,7 +40,5 @@ export const LEVEL2_LABEL_BILINGUAL = `${LEVEL2_LABEL_JA} / ${LEVEL2_LABEL_EN}`;
 export function credentialLabelForSchema(schemaId: number): { ja: string; en: string } | null {
   if (schemaId === LEVEL1_SCHEMA) return { ja: 'セルフィーチェック', en: 'Selfie Check' };
   if (schemaId === 1) return { ja: 'World ID (Orb)', en: 'World ID (Orb)' };
-  if (schemaId === 9303) return { ja: 'パスポート', en: 'Passport' };
-  if (schemaId === 9310) return { ja: 'マイナンバーカード', en: 'My Number Card' };
   return null;
 }

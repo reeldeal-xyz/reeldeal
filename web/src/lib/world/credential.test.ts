@@ -38,14 +38,14 @@ describe('pickCredential', () => {
     expect(credential?.sybilScoreBps).toBe(42);
   });
 
-  test('matches a level2 mnc response and defaults sybilScoreBps to 0 (no score field)', () => {
+  test('matches a level2 Orb (proof_of_human) response and defaults sybilScoreBps to 0 (no score field)', () => {
     const result = v4Result([
       {
-        identifier: 'mnc',
+        identifier: 'proof_of_human',
         signal_hash: hashSignal(WALLET),
         proof: ['0x1', '0x2', '0x3', '0x4', '0x5'],
         nullifier: '0xdef456',
-        issuer_schema_id: 9310,
+        issuer_schema_id: 1,
         expires_at_min: 0,
       },
     ]);
@@ -90,6 +90,15 @@ describe('pickCredential', () => {
       },
     ]);
     expect(pickCredential(result, 'level1', WALLET)).toBeNull();
+  });
+
+  test('rejects My Number Card and passport responses for level2 (not integrated)', () => {
+    for (const [identifier, issuer_schema_id] of [['mnc', 9310], ['passport', 9303]] as const) {
+      const result = v4Result([
+        { identifier, signal_hash: hashSignal(WALLET), proof: [], nullifier: '0xabc', issuer_schema_id, expires_at_min: 0 },
+      ]);
+      expect(pickCredential(result, 'level2', WALLET)).toBeNull();
+    }
   });
 
   test('rejects a v3 legacy result', () => {

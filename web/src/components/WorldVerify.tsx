@@ -1,8 +1,8 @@
 'use client';
 
 // Reusable World ID verify/upgrade flow. #15 (LIFF bind flow) embeds this for both level 1
-// (bind-payout-wallet, Selfie Check) and level 2 (upgrade-level-2, any of My Number Card /
-// passport / Proof of Human). Props are intentionally minimal: give it a wallet and a level, get
+// (bind-payout-wallet, Selfie Check) and level 2 (upgrade-level-2, World ID Orb /
+// Proof of Human). Props are intentionally minimal: give it a wallet and a level, get
 // back one onComplete call.
 import { useCallback, useRef, useState } from 'react';
 import { IDKit, CredentialRequest, any, selfieCheck, isInWorldApp } from '@worldcoin/idkit-core';
@@ -20,7 +20,7 @@ export type WorldVerifyOutcome =
 export interface WorldVerifyProps {
   /** Used as the IDKit signal and forwarded to /api/world/verify. */
   wallet: `0x${string}`;
-  /** level1 = Selfie Check (initial bind). level2 = MNC / passport / Proof of Human (upgrade). */
+  /** level1 = Selfie Check (initial bind). level2 = World ID Orb / Proof of Human (upgrade). */
   level: WorldLevel;
   /** Called exactly once per run, with the final success or error. */
   onComplete: (outcome: WorldVerifyOutcome) => void;
@@ -84,11 +84,7 @@ export function WorldVerify({ wallet, level, onComplete, onStatusChange, label, 
         level === 'level1'
           ? await IDKit.request({ ...context, allow_legacy_proofs: false }).preset(selfieCheck({ signal: wallet }))
           : await IDKit.request({ ...context, allow_legacy_proofs: false }).constraints(
-              any(
-                CredentialRequest('mnc', { signal: wallet }),
-                CredentialRequest('passport', { signal: wallet }),
-                CredentialRequest('proof_of_human', { signal: wallet }),
-              ),
+              any(CredentialRequest('proof_of_human', { signal: wallet })),
             );
 
       // Inside World App the SDK uses native postMessage and needs no link. Outside it (a normal

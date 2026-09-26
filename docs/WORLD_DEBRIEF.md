@@ -11,9 +11,9 @@ production World ID app `app_1fd3fa02dfc9da8cbf93e8bc82f50856` (RP `rp_eaf4611c2
 - **Device:** iPhone, World App (production), opened from the LINE in-app browser (LIFF).
 - **Credentials used:**
   - **Level 1:** Selfie Check (schema **11**). Action `bind-payout-wallet`.
-  - **Level 2:** World ID **Orb / Proof of Human** (schema **1**). Action `upgrade-level-2`, which accepts
-    `any(mnc(), passport(), proofOfHuman())`. The tester is not a Japanese resident, so there was no
-    My Number Card; World App presented the strongest credential the tester holds.
+  - **Level 2:** World ID **Orb / Proof of Human** (schema **1**). Action `upgrade-level-2`. At the time of
+    this run it requested `any(mnc(), passport(), proofOfHuman())`, and World App presented the Orb
+    credential. Since then level 2 requests **Orb only** (see the note below).
 - **Wallet:** `0x1aEDC8476f15BdF1Ac742544c58Be3a187eEAB51`.
 - **On-chain result:**
   - `Bound` (schema 11):
@@ -43,7 +43,7 @@ Outcomes from the `scope:"world-id"` server log lines (`web/src/lib/world/log.ts
 | 2a | (client) | HTTP 499: the LIFF page reloaded on the way back from World App and dropped the verify response | Status unchanged | #101: the server links wallet ↔ LINE inside `/api/world/verify`, so the client doesn't need the response |
 | 2b | (client) | The level was read before the bind transaction was mined | Level 0 shown | #101: the app re-reads `levelOf` every 3 s for up to about 45 s after verifying |
 | 2c | (identity) | Opening LIFF in another browser context minted a second on-device wallet, so the verified wallet and the plot owner diverged | Wrong wallet shown | #101: the server pins one wallet per LINE user and returns it on each session |
-| 3 | success | level 2, schema 1 (Orb) | The button said "My Number Card", but an Orb credential verified | #113: relabelled to 「レベル2:マイナンバーカード・パスポート・World ID(Orb)」 / "Level 2: My Number Card, passport or World ID (Orb)", and the badge shows which credential verified |
+| 3 | success | level 2, schema 1 (Orb) | The button said "My Number Card", but an Orb credential verified | #113 relabelled the level and made the badge show which credential verified. Level 2 is now Orb only: 「レベル2:World ID(Orb)」 / "Level 2: World ID (Orb)" |
 
 **Attempt caps:** the one-verification-per-person limit per action is enforced by World (nullifier per
 action) and by our HumanRegistry (`NullifierAlreadyBound` / `WalletAlreadyBound`). There's no separate
@@ -58,8 +58,10 @@ attempt counter in the app. Cancelled attempts cost nothing.
 - **`any(mnc(), passport(), proofOfHuman())`:** this does exactly what it says, which surprised us from a
   product-copy point of view. An action labelled for My Number Card will accept an Orb credential. That's
   correct behaviour, but integrators need to label the level by assurance, not by document.
-- **NFC credential constraint:** not hit in testing (no MNC or passport on the tester's device). We only
-  combine NFC credentials with `any()`, never `all()`, as the docs require.
+- **NFC credentials (My Number Card, passport) were never exercised.** Nobody on the team could test
+  them, so we removed them: level 2 now requests `proofOfHuman()` (Orb) only, the server rejects `mnc`
+  and `passport` responses, and the UI says "Level 2: World ID (Orb)". The deployed HumanRegistry still
+  maps schemas 9303/9310 to level 2, but the app never sends them.
 - **v4 migration:** stale v2/v3 examples online are a real trap. Pinning `^4.x` and following the official
   skill avoided it.
 
@@ -72,6 +74,5 @@ doesn't matter. We effectively built that ourselves in #101.
 ## Verdict
 
 - [x] `Upgraded` observed on Sepolia for a real tester, with **schema 1** (Orb / Proof of Human)
-- [x] My Number Card (schema 9310) specifically wasn't run, because the tester holds no MNC. The level-2
-      action accepts it, and the flow is identical. The remaining step is for a tester with an
-      MNC-enrolled World App to repeat the upgrade.
+- [ ] My Number Card (9310) and passport (9303) are **not integrated**. Level 2 is Orb only until a
+      tester with an NFC-enrolled World App can run and verify those credentials (#25).
