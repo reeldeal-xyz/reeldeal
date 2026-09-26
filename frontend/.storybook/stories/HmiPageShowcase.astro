@@ -1,0 +1,9 @@
+---
+import type { ComponentProps } from 'astro/types';
+import BaseLayout from '../../src/layouts/BaseLayout.astro';
+import HmiScene from '../../src/components/HmiScene.astro';
+type Props = ComponentProps<typeof HmiScene>;
+---
+<BaseLayout title="Coastal map" section="hmi" lang={Astro.props.lang}>
+  <HmiScene {...Astro.props} />
+</BaseLayout>

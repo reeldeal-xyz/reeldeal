@@ -6,18 +6,17 @@ import HmiObservations from './organisms/HmiObservations.astro';
 import WeatherForecast from './organisms/WeatherForecast.astro';
 import SpeciesThresholds from './organisms/SpeciesThresholds.astro';
 import WalletConnect from './react/WalletConnect';
-import MarketEmpty from './molecules/marketplace/MarketEmpty.astro';
+import MarketCatalogue from './organisms/marketplace/MarketCatalogue.astro';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
 import '../styles/weather-thresholds.css';
 
-import { SPECIES } from '@repo/shared';
 import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
 import type { HabLayerResult } from '../lib/hab-layers.server';
 import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
-import { operationColor } from '../lib/plot-layer';
+import { plotSpecies, speciesColor } from '../lib/plot-layer';
 import { selectHmiView } from '../lib/hmi-selection';
 
 interface Props {
@@ -32,7 +31,7 @@ const {
 const ja = lang === 'ja';
 const plots = hmi.status === 'available' ? hmi.plots : [];
 const { plot, species, supportedSpecies, speciesPlots } = selectHmiView(plots, plotCode, requestedSpecies);
-const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
+const dockSpecies = supportedSpecies;
 
 
 const copy = ja ? {
@@ -41,7 +40,7 @@ const copy = ja ? {
   plot: '養殖区画', noPlot: '区画データなし', language: '言語',
   satellite: '衛星写真', sst: '海面水温', anom: '水温偏差',
   imageryContext: '地図画像は参考表示です。区画ごとの検証済み観測値とは別のデータです。',
-  speciesThresholds: '魚種別の基準値', daysAbove: '基準水温以上の日数。補償の判定は別に行われます。',
+  speciesThresholds: '補償の基準値', daysAbove: '基準水温以上の日数。補償の判定は別に行われます。',
   noThreshold: 'この魚種の水温基準は未登録です。', rules: 'ルール', profiles: 'プロファイル', evidence: '根拠資料',
   forecastNone: '予報データはありません。地図とグラフは観測値を示します。',
   oceanObservations: '海洋観測', metric: '観測項目', noObservations: 'この条件の観測値はありません。',
@@ -56,7 +55,7 @@ const copy = ja ? {
   panelFailed: '観測値を更新できませんでした。', outlines: '地図 · OpenStreetMap', satelliteNote: '衛星写真 · Esri',
   overlayUnavailable: '{layer}の画像は{time}には利用できません。',
   plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を集計中…',
-  plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNone: '{season}年の海面水温データはありません',
+  plotHeat: '{season}年 平均 {mean}°C · 最高 {max}°C', plotHeatNone: '{season}年の海面水温データはありません',
   plotHeatUnavailable: '{season}年の観測データに接続できません。',
   plotHeatInvalid: '区画の観測データを検証できませんでした。',
 } : {
@@ -65,7 +64,7 @@ const copy = ja ? {
   plot: 'Farm plot', noPlot: 'No plot data', language: 'Language',
   satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly',
   imageryContext: 'Map imagery is visual context, separate from validated plot observations.',
-  speciesThresholds: 'Species thresholds', daysAbove: 'Days above the temperature threshold. Relief eligibility is determined separately.',
+  speciesThresholds: 'Relief thresholds', daysAbove: 'Days above the temperature threshold. Relief eligibility is determined separately.',
   noThreshold: 'No heat threshold is registered for this species.', rules: 'Rules', profiles: 'profiles', evidence: 'Response evidence',
   forecastNone: 'Forecast data is unavailable. The map and chart show observed conditions.',
   oceanObservations: 'Ocean observations', metric: 'Observation', noObservations: 'No observations available for this selection.',
@@ -80,7 +79,7 @@ const copy = ja ? {
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.',
   plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
-  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
+  plotHeat: '{season} avg {mean}°C · peak {max}°C', plotHeatNone: 'No sea temperature data for {season}',
   plotHeatUnavailable: 'Observation service unavailable for {season}.',
   plotHeatInvalid: 'Plot observation response failed validation.',
 };
@@ -148,10 +147,11 @@ const sourceNames: Record<string, string> = ja
   : { demo: 'Synthetic demo geometry', msil: 'MSIL plot geometry', fishery_right: 'Licensed fishery-right polygon', upload: 'Uploaded plot geometry' };
 const plotLabels = JSON.stringify({
   sources: sourceNames, operations: operationNames, species: speciesNames,
+  seaAreas: ja ? { 'kesennuma-bay': '気仙沼湾', 'karakuwa-east': '唐桑東部' } : { 'kesennuma-bay': 'Kesennuma Bay', 'karakuwa-east': 'East Karakuwa' },
   noSpecies: ja ? '魚種の登録なし' : 'No species recorded', noSeaArea: ja ? '海域区分外' : 'Outside mapped sea areas',
   hectares: 'ha', locale: ja ? 'ja-JP' : 'en-US',
 });
-const operationsShown = [...new Set(plots.map((item) => item.operation))];
+const speciesShown = [...new Set(plots.map((item) => plotSpecies(item.species)))];
 const languageHref = (locale: 'en' | 'ja') => {
   const params = new URLSearchParams({ lang: locale, season, metric, habMonth });
   if (species) params.set('species', species);
@@ -212,13 +212,14 @@ const languageHref = (locale: 'en' | 'ja') => {
         <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
       {!!plots.length && <ul class="plot-legend" aria-label={ja ? '区画の凡例' : 'Plot legend'}>
-        {operationsShown.map((operation) => <li><i style={`background: ${operationColor(operation)}`}></i>{operationNames[operation] ?? operation}</li>)}
+        {speciesShown.map((item) => <li><i style={`background: ${speciesColor([item])}`}></i>{item === 'unassigned' ? (ja ? '魚種未登録' : 'Unrecorded') : item === 'mixed' ? (ja ? '複数魚種' : 'Mixed species') : speciesNames[item] ?? item}</li>)}
       </ul>}
       <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
         <select name="habMonth" form="hmi-view">
           {HAB_MONTHS.map((value) => <option value={value} selected={value === habMonth}>{monthName(value)}</option>)}
         </select>
       </label>
+      <details class="layer-details"><summary>{ja ? 'レイヤーの詳細' : 'Layer details'}</summary>
       <p class="shelf-note" data-layer-date>{copy.satelliteNote}</p>
       <div data-response-panel="hab">
         <div data-hab-source data-overlay={habOverlay}></div>
@@ -233,6 +234,7 @@ const languageHref = (locale: 'en' | 'ja') => {
         </section>}
       </div>
       <p class="shelf-note">{copy.imageryContext}</p>
+      </details>
     </section>
 
     <section id="thresholds-shelf" class="map-shelf side-shelf" aria-labelledby="thresholds-heading" inert>
@@ -243,7 +245,7 @@ const languageHref = (locale: 'en' | 'ja') => {
     </section>
 
     <section id="forecast-shelf" class="map-shelf bottom-shelf" aria-labelledby="forecast-heading" inert>
-      <header><h2 id="forecast-heading">{copy.forecast}</h2><button type="button" data-close-shelf aria-label={ja ? '予報を閉じる' : 'Close forecast'}>×</button></header>
+      <header><h2 id="forecast-heading">{copy.forecast}</h2><div class="forecast-header-actions"><button type="button" data-weather-refresh disabled={!endpoint || !plot} aria-label={ja ? '予報を更新' : 'Refresh forecast'}>↻</button><button type="button" data-close-shelf aria-label={ja ? '予報を閉じる' : 'Close forecast'}>×</button></div></header>
       <div data-response-panel="forecast">
         <WeatherForecast plotCode={plot?.plotCode} centroid={plot?.centroid} lang={lang} operational={!!endpoint} />
       </div>
@@ -262,7 +264,7 @@ const languageHref = (locale: 'en' | 'ja') => {
 
     <section id="market-shelf" class="map-shelf market-shelf" aria-labelledby="market-heading" inert>
       <header><h2 id="market-heading">{copy.market}</h2><button type="button" data-close-shelf aria-label={ja ? '魚市場を閉じる' : 'Close fish market'}>×</button></header>
-      <MarketEmpty lang={lang} />
+      <MarketCatalogue compact lang={lang} />
       <a class="market-shelf__all" href="/market">{ja ? '魚市場を見る' : 'View the fish market'}</a>
     </section>
 
@@ -285,7 +287,7 @@ const languageHref = (locale: 'en' | 'ja') => {
       <input type="hidden" name="season" value={season} />
       <input type="hidden" name="lang" value={lang} />
       <fieldset class="species-picker"><legend class="sr-only">{copy.speciesLegend}</legend>
-        {dockSpecies.map((item) => <label title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
+        {dockSpecies.map((item) => <label style={`--species-color: ${speciesColor([item])}`} title={supportedSpecies.includes(item) ? speciesNames[item] ?? item : `${speciesNames[item] ?? item} · ${copy.noMapPlot}`}><input type="radio" name="species" value={item} checked={item === species} disabled={!supportedSpecies.includes(item)} /><span><SpeciesIcon species={item} /><span>{speciesNames[item] ?? item}</span></span></label>)}
         {!supportedSpecies.length && <p class="shelf-note">{copy.noSpecies}</p>}
       </fieldset>
       <div class="season-picker" role="group" aria-label={ja ? '観測年' : 'Observation season'}><span>{copy.seasonLabel}</span><div><button type="button" data-season-step="-1" aria-label={copy.prevSeason} disabled={Number(season) <= 2022}>‹</button><output data-season-label>{season}</output><button type="button" data-season-step="1" aria-label={copy.nextSeason} disabled={Number(season) >= new Date().getUTCFullYear()}>›</button></div></div>

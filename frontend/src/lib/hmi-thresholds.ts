@@ -16,10 +16,13 @@ export function thresholdView(species: string, season: string, data: PipelineHea
     return !Number.isFinite(date) || new Date(date).toISOString().slice(0, 10) !== item.asOf
       || (i > 0 && item.asOf <= sst[i - 1].asOf) || (item.value !== null && !Number.isFinite(item.value));
   }));
-  const usable = validSeason && data?.window.start === `${season}-06-01` && data.window.end === `${season}-10-31`
-    && geometryMatches && plot?.species.includes(species) && !drift && !invalidObservations;
+  const observationsUsable = validSeason && data?.window.start === `${season}-06-01` && data.window.end === `${season}-10-31`
+    && geometryMatches && !invalidObservations;
+  const usable = observationsUsable && plot?.species.includes(species) && !drift;
   return {
     rulesVersion: RULES_VERSION, drift, invalidObservations,
+    latestSst: observationsUsable ? sst.filter((item) => item.value !== null && item.asOf >= data!.window.start
+      && item.asOf <= data!.window.end && item.asOf <= today).at(-1) ?? null : null,
     geometryMismatch: !!data && !!plot && !geometryMatches,
     heat: rules.filter((rule) => rule.peril === 'HEAT' && rule.window && rule.tempC !== undefined).map((rule) => {
       const start = `${season}-${rule.window!.start}`, end = `${season}-${rule.window!.end}`;

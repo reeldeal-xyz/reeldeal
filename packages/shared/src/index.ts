@@ -13,3 +13,5 @@ export * from './abi/ReliefPool';
 export * from './abi/HumanRegistry';
 export * from './abi/JPYC';
 export * from './abi/SaleRouter';
+export * from './market';
+export * from './market-quote';

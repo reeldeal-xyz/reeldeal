@@ -2,7 +2,7 @@ import L from 'leaflet';
 import { hmiLayerDate } from './hmi-layer-date';
 import { initWeatherForecast } from './weather-forecast.client';
 import { readPlotObservations } from './plot-observations';
-import { operationColor, plotFacts, type PlotLabels } from './plot-layer';
+import { speciesColor, plotAreaName, plotFacts, type PlotLabels } from './plot-layer';
 
 type Plot = {
   plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
@@ -22,7 +22,7 @@ const ENGLISH: Record<string, string> = {
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly',
   habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
-  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
+  plotHeat: '{season} avg {mean}°C · peak {max}°C', plotHeatNone: 'No sea temperature data for {season}',
   plotHeatUnavailable: 'Observation service unavailable for {season}.', plotHeatInvalid: 'Plot observation response failed validation.',
 };
 
@@ -40,7 +40,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     hectares: 'ha', locale: 'en-US',
   };
   const lang = scene.dataset.lang === 'ja' ? 'ja' : 'en';
-  const weather = initWeatherForecast(scene);
   const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[]}') as { plots: Plot[] };
   const dock = scene.querySelector<HTMLFormElement>('.coast-dock')!;
   const status = scene.querySelector<HTMLElement>('[data-view-status]')!;
@@ -82,6 +81,19 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   const habInput = layerInputs.find((input) => input.value === 'hab');
   const plotsInput = layerInputs.find((input) => input.value === 'plots');
   const markerByCode = new Map<string, { marker: L.CircleMarker; plot: Plot }>();
+  const forecastMarker = L.circleMarker([0, 0], { radius: 8, weight: 2, color: '#fff', fillOpacity: 1, interactive: false });
+  const forecastLabel = document.createElement('div');
+  forecastMarker.bindTooltip(forecastLabel, { permanent: true, direction: 'top', offset: [0, -10], className: 'forecast-map-label' });
+  const weather = initWeatherForecast(scene, (frame) => {
+    const plot = markerByCode.get(plotInput.value)?.plot;
+    if (!frame || !plot) { forecastMarker.remove(); return; }
+    const name = document.createElement('strong'), value = document.createElement('span'), time = document.createElement('span');
+    name.textContent = `${lang === 'ja' ? '予報' : 'Forecast'} · ${frame.label}`;
+    value.textContent = frame.value === null ? '—' : `${frame.value.toFixed(1)} ${frame.unit}`;
+    time.textContent = new Intl.DateTimeFormat(lang === 'ja' ? 'ja-JP' : 'en-GB', { timeZone: 'Asia/Tokyo', day: 'numeric', month: 'short', hour: '2-digit' }).format(frame.time * 1000) + ' JST';
+    forecastLabel.replaceChildren(name, value, time);
+    forecastMarker.setLatLng([plot.centroid[1], plot.centroid[0]]).setStyle({ fillColor: speciesColor(plot.species) }).addTo(map);
+  });
   let drawing = false;
   let busy = false;
 
@@ -121,7 +133,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
 
   for (const plot of features.plots) {
     const marker = L.circleMarker([plot.centroid[1], plot.centroid[0]], {
-      radius: 4, weight: 1, color: '#fff', fillColor: '#f7a32f', fillOpacity: 1,
+      radius: 4, weight: 1, color: '#fff', fillColor: speciesColor(plot.species), fillOpacity: 1,
     });
     marker.bindTooltip(plot.plotCode);
     marker.on('click', () => {
@@ -134,12 +146,12 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     });
     markerByCode.set(plot.plotCode, { marker, plot });
   }
-  // Every plot as a polygon, coloured by operation; hover shows its facts, then the season's sea temperature.
+  // Species colours are shared by polygons, markers and the legend.
   const plotStyle = (plot: Plot, hover = false): L.PathOptions => {
     const selected = plot.plotCode === plotInput.value;
     return {
-      color: selected || hover ? '#ffffff' : operationColor(plot.operation), weight: selected || hover ? 2.5 : 1,
-      fillColor: operationColor(plot.operation), fillOpacity: hover ? 0.6 : selected ? 0.45 : 0.28,
+      color: selected || hover ? '#ffffff' : speciesColor(plot.species), weight: selected || hover ? 2.5 : 1,
+      fillColor: speciesColor(plot.species), fillOpacity: hover ? 0.6 : selected ? 0.45 : plot.species.length ? 0.28 : 0.12,
     };
   };
   const plotLayers = new Map<string, { layer: L.GeoJSON; plot: Plot }>();
@@ -166,9 +178,10 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       }
       const { summary } = result;
       return copy.plotHeat.replace('{season}', season).replace('{mean}', summary.mean.toFixed(1))
-        .replace('{max}', summary.max.toFixed(1)).replace('{days}', String(summary.count))
-        + ` · ${result.coverage.observedDays}/${result.coverage.expectedDays} · ${summary.latest.asOf}`
-        + (result.stale ? (lang === 'ja' ? ' · 古いデータ' : ' · stale') : '');
+        .replace('{max}', summary.max.toFixed(1))
+        + `\n${summary.latest.asOf}`
+        + (result.stale ? (lang === 'ja' ? ' · 更新遅延' : ' · updates delayed')
+          : result.coverage.observedDays < result.coverage.expectedDays ? (lang === 'ja' ? ' · 一部期間' : ' · partial record') : '');
     }).finally(() => { if (heatRequest?.controller === controller) heatRequest = undefined; });
     if (heatCache.size >= 100) heatCache.delete(heatCache.keys().next().value!);
     heatCache.set(key, { promise: request, expiresAt: Date.now() + 60_000 });
@@ -178,7 +191,9 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     const box = document.createElement('div');
     box.className = 'plot-tip';
     const title = box.appendChild(document.createElement('strong'));
-    title.textContent = plot.plotCode;
+    const area = plotAreaName(plot.seaArea, plotLabels);
+    title.textContent = area ?? plot.plotCode;
+    if (area) box.appendChild(document.createElement('small')).textContent = plot.plotCode;
     for (const line of plotFacts(plot, plotLabels)) box.appendChild(document.createElement('span')).textContent = line;
     const heat = box.appendChild(document.createElement('span'));
     heat.className = 'plot-tip-heat';
@@ -248,6 +263,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   selectedMarker();
 
   function openShelf(name: string | null) {
+    const previous = scene!.querySelector<HTMLElement>('.map-shelf[data-open]')?.id.replace('-shelf', '');
     scene!.querySelectorAll<HTMLElement>('.map-shelf').forEach((shelf) => {
       const open = shelf.id === `${name}-shelf`;
       shelf.toggleAttribute('data-open', open);
@@ -257,7 +273,9 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       button.setAttribute('aria-expanded', String(button.dataset.shelf === name));
     });
     if (name !== 'area' && drawing) setDrawing(false);
-    if (name === 'forecast') weather.open();
+    if (name === 'forecast') weather.open(); else weather.close();
+    if (name) scene!.querySelector<HTMLButtonElement>(`#${name}-shelf [data-close-shelf]`)?.focus({ preventScroll: true });
+    else if (previous) scene!.querySelector<HTMLButtonElement>(`[data-shelf="${previous}"]`)?.focus({ preventScroll: true });
   }
   scene.querySelectorAll<HTMLButtonElement>('[data-shelf]').forEach((button) => button.addEventListener('click', () => {
     openShelf(button.getAttribute('aria-expanded') === 'true' ? null : button.dataset.shelf ?? null);
