@@ -1,0 +1,7 @@
+---
+import { formatAmount } from '../../lib/format-amount';
+interface Props { value: string; currency?: 'JPYC' | 'JPY' }
+const { value, currency = 'JPYC' } = Astro.props;
+const formatted = formatAmount(value);
+---
+<span class="amount">{formatted ?? 'Unavailable'}<span class="amount__unit">{currency}</span></span>
