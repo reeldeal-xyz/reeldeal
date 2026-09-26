@@ -33,5 +33,40 @@ export const pipelineZoneRecord = z.object({
   geometry: pipelineGeometry.nullable(),
 }).strict();
 
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/** How a layer's tiles are coloured: `min`..`max` (linear or log10) spread evenly over `colors`, clipped at both ends. */
+export const pipelineTileScale = z.object({
+  kind: z.enum(['linear', 'log']),
+  min: z.number().finite(),
+  max: z.number().finite(),
+  unit: z.string(),
+  colors: z.array(hexColor).min(2),
+}).strict();
+
+/** Root-relative XYZ template served by the pipeline: /<module>/tiles/<region>/<cadence>/<period>/<layer>/{z}/{x}/{y}.png */
+const tileTemplate = z.string().regex(/^\/(heat|hab|storm)\/tiles\/[a-z0-9-]+\/[a-z-]+\/[0-9-]+\/[a-z0-9_]+\/\{z\}\/\{x\}\/\{y\}\.png$/);
+
+/** GET /<module>/layers/{date}: one precomputed layer covering the date. Tiles are display only, never index values. */
+export const pipelineLayerInfo = z.object({
+  module: z.enum(['heat', 'hab', 'storm']),
+  layer: z.string(),
+  cadence: z.enum(['daily', 'half-monthly', 'monthly', 'daily-normal']),
+  date: isoDay,
+  region: z.string(),
+  product: z.string(),
+  variable: z.string(),
+  unit: z.string(),
+  bbox: z.tuple([z.number().finite(), z.number().finite(), z.number().finite(), z.number().finite()]),
+  validFraction: z.number().min(0).max(1),
+  tileUrl: tileTemplate.nullable(),
+  tileScale: pipelineTileScale.nullable(),
+  zarrUrl: z.string().nullable(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+}).strict();
+
 export type PipelinePlotRecord = z.infer<typeof pipelinePlotRecord>;
 export type PipelineZoneRecord = z.infer<typeof pipelineZoneRecord>;
+export type PipelineTileScale = z.infer<typeof pipelineTileScale>;
+export type PipelineLayerInfo = z.infer<typeof pipelineLayerInfo>;

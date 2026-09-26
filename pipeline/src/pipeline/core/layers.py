@@ -32,6 +32,7 @@ from pipeline.core.grid import Grid, Layer, read_layer, to_grid, write_layer
 from pipeline.core.pin import combined_sha256
 from pipeline.core.regions import REGIONS, Region
 from pipeline.core.schemas import LayerInfo, ModuleName
+from pipeline.core.tiles import scale_for, tile_url
 
 
 @dataclass(frozen=True)
@@ -165,7 +166,12 @@ def _info(meta_path: Path) -> LayerInfo | None:
         meta = json.loads(meta_path.read_text())
     except (OSError, ValueError):
         return None
-    return LayerInfo.model_validate({k: v for k, v in meta.items() if k in LayerInfo.model_fields})
+    info = LayerInfo.model_validate({k: v for k, v in meta.items() if k in LayerInfo.model_fields})
+    scale = scale_for(info.variable)
+    if scale is None:
+        return info
+    url = tile_url(info.module, info.region, info.cadence, period_label(info.cadence, info.date), info.layer)
+    return info.model_copy(update={"tile_url": url, "tile_scale": scale})
 
 
 def layers_on(module: ModuleName, day: date) -> list[LayerInfo]:
