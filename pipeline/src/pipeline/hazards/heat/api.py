@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from shapely.geometry import shape
 
 from pipeline.core.errors import not_implemented, stub
-from pipeline.core.layers import layers_on
+from pipeline.core.layers import layers_on, region_for
 from pipeline.core.plots import store
 from pipeline.core.regions import sea_area
 from pipeline.core.schemas import IndicesResponse, LayerInfo
@@ -14,6 +14,7 @@ from pipeline.core.tiles import add_tile_route
 
 from . import MODULE
 from .build import NotBuilt, read_plot_risk, read_zone_indices
+from .build import plot_risk as build_plot_risk
 from .build import risk as compute_risk
 from .layers import season_window
 from .schemas import HeatClimatology, HeatForecast, HeatRiskRequest, HeatRiskResponse
@@ -53,10 +54,19 @@ def risk(req: HeatRiskRequest) -> HeatRiskResponse:
 
 @router.get("/plots/{plot}/risk", response_model=HeatRiskResponse)
 def plot_risk(plot: str, season: str) -> HeatRiskResponse:
-    """Heat indices for an inventoried plot over its season (06-01..10-31)."""
-    if store.get(plot) is None:
+    """Heat indices for an inventoried plot over its season (06-01..10-31).
+
+    Any plot in the inventory, database plots included: the precomputed season when `heat build` wrote one, otherwise
+    the same computation sampled from the built layers on request, over the plot's own geometry. 404 when the season
+    has no built layer at all.
+    """
+    if (p := store.lookup(plot)) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"unknown plot {plot!r}")
-    if (resp := read_plot_risk(plot, _season(season))) is None:
+    if (resp := read_plot_risk(plot, _season(season))) is not None:
+        return resp
+    region = region_for(MODULE, p.geometry)
+    resp = build_plot_risk(p, season, region) if region else None
+    if resp is None or not resp.indices:
         raise _not_built(f"heat season {season} for plot {plot}")
     return resp
 

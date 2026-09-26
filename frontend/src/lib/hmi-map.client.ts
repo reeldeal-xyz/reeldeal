@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import { hmiLayerDate } from './hmi-layer-date';
 import { observationSummary } from './hmi-presentation';
-import { operationColor, plotFacts, sampleRing, type PlotLabels } from './plot-layer';
+import { operationColor, plotFacts, type PlotLabels } from './plot-layer';
 
 type Plot = {
   plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
@@ -21,8 +21,9 @@ const ENGLISH: Record<string, string> = {
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
-  habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
-  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
+  habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Loading sea temperature…',
+  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNotBuilt: 'No heat data built for {season}',
+  plotHeatNoPixels: 'No valid sea temperature pixels in {season}', plotHeatUnavailable: 'Heat data unavailable',
 };
 
 const SEASON_MIN = 2022;
@@ -153,29 +154,26 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     const key = `${plot.plotCode}|${seasonInput.value}`;
     const cached = heatCache.get(key);
     if (cached) return cached;
-    const ring = sampleRing(plot.geometry as Parameters<typeof sampleRing>[0]);
-    if (!scene.dataset.endpoint || !ring) return Promise.resolve(null);
-    // One sample in flight: moving to another plot cancels the last one, which is then fetched again on return.
+    if (!scene.dataset.endpoint) return Promise.resolve(null);
+    // One request in flight: moving to another plot cancels the last one, which is then fetched again on return.
     if (heatRequest) { heatRequest.controller.abort(); heatCache.delete(heatRequest.key); }
     const controller = new AbortController();
     heatRequest = { key, controller };
     const season = seasonInput.value;
-    const request = fetch('/api/risk/heat/area', {
-      method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        feature: { type: 'Feature', properties: null, geometry: { type: 'Polygon', coordinates: [ring] } },
-        start: `${season}-06-01`, end: `${season}-10-31`,
-      }),
-    }).then(async (response) => {
-      const result = response.ok ? await response.json() as { indices: { index: string; asOf: string; value: number | null }[] } : null;
-      const summary = observationSummary(result?.indices.filter((item) => item.index === 'SST') ?? []);
+    // The plot's own heat series from the pipeline (the same values the Observations panel shows for a selected plot).
+    const url = `/api/risk/heat/${encodeURIComponent(plot.plotCode)}?season=${season}`;
+    const request = fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } }).then(async (response) => {
+      if (response.status === 404) return copy.plotHeatNotBuilt.replace('{season}', season);
+      if (!response.ok) { heatCache.delete(key); return copy.plotHeatUnavailable; }
+      const result = await response.json() as { data: { indices: { index: string; asOf: string; value: number | null }[] } };
+      const summary = observationSummary(result.data.indices.filter((item) => item.index === 'SST'));
       return summary
         ? copy.plotHeat.replace('{season}', season).replace('{mean}', summary.mean.toFixed(1))
           .replace('{max}', summary.max.toFixed(1)).replace('{days}', String(summary.count))
-        : copy.plotHeatNone.replace('{season}', season);
+        : copy.plotHeatNoPixels.replace('{season}', season);
     }).catch((error: Error) => {
       heatCache.delete(key);
-      return error.name === 'AbortError' ? null : copy.plotHeatNone.replace('{season}', season);
+      return error.name === 'AbortError' ? null : copy.plotHeatUnavailable;
     }).finally(() => { if (heatRequest?.key === key) heatRequest = undefined; });
     heatCache.set(key, request);
     return request;

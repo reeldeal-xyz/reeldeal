@@ -1,8 +1,7 @@
 import { z } from 'zod';
+import { pipelinePlotCode } from './pipeline-heat';
 
 const plotCode = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/);
-/** Uploaded plots come back from the pipeline as `upload:<plotCode>` (pipeline/README.md). */
-const recordPlotCode = z.string().regex(/^(?:upload:)?[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/);
 const coordinate = z.tuple([z.number().finite().min(-180).max(180), z.number().finite().min(-90).max(90)]);
 const ring = z.array(coordinate).min(4).refine((points) => {
   const first = points[0];
@@ -16,7 +15,7 @@ export const pipelineGeometry = z.discriminatedUnion('type', [
 ]);
 
 export const pipelinePlotRecord = z.object({
-  plotCode: recordPlotCode,
+  plotCode: pipelinePlotCode,
   geometry: pipelineGeometry,
   species: z.array(z.string()),
   operation: z.string(),

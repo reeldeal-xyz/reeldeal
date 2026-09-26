@@ -14,7 +14,7 @@ import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
 import type { HabLayerResult } from '../lib/hab-layers.server';
 import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
-import { operationColor } from '../lib/plot-layer';
+import { operationColor, selectHmiView } from '../lib/plot-layer';
 
 interface Props {
   hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string;
@@ -27,13 +27,9 @@ const {
 } = Astro.props;
 const ja = lang === 'ja';
 const plots = hmi.status === 'available' ? hmi.plots : [];
-const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
+const { supportedSpecies, species, plot } = selectHmiView(plots, plotCode, requestedSpecies);
 const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
 
-// Default to a plot with species: most fishery-right plots have none recorded, and a species drives every panel.
-const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots.find((item) => item.species.length) ?? plots[0];
-const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
 const speciesPlots = plots.filter((item) => item.species.includes(species));
 
 const copy = ja ? {
@@ -57,8 +53,9 @@ const copy = ja ? {
   loading: '観測値を読み込み中…', loaded: '読み込み完了', updateFailed: '観測値を更新できませんでした。再度お試しください。',
   panelFailed: '観測値を更新できませんでした。', outlines: '地図 · OpenStreetMap', satelliteNote: '衛星写真 · Esri',
   overlayUnavailable: '{layer}の画像は{time}には利用できません。',
-  plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を集計中…',
-  plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNone: '{season}年の海面水温データはありません',
+  plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を取得中…',
+  plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNotBuilt: '{season}年の水温データは未作成です',
+  plotHeatNoPixels: '{season}年の有効な海面水温画素はありません', plotHeatUnavailable: '水温データに接続できません',
 } : {
   mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
@@ -80,8 +77,9 @@ const copy = ja ? {
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.',
-  plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
-  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
+  plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Loading sea temperature…',
+  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNotBuilt: 'No heat data built for {season}',
+  plotHeatNoPixels: 'No valid sea temperature pixels in {season}', plotHeatUnavailable: 'Heat data unavailable',
 };
 const speciesNames: Record<string, string> = ja ? {
   scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', yellowtail: 'ブリ',
@@ -148,7 +146,8 @@ const clientCopy = JSON.stringify({
   areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
   updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
   overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl, habLog: ja ? '（対数）' : '(log)',
-  plotSelect: copy.plotSelect, plotHeatLoading: copy.plotHeatLoading, plotHeat: copy.plotHeat, plotHeatNone: copy.plotHeatNone,
+  plotSelect: copy.plotSelect, plotHeatLoading: copy.plotHeatLoading, plotHeat: copy.plotHeat, plotHeatNotBuilt: copy.plotHeatNotBuilt,
+  plotHeatNoPixels: copy.plotHeatNoPixels, plotHeatUnavailable: copy.plotHeatUnavailable,
 });
 const sourceNames: Record<string, string> = ja
   ? { demo: 'デモ用形状', msil: 'MSIL区画形状', fishery_right: '区画漁業権の許可区画', upload: '登録区画形状' }
