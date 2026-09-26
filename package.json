@@ -12,6 +12,7 @@
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test -vv",
     "abi": "bun scripts/export-abi.ts",
+    "e2e": "bun scripts/e2e.ts",
     "multibaas:setup": "bun scripts/multibaas-setup.ts",
     "dev": "bun run --filter web dev",
     "pipeline": "cd pipeline && uv run pipeline-serve",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "dotdog": "0.9.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "viem": "^2.56.9"
   }
 }
