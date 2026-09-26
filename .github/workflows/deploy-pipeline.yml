@@ -57,7 +57,7 @@ jobs:
           # Runs on the instance as ubuntu. --wait fails the deploy if the api healthcheck never passes;
           # the last check fails it if /health isn't reporting the commit we just pushed.
           script="set -e
-          cd /home/ubuntu/eth-global-tokyo
+          cd /home/ubuntu/reeldeal
           git fetch -q origin $BRANCH
           git checkout -q -f -B $BRANCH $SHA
           cd pipeline

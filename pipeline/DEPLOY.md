@@ -65,8 +65,8 @@ curl -fsSL https://get.docker.com | sudo sh
 sudo usermod -aG docker ubuntu && exit   # log back in for the group to apply
 
 ssh ubuntu@<elastic-ip>
-git clone -b main <repo-url> eth-global-tokyo   # main is the deployed branch; private repo: use a read-only deploy key
-cd eth-global-tokyo/pipeline
+git clone -b main <repo-url> reeldeal   # main is the deployed branch; private repo: use a read-only deploy key
+cd reeldeal/pipeline
 mkdir -p data out                        # create before compose, or Docker creates them as root
 
 cp .env.example .env
@@ -83,7 +83,7 @@ The web app points at `https://<SITE_ADDRESS>`. CORS is open (`api.py`), so no e
 
 ```sh
 ssh ubuntu@<elastic-ip>
-cd eth-global-tokyo/pipeline
+cd reeldeal/pipeline
 git checkout main && git pull --ff-only
 GIT_SHA=$(git rev-parse HEAD) docker compose up -d --build   # rebuilds api; Caddy and its certificate stay
 docker image prune -f
@@ -128,13 +128,15 @@ One-time setup:
          "Principal": { "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com" },
          "Action": "sts:AssumeRoleWithWebIdentity",
          "Condition": {
-           "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-           "StringLike": { "token.actions.githubusercontent.com:sub": "repo:reeldeal-xyz/reeldeal:ref:refs/heads/main" }
+           "StringEquals": {
+             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+             "token.actions.githubusercontent.com:sub": "repo:reeldeal-xyz@334096584/reeldeal@1387452000:ref:refs/heads/main"
+           }
          }
        }]
      }
      ```
-     The repo is `reeldeal-xyz/reeldeal` (previously `ss251/eth-global-tokyo`, then `ss251/reeldeal`). The OIDC `sub` uses the **current** owner and name, so after any rename or transfer, update this condition or the deploy is rejected. Manual runs (`workflow_dispatch`) also only work from `main`; the workflow skips the deploy job anywhere else. To deploy another branch too, add it to `on.push.branches` in the workflow, relax the job's `if:`, and add its `sub` to this condition (it accepts a list).
+     This repo uses GitHub's **immutable subject claims**, so the token's `sub` names the owner and repo by numeric ID (`reeldeal-xyz@334096584/reeldeal@1387452000`) rather than by name. That survives renames and transfers. A name-only `sub` such as `repo:reeldeal-xyz/reeldeal:…` never matches, and AWS answers "Not authorized to perform sts:AssumeRoleWithWebIdentity". To check the current prefix: `gh api repos/reeldeal-xyz/reeldeal/actions/oidc/customization/sub` (`sub_claim_prefix`). Manual runs (`workflow_dispatch`) also only work from `main`; the workflow skips the deploy job anywhere else. To deploy another branch too, add it to `on.push.branches` in the workflow, relax the job's `if:`, and add its `sub` to this condition (it accepts a list).
    - Permissions (inline policy; it can run commands on this one instance, nothing else):
      ```json
      {
@@ -147,7 +149,7 @@ One-time setup:
        ]
      }
      ```
-4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/eth-global-tokyo && git fetch origin main`. If the instance was set up from the old `pipeline` branch, switch it once: `git fetch origin main && git checkout -f -B main origin/main`. If its `origin` still points at an old name, update it: `git remote set-url origin git@github.com:reeldeal-xyz/reeldeal.git` (GitHub redirects renames and transfers, but a deploy key is tied to the repo).
+4. **Make sure the server can fetch on its own.** The clone in step 3 must use a deploy key (or be public), so `git fetch` works without you. Test it on the instance: `cd ~/reeldeal && git fetch origin main`. If the instance was set up from the old `pipeline` branch, switch it once: `git fetch origin main && git checkout -f -B main origin/main`. If its `origin` still points at an old name, update it: `git remote set-url origin git@github.com:reeldeal-xyz/reeldeal.git` (GitHub redirects renames and transfers, but a deploy key is tied to the repo).
 5. **Add the repo variables** in GitHub → Settings → Secrets and variables → Actions → **Variables** (not secrets; neither value is sensitive):
    - `AWS_DEPLOY_ROLE_ARN` = `arn:aws:iam::<account-id>:role/pipeline-github-deploy`
    - `EC2_INSTANCE_ID` = `i-…`
@@ -163,7 +165,7 @@ Notes:
 
 ```cron
 # 03:00 JST (18:00 UTC; the instance clock is UTC) daily: build all modules' layers for the JST date
-0 18 * * * cd /home/ubuntu/eth-global-tokyo/pipeline && docker compose run --rm api pipeline all build --date "$(TZ=Asia/Tokyo date +\%F)" >> /home/ubuntu/pipeline-cron.log 2>&1
+0 18 * * * cd /home/ubuntu/reeldeal/pipeline && docker compose run --rm api pipeline all build --date "$(TZ=Asia/Tokyo date +\%F)" >> /home/ubuntu/pipeline-cron.log 2>&1
 ```
 
 `docker compose run` uses the same image, `.env` and volumes as the API, so layers written to `out/` are served immediately.
