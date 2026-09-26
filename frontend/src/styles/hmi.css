@@ -161,7 +161,7 @@
   .coast-toggle svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
   .coast-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
   .coast-controls { display: none; }
-  .coast-label:has(.coast-toggle[aria-expanded="true"]) .coast-controls { display: grid; width: min(258px, calc(100vw - 102px)); max-height: min(45dvh, calc(100dvh - 240px)); overflow-y: auto; overscroll-behavior: contain; padding: 10px; border-top: 1px solid #cdded6; }
+  .coast-label:has(.coast-toggle[aria-expanded="true"]) .coast-controls { display: grid; width: min(258px, calc(100vw - 102px)); max-height: min(45dvh, calc(100dvh - 270px - env(safe-area-inset-bottom))); overflow-y: auto; overscroll-behavior: contain; padding: 10px; border-top: 1px solid #cdded6; }
   #forecast-shelf { right: 12px; padding: 10px 12px; max-height: calc(100dvh - 210px - env(safe-area-inset-bottom)); }
   .hmi-page:has(#forecast-shelf[data-open]) .map-tools,.hmi-page:has(#forecast-shelf[data-open]) .map-zoom { visibility: hidden; }
 }

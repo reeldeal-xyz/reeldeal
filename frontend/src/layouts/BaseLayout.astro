@@ -41,7 +41,7 @@ const ja = lang === 'ja';
         <nav class="site-nav" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
           <a href="/market" aria-current={section === 'market' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
-          <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>
+          <a href="/coop">{ja ? '漁協管理' : 'Co-op dashboard'}</a>
           <a href="/relief" aria-current={section === 'relief' ? 'page' : undefined}>{ja ? '救済' : 'Relief'}</a>
         </nav>
       </div></header>
