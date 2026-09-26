@@ -17,9 +17,10 @@ export function Nav() {
 
   return (
     <nav className={`${styles.nav} ${styles.noPrint}`}>
-      <Link href="/" className={styles.brand}>
-        <span className={styles.brandMark}>Reel Deal</span>
-        <span className={styles.brandSub}>Kesennuma relief fund</span>
+      <Link href="/coop" className={styles.brand} aria-label="ReelDeal co-op">
+        <svg viewBox="154 150 946 946" width="48" height="48" aria-hidden="true" focusable="false">
+          <image href="/images/reeldeal-logo.svg" width="1254" height="1254" />
+        </svg>
       </Link>
       <div className={styles.navLinks}>
         {LINKS.map((link) => {
