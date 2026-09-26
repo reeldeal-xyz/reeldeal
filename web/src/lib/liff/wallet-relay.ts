@@ -139,7 +139,7 @@ export interface HandleRelayTransferDeps {
   };
   jpycAddress: Address;
   /** The LINE user's pinned wallet (lib/payout-directory.ts), or null if none is pinned yet. */
-  getPinnedWallet: (lineUserId: string) => string | null;
+  getPinnedWallet: (lineUserId: string) => Promise<string | null> | string | null;
   /** Unix seconds. Injectable so tests can control the validAfter/validBefore window without real timers. */
   now: () => number;
   rateLimiter: RateLimiter;
@@ -177,7 +177,7 @@ export async function handleRelayTransfer(
     };
   }
 
-  const pinned = deps.getPinnedWallet(lineUserId);
+  const pinned = await deps.getPinnedWallet(lineUserId);
   if (!pinned) {
     return {
       status: 409,

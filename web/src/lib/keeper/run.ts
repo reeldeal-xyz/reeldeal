@@ -84,7 +84,7 @@ export interface KeeperRunDeps {
   pushHeld: (userId: string, params: HeldPushParams) => Promise<void>;
   lineUserIdForWallet: (wallet: string) => Promise<string | null>;
   lineUserIdForPlot: (plotLabel: string) => Promise<string | null>;
-  recordPlotWallet: (plotLabel: string, wallet: string) => void;
+  recordPlotWallet: (plotLabel: string, wallet: string) => void | Promise<void>;
   /** Jev data-quality gate (docs/JEV.md), asked right before attest. Injectable so tests never hit the network. */
   decideAttest: (state: AttestGateState) => Promise<AttestGateResult>;
 }
@@ -335,7 +335,7 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
       for (const log of decoded) {
         if (log.eventName === 'Paid') {
           const { plotLabel, farmer, amount } = log.args;
-          deps.recordPlotWallet(plotLabel, farmer);
+          await deps.recordPlotWallet(plotLabel, farmer);
 
           const lineUserId = await deps.lineUserIdForWallet(farmer);
           let sent = false;
@@ -360,7 +360,7 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
               functionName: 'payoutTarget',
               args: [plotLabel, ref.payoutSeasonLabel],
             });
-            if (farmer && farmer !== zeroAddress) deps.recordPlotWallet(plotLabel, farmer);
+            if (farmer && farmer !== zeroAddress) await deps.recordPlotWallet(plotLabel, farmer);
           } catch (err) {
             console.warn(`[keeper] Held ${plotLabel}: payoutTarget lookup failed (non-fatal)`, err);
           }

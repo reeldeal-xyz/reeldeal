@@ -16,15 +16,15 @@ describe('pinWalletForLineUser', () => {
   const A = '0x1aEDC8476f15BdF1Ac742544c58Be3a187eEAB51';
   const B = '0x5a401E5825782DC8c5D3e20df6884F7130195132';
 
-  test('pins the first wallet a LINE user presents', () => {
-    expect(pinWalletForLineUser('U1', A)).toBe(A.toLowerCase());
-    expect(walletForLineUser('U1')).toBe(A.toLowerCase());
+  test('pins the first wallet a LINE user presents', async () => {
+    expect(await pinWalletForLineUser('U1', A)).toBe(A.toLowerCase());
+    expect(await walletForLineUser('U1')).toBe(A.toLowerCase());
   });
-  test('returns the pinned wallet when a new browser context presents a different one', () => {
-    pinWalletForLineUser('U1', A);
-    expect(pinWalletForLineUser('U1', B)).toBe(A.toLowerCase());
+  test('returns the pinned wallet when a new browser context presents a different one', async () => {
+    await pinWalletForLineUser('U1', A);
+    expect(await pinWalletForLineUser('U1', B)).toBe(A.toLowerCase());
   });
-  test('returns null with no pinned wallet and no candidate', () => {
-    expect(pinWalletForLineUser('U2', null)).toBeNull();
+  test('returns null with no pinned wallet and no candidate', async () => {
+    expect(await pinWalletForLineUser('U2', null)).toBeNull();
   });
 });

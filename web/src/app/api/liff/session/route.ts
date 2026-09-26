@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   // One wallet per LINE user: return the pinned wallet so a new browser context doesn't mint a new identity.
   const candidate = (body as { wallet?: unknown }).wallet;
-  const wallet = pinWalletForLineUser(
+  const wallet = await pinWalletForLineUser(
     claims.sub,
     typeof candidate === 'string' && /^0x[0-9a-fA-F]{40}$/.test(candidate) ? candidate : null,
   );

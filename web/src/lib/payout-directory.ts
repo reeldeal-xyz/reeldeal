@@ -3,7 +3,7 @@
 //
 // The ReliefPool `Paid` event carries the farmer's payout wallet; `Held` carries only the plotLabel (see
 // IReliefPool.Held). Neither carries a LINE userId directly, so this directory turns on-chain identifiers
-// into a push target via two small JSON-file-backed maps:
+// into a push target via two small maps:
 //
 //   plotWallet:  plotLabel   -> farmer wallet   (written by the keeper -- it already resolves this via
 //                                                 `payoutTarget`/the Paid event on every attest+settle run)
@@ -15,23 +15,20 @@
 // `bindWalletToLineUser`, `walletLine` stays empty and both lookups return null (the caller already logs a
 // warning and skips the push in that case -- see the webhook route and web/src/lib/keeper/run.ts).
 //
-// Storage: a single JSON file (env PAYOUT_DIRECTORY_FILE, default `.data/payout-directory.json` under the
-// web app's cwd). Good enough for local dev and for the keeper's own long-lived process during the demo.
-// NOT durable across instances on a read-only/ephemeral serverless filesystem (e.g. Vercel's default
-// runtime) -- #15 should move this to real shared KV (Vercel KV / Upstash) once cross-instance durability
-// matters; this module's two functions (`recordPlotWallet`, `bindWalletToLineUser`) are the seam to swap.
+// Storage (db/postgres-plots task): `app.wallet_links` / `app.plot_wallets` via Drizzle when DATABASE_URL
+// is set (db/README.md §4.3) -- durable across instances/restarts, unlike the old JSON file. When
+// DATABASE_URL is unset (tests, local dev without a DB), this falls back to the original single JSON file
+// (env PAYOUT_DIRECTORY_FILE, default `.data/payout-directory.json`) so nothing breaks without a DB.
 //
-// Railway note (issue #15): Railway runs the web app as a single long-lived Node process (not serverless
-// per-invocation instances), so this JSON-file approach is durable enough there as-is -- the in-memory
-// `cache` and the file both live for the container's lifetime, same as local dev. `.data/` (gitignored) is
-// writable in a standard Railway container; PAYOUT_DIRECTORY_FILE can also point at `/tmp` if `.data/` isn't
-// writable in a given deploy. It only stops being "durable enough" once there's more than one instance
-// (horizontal scaling) or the container restarts/redeploys without a mounted volume -- neither applies to
-// this hackathon's single-service Railway deploy.
-
+// All four write/read functions became `async` for the DB path (they were partly sync before); every
+// existing caller already sits inside an async function, so call sites just gained an `await` -- see
+// web/src/lib/keeper/run.ts, web/src/lib/liff/world-bind.ts and web/src/app/api/liff/session/route.ts.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { env } from './env';
+import { getDb } from '../db/client';
+import { walletLinks, plotWallets } from '../db/schema';
 
 export interface PayoutDirectory {
   lineUserIdForWallet(wallet: string): Promise<string | null>;
@@ -83,26 +80,69 @@ export function _resetPayoutDirectoryCacheForTests(): void {
 
 /** Records that `plotLabel`'s season slot currently pays `wallet` (issue #17: the keeper learns this from
  *  `payoutTarget`/the `Paid` event on every attest+settle run). Idempotent -- overwrites any prior value. */
-export function recordPlotWallet(plotLabel: string, wallet: string): void {
+export async function recordPlotWallet(plotLabel: string, wallet: string): Promise<void> {
+  const normalized = normalizeWallet(wallet);
+  const db = getDb();
+  if (db) {
+    try {
+      await db
+        .insert(plotWallets)
+        .values({ plotId: plotLabel, wallet: normalized, updatedAt: new Date() })
+        .onConflictDoUpdate({ target: plotWallets.plotId, set: { wallet: normalized, updatedAt: new Date() } });
+      return;
+    } catch (err) {
+      // Best-effort, same policy as the JSON persist() below: e.g. plotLabel isn't in geo.plots yet
+      // (FK violation) must not crash the keeper run.
+      console.warn('[payout-directory] failed to record plot wallet in DB', plotLabel, err);
+      return;
+    }
+  }
   const data = load();
-  data.plotWallet[plotLabel] = normalizeWallet(wallet);
+  data.plotWallet[plotLabel] = normalized;
   persist(data);
 }
 
 /** TODO(#15): call this from the LIFF wallet-bind flow once a farmer's in-app wallet is linked to their
  *  LINE session (after World ID verification, or as soon as the wallet + LINE login both exist). */
-export function bindWalletToLineUser(wallet: string, lineUserId: string): void {
+export async function bindWalletToLineUser(wallet: string, lineUserId: string): Promise<void> {
+  const normalized = normalizeWallet(wallet);
+  const db = getDb();
+  if (db) {
+    try {
+      await db
+        .insert(walletLinks)
+        .values({ lineUserId, wallet: normalized, pinnedAt: new Date() })
+        .onConflictDoUpdate({ target: walletLinks.lineUserId, set: { wallet: normalized } });
+      return;
+    } catch (err) {
+      console.warn('[payout-directory] failed to bind wallet<->LINE user in DB', lineUserId, err);
+      return;
+    }
+  }
   const data = load();
-  data.walletLine[normalizeWallet(wallet)] = lineUserId;
+  data.walletLine[normalized] = lineUserId;
   persist(data);
 }
 
 export const payoutDirectory: PayoutDirectory = {
   async lineUserIdForWallet(wallet: string): Promise<string | null> {
+    const normalized = normalizeWallet(wallet);
+    const db = getDb();
+    if (db) {
+      const rows = await db.select({ lineUserId: walletLinks.lineUserId }).from(walletLinks).where(eq(walletLinks.wallet, normalized));
+      return rows[0]?.lineUserId ?? null;
+    }
     const data = load();
-    return data.walletLine[normalizeWallet(wallet)] ?? null;
+    return data.walletLine[normalized] ?? null;
   },
   async lineUserIdForPlot(plotLabel: string): Promise<string | null> {
+    const db = getDb();
+    if (db) {
+      const rows = await db.select({ wallet: plotWallets.wallet }).from(plotWallets).where(eq(plotWallets.plotId, plotLabel));
+      const wallet = rows[0]?.wallet;
+      if (!wallet) return null;
+      return payoutDirectory.lineUserIdForWallet(wallet);
+    }
     const data = load();
     const wallet = data.plotWallet[plotLabel];
     if (!wallet) return null;
@@ -111,7 +151,12 @@ export const payoutDirectory: PayoutDirectory = {
 };
 
 /** The wallet this LINE user was first linked to, if any (reverse of `walletLine`). */
-export function walletForLineUser(lineUserId: string): string | null {
+export async function walletForLineUser(lineUserId: string): Promise<string | null> {
+  const db = getDb();
+  if (db) {
+    const rows = await db.select({ wallet: walletLinks.wallet }).from(walletLinks).where(eq(walletLinks.lineUserId, lineUserId));
+    return rows[0]?.wallet ?? null;
+  }
   const data = load();
   for (const [wallet, user] of Object.entries(data.walletLine)) if (user === lineUserId) return wallet;
   return null;
@@ -119,10 +164,18 @@ export function walletForLineUser(lineUserId: string): string | null {
 
 /** One stable wallet per LINE user: the first wallet a user presents is pinned, and later sessions (a new
  *  browser context with its own localStorage, a reinstall) get that same wallet back instead of a new one. */
-export function pinWalletForLineUser(lineUserId: string, candidate: string | null): string | null {
-  const existing = walletForLineUser(lineUserId);
+export async function pinWalletForLineUser(lineUserId: string, candidate: string | null): Promise<string | null> {
+  const existing = await walletForLineUser(lineUserId);
   if (existing) return existing;
   if (!candidate) return null;
-  bindWalletToLineUser(candidate, lineUserId);
-  return normalizeWallet(candidate);
+  const normalized = normalizeWallet(candidate);
+  const db = getDb();
+  if (db) {
+    // onConflictDoNothing (not Update): two concurrent requests racing to pin the same LINE user get
+    // one winner, matching the JSON store's "first wallet wins" invariant instead of last-write-wins.
+    await db.insert(walletLinks).values({ lineUserId, wallet: normalized, pinnedAt: new Date() }).onConflictDoNothing({ target: walletLinks.lineUserId });
+    return (await walletForLineUser(lineUserId)) ?? normalized;
+  }
+  await bindWalletToLineUser(candidate, lineUserId);
+  return normalized;
 }

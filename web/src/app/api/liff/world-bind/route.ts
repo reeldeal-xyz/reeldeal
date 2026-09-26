@@ -17,6 +17,6 @@ export async function POST(req: NextRequest) {
   }
 
   const raw = await req.json().catch(() => null);
-  const { status, body } = handleWorldBind(raw, session.userId);
+  const { status, body } = await handleWorldBind(raw, session.userId);
   return NextResponse.json(body, { status });
 }

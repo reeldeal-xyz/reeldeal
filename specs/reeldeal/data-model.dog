@@ -34,7 +34,7 @@ states: [observed]
 
 ### Entity: Pipeline
 
-Python (uv) FastAPI risk API scaffold for the heat, HAB and storm modules, its Docker/Caddy deployment files and pytest suite, plus pinned buoy/toxin/geographic inputs, and the separate PostgreSQL/PostGIS service spec under db/ (#110). Domain routes remain 501 stubs; /health, API docs and OpenAPI are available. Real index values are planned under #82. The TypeScript feed server and signer were removed; signing moves to the keeper (#64).
+Python (uv) FastAPI risk API scaffold for the heat, HAB and storm modules, its Docker/Caddy deployment files and pytest suite, plus pinned buoy/toxin/geographic inputs. Domain routes remain 501 stubs; /health, API docs and OpenAPI are available. Real index values are planned under #82. The TypeScript feed server and signer were removed; signing moves to the keeper (#64).
 
 ```yaml
 entity: Pipeline
@@ -43,7 +43,7 @@ properties:
   adr:
     default: docs/adrs/0003-risk-api-and-keeper.md
   paths:
-    default: pipeline/ db/
+    default: pipeline/
 states: [observed]
 ```
 
@@ -92,6 +92,24 @@ properties:
 states: [observed]
 ```
 
+### Entity: Postgres
+
+PostgreSQL/PostGIS database service, separate from the pipeline and app (db/README.md, issues
+#103-#110). `geo`/`risk` are dbmate-migrated (Jay-owned); `app` is Drizzle-migrated (application-owned,
+issue #62). Only a `geo` bootstrap (`db/migrations/`) and its interim runner (`db/scripts/`) exist here
+so far — the full service scaffold (compose, roles, pgTAP) is #103, not yet built.
+
+```yaml
+entity: Postgres
+type: component
+properties:
+  adr:
+    default: docs/adrs/0004-postgres-schema-ownership.md
+  paths:
+    default: db/
+states: [observed]
+```
+
 ## Planned systems
 
 ### Entity: AstroApplication
@@ -119,21 +137,6 @@ type: planned
 properties:
   adr:
     default: docs/adrs/0003-risk-api-and-keeper.md
-  status:
-    default: planned
-states: [planned]
-```
-
-### Entity: Postgres
-
-Separate app/risk schemas with agreed geographic ownership, planned under #57/#59/#62.
-
-```yaml
-entity: Postgres
-type: planned
-properties:
-  adr:
-    default: docs/adrs/0004-postgres-schema-ownership.md
   status:
     default: planned
 states: [planned]
@@ -170,5 +173,5 @@ description: Planned typed handoff under #55/#79; not observed runtime traffic.
 ```yaml
 relationship: AstroApplication -> Postgres
 verb: depends_on
-description: Planned persistence under #62; not an existing database deployment claim.
+description: A Railway PostgreSQL/PostGIS instance now exists (db/postgres-plots task) with an app schema Drizzle-migrated from web/; AstroApplication (frontend/) itself has not been wired to it.
 ```

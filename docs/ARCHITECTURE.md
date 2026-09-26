@@ -31,3 +31,41 @@ MultiBaas (Curvegrid) indexes events ─> webhook ─> LINE Messaging API push
 | Prizes | ENS Best Use of ENSv2, World Best Use of IDKit, Curvegrid Best RWA Tokenization |
 
 Tier amounts (demo, admin-settable): scallop tier 1 ¥20,000/unit, tier 2 +¥30,000; hoya tier 1 ¥20,000; toxin ¥10,000. Pro-rata fixed at attestation.
+
+## Database
+
+PostgreSQL 16 + PostGIS 3.7 (Railway, interim; db/README.md §9 plans an EC2 move under #106). Spec:
+db/README.md (issues #103-#110). ADR 0004 records the ownership principle (one writable schema owner,
+consumers reference rather than copy); db/README.md is the current source of truth for schema/table
+names.
+
+| Schema | Owns | Tooling | Status |
+|---|---|---|---|
+| `geo` | Reference geometry: plots, sea areas (stations/coast/mask are #104, not yet built) | dbmate (`db/migrations/`) | Interim bootstrap only: `geo.plots` (15 synthetic points, `synthetic=true`) + `geo.sea_areas` (karakuwa-east, kesennuma-bay), no real MSIL polygons yet (D2) |
+| `risk` | Pipeline time-series (indices, observations) | dbmate | Not built (#105) |
+| `app` | `slot_requests`, `wallet_links`, `plot_wallets` | Drizzle (`web/drizzle/`) | Live; replaces the old JSON-file payout directory/slot-request store |
+
+`app.plot_wallets.plot_id` is a real foreign key to `geo.plots.plot_code` (ADR 0004: app references
+canonical geometry, never copies it) — added by hand in `web/drizzle/0000_exotic_magma.sql` since
+Drizzle only owns/diffs `app` (see `web/drizzle.config.ts`'s `schemaFilter`).
+
+Both `web/src/lib/payout-directory.ts` and `web/src/lib/slot-request-store.ts` use the database when
+`DATABASE_URL` is set and fall back to the original JSON-file/in-memory store when it isn't (tests,
+local dev without a DB) — same public function signatures either way.
+`web/src/lib/plots.ts`'s new `getPlots()` reads `geo.plots` server-side under the same fallback; the
+existing static `DEMO_PLOTS` constant is unchanged (client components still import it directly). ENS
+stays the source of truth for season-slot ownership regardless of where the demo plot list comes from.
+
+Migrate, in order (the `app` migration's FK needs `geo.plots` to already exist):
+
+```sh
+bun run db:migrate:geo              # dbmate-style geo bootstrap (interim seed in db/interim/, runner db/scripts/migrate.ts; Jay's #114 dbmate migrations in db/migrations/ supersede it)
+bun run --filter web db:migrate     # drizzle-orm/bun-sql migrator, web/drizzle/
+# or both, in order:
+bun run db:migrate
+```
+
+`bun run --filter web db:generate` regenerates `web/drizzle/*.sql` from `web/src/db/schema.ts` after an
+`app` schema change (re-apply the hand-added FK statement at the top of the new migration file if one
+lands — see that file's header comment). `bun run db:cross-check-plots` reads `ReliefPool.plots(label)`
+for the 15 demo labels (cheap `eth_call`s, no gas) as an informational check against `geo.plots`.
