@@ -2,8 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import type { Address, Hex } from 'viem';
 import { CHAIN_ID, JPYC_EIP712_DOMAIN } from '@repo/shared';
+import { walletSessionUserId } from '@/lib/siwe';
 import { TRANSFER_WITH_AUTHORIZATION_TYPES } from './wallet-authorization';
-import { handleRelayTransfer, type HandleRelayTransferDeps, type RateLimiter } from './wallet-relay';
+import { defaultGetPinnedWallet, handleRelayTransfer, type HandleRelayTransferDeps, type RateLimiter } from './wallet-relay';
 
 // A stand-in JPYC address for the domain -- doesn't need to be the real deployed address for these tests,
 // only consistent between what's signed here and what `deps.jpycAddress` tells the handler to verify against.
@@ -63,7 +64,7 @@ const alwaysAllow: RateLimiter = { consume: () => true };
 function makeDeps(
   overrides: {
     balance?: bigint;
-    getPinnedWallet?: (lineUserId: string) => string | null;
+    getPinnedWallet?: HandleRelayTransferDeps['getPinnedWallet'];
     now?: () => number;
     rateLimiter?: RateLimiter;
   } = {},
@@ -121,6 +122,31 @@ describe('handleRelayTransfer: pinned wallet', () => {
     const res = await handleRelayTransfer(toBody(signed), 'U1', deps);
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('no_pinned_wallet');
+  });
+});
+
+describe('defaultGetPinnedWallet (session-kind derivation)', () => {
+  test('decodes a wallet session id straight to its address -- no LINE directory lookup', async () => {
+    const resolved = await defaultGetPinnedWallet(walletSessionUserId(pinnedAccount.address));
+    expect(resolved).toBe(pinnedAccount.address.toLowerCase());
+  });
+
+  test('falls through to the LINE pinned-wallet directory for a non-wallet-session id', async () => {
+    // No wallet has ever been pinned for this made-up LINE sub, so the directory correctly returns null
+    // rather than misreading it as a wallet session.
+    const resolved = await defaultGetPinnedWallet('U-some-line-sub-that-was-never-pinned');
+    expect(resolved).toBeNull();
+  });
+});
+
+describe('handleRelayTransfer: end-to-end with a wallet session', () => {
+  test('relays a validly-signed transfer using the wallet session itself as the pinned wallet', async () => {
+    const { deps, calls } = makeDeps({ getPinnedWallet: defaultGetPinnedWallet });
+    const signed = await signAs(pinnedAccount);
+    const res = await handleRelayTransfer(toBody(signed), walletSessionUserId(pinnedAccount.address), deps);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(calls.simulate.length).toBe(1);
   });
 });
 

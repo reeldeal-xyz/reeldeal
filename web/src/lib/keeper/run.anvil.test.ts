@@ -196,6 +196,8 @@ describe.skipIf(!HAS_ANVIL)('keeper against a local anvil chain', () => {
         probabilities: { attest_now: 1, co_op_review: 0 },
         reason: 'jev_choice' as const,
       })),
+      claimNotification: mock(async () => true),
+      recordEscalatedRun: mock(async () => {}),
       ...overrides,
     };
   }

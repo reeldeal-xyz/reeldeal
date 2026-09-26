@@ -10,6 +10,7 @@ import {
   type MultiBaasEventInformation,
   type MultiBaasWebhookItem,
 } from '@/lib/multibaas';
+import { claimNotification } from '@/lib/notification-log';
 import { payoutDirectory } from '@/lib/payout-directory';
 
 // Curvegrid MultiBaas webhook receiver (issue #23).
@@ -37,13 +38,17 @@ export async function POST(req: Request) {
   let processed = 0;
   for (const item of items) {
     if (!isEventEmitted(item)) continue;
-    const { event } = item.data;
+    const { event, transaction } = item.data;
+    // `transaction.txHash` (a sibling of `event` on the payload, not a field of `event` itself --
+    // MultiBaasEventInformation has no `transaction` property) is the real chain event id's other half,
+    // needed for durable push de-dup (web/src/lib/notification-log.ts, keyed on txHash+indexInLog).
+    const txHash = transaction?.txHash?.startsWith('0x') ? (transaction.txHash as `0x${string}`) : '0x';
     switch (event.name) {
       case 'Paid':
-        await handlePaid(event);
+        await handlePaid(event, txHash);
         break;
       case 'Held':
-        await handleHeld(event);
+        await handleHeld(event, txHash);
         break;
       case 'Donated':
         handleDonated(event);
@@ -67,13 +72,8 @@ export async function POST(req: Request) {
 // Hold reasons are bytes32-packed ASCII on-chain (ReliefPool.REASON_*); eventInput gives the decoded label.
 // Shared with the keeper (issue #17) via web/src/lib/held-reasons.ts so the two LINE-push paths agree.
 
-function txHashOf(event: MultiBaasEventInformation): `0x${string}` | undefined {
-  const h = (event as { transaction?: { txHash?: string } }).transaction?.txHash;
-  return h?.startsWith('0x') ? (h as `0x${string}`) : undefined;
-}
-
 /** event Paid(bytes32 indexed eventId, string plotLabel, address indexed farmer, bytes32 indexed nullifier, uint256 amount) */
-export async function handlePaid(event: MultiBaasEventInformation): Promise<void> {
+export async function handlePaid(event: MultiBaasEventInformation, txHash: `0x${string}` = '0x'): Promise<void> {
   const eventId = eventInput(event, 'eventId') ?? '';
   const plotLabel = eventInput(event, 'plotLabel') ?? '';
   const farmer = eventInput(event, 'farmer');
@@ -90,12 +90,19 @@ export async function handlePaid(event: MultiBaasEventInformation): Promise<void
     return;
   }
 
-  await pushPaid(lineUserId, { plotCode: plotLabel, zoneLabel: zoneLabelFor(plotLabel), amountWei: BigInt(amount), txHash: txHashOf(event) });
+  // Durable dedup (sponsor-polish task): a webhook redelivery or replay must never push the same Paid
+  // event twice -- see web/src/lib/notification-log.ts.
+  if (!(await claimNotification(txHash, event.indexInLog, 'Paid'))) {
+    console.log('[multibaas] Paid event already notified, skipping', eventId, plotLabel);
+    return;
+  }
+
+  await pushPaid(lineUserId, { plotCode: plotLabel, zoneLabel: zoneLabelFor(plotLabel), amountWei: BigInt(amount), txHash });
 }
 
 /** event Held(bytes32 indexed eventId, string plotLabel, bytes32 reason) — no farmer field, so this looks
  *  up the LINE userId by plotLabel (see web/src/lib/payout-directory.ts). */
-export async function handleHeld(event: MultiBaasEventInformation): Promise<void> {
+export async function handleHeld(event: MultiBaasEventInformation, txHash: `0x${string}` = '0x'): Promise<void> {
   const eventId = eventInput(event, 'eventId') ?? '';
   const plotLabel = eventInput(event, 'plotLabel') ?? '';
   const reason = eventInput(event, 'reason') ?? '';
@@ -103,6 +110,11 @@ export async function handleHeld(event: MultiBaasEventInformation): Promise<void
   const lineUserId = await payoutDirectory.lineUserIdForPlot(plotLabel);
   if (!lineUserId) {
     console.warn('[multibaas] Held event: no LINE mapping for plot', plotLabel, '(reason', reason, ')');
+    return;
+  }
+
+  if (!(await claimNotification(txHash, event.indexInLog, 'Held'))) {
+    console.log('[multibaas] Held event already notified, skipping', eventId, plotLabel);
     return;
   }
 

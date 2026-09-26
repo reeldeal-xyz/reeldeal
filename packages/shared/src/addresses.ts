@@ -36,8 +36,10 @@ export const ENS = {
 // Filled after deploy (issue: deploy to public Sepolia).
 export const DEPLOYED = {
   HumanRegistry: '0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8',
-  ReliefPool: '0x560E8404be74DCB7F3877835F374CF1B1B696D32',
-  ReliefPoolDeployBlock: 11785370,
+  ReliefPool: '0xB25888A81B6F2D337c2f0CBFB863324F258c43e5',
+  ReliefPoolDeployBlock: 11785698,
   EnsPlotResolver: '0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b',
   EnsSlotResolver: '0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec',
+  // SaleRouter (issue #65 / SP-11): donates to the ReliefPool above. quoteSigner = co-op signer, maxReliefBps 1000.
+  SaleRouter: '0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd',
 } as const;

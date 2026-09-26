@@ -1,6 +1,6 @@
 // Copies compiled ABIs from contracts/out into packages/shared/src/abi for the web app and pipeline.
 import { mkdirSync, writeFileSync } from 'node:fs';
-const names = ['ReliefPool', 'HumanRegistry'];
+const names = ['ReliefPool', 'HumanRegistry', 'SaleRouter'];
 mkdirSync('packages/shared/src/abi', { recursive: true });
 for (const n of names) {
   const art = await Bun.file(`contracts/out/${n}.sol/${n}.json`).json();

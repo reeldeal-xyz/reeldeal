@@ -10,8 +10,9 @@ import { usePlotTable } from '@/hooks/use-plot-table';
 import { useReliefPoolLedger, lastPaidByPlot } from '@/hooks/use-relief-pool-ledger';
 import { attemptScienceKeySetAddress, setPlotZone, type EnsAddresses } from '@/lib/ens-adapter';
 import { formatJpyc, shortAddress } from '@/lib/format';
-import { DEMO_PLOTS, liffPlotUrl, SEASON_LABEL } from '@/lib/plots';
+import { DEMO_PLOTS, ensNameForPlot, liffPlotUrl, SEASON_LABEL } from '@/lib/plots';
 import { toCsv, downloadCsv } from '@/lib/csv';
+import { EscalationCard } from './escalation-card';
 import { PlotQrCode } from './plot-qr-code';
 
 const FIRST_PLOT = DEMO_PLOTS[0]?.plotLabel ?? '';
@@ -138,6 +139,8 @@ export function CoopScreen({
             />
           </div>
         ) : null}
+        <EscalationCard />
+
         {!ensAddresses.parentRegistry ? (
           <div className={styles.section}>
             <NotDeployedNotice
@@ -158,6 +161,7 @@ export function CoopScreen({
               <thead>
                 <tr>
                   <th>Plot</th>
+                  <th>ENS name</th>
                   <th>Species</th>
                   <th>Holder</th>
                   <th>Current farmer</th>
@@ -173,6 +177,9 @@ export function CoopScreen({
                   return (
                     <tr key={row.plotLabel}>
                       <td className={styles.mono}>{row.plotLabel}</td>
+                      <td className={styles.mono} style={{ color: 'var(--ops-muted)', fontSize: 12 }}>
+                        {ensNameForPlot(row.plotLabel)}
+                      </td>
                       <td style={{ textTransform: 'capitalize' }}>{row.species}</td>
                       <td className={styles.mono}>{row.holder ? shortAddress(row.holder) : <Muted>—</Muted>}</td>
                       <td className={styles.mono}>{row.farmer ? shortAddress(row.farmer) : <Muted>—</Muted>}</td>

@@ -2,7 +2,7 @@
 // LINE account, so the flow can be checked on a real phone without wiring up a full trigger event.
 // Protected by the LIFF session cookie from #13 — you must have logged in via /liff first.
 import { NextResponse, type NextRequest } from 'next/server';
-import { readSessionFromRequest } from '@/lib/session';
+import { readSessionFromRequest, sessionKind } from '@/lib/session';
 import { pushHeld, pushPaid } from '@/lib/line';
 
 const SAMPLE = { plotCode: 'p1213-017', zoneLabel: '唐桑東' };
@@ -11,6 +11,11 @@ export async function POST(req: NextRequest) {
   const session = readSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: 'sign in at /liff first' }, { status: 401 });
+  }
+  // LINE-only: a wallet session's `userId` (`wallet:<address>`, lib/siwe.ts) isn't a LINE `sub` -- there's
+  // no LINE account to push to. See FarmerApp's "notifications need LINE" hint for the user-facing side.
+  if (sessionKind(session) === 'wallet') {
+    return NextResponse.json({ error: 'line_only', message: 'Test push requires a LINE session.' }, { status: 400 });
   }
 
   let kind: 'paid' | 'held' = 'paid';
