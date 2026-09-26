@@ -28,6 +28,7 @@ export default function MarketplaceBrowser({
   const cards = useRef<HTMLDivElement>(null);
   const inputId = useId();
   const t = marketplaceCopy[locale];
+  const speciesOptions = [...new Map(items.map(item => [item.species, item])).values()];
   const visible = useMemo(() => filterPreviewItems(items, { query, species, availability }), [items, query, species, availability]);
 
   useEffect(() => {
@@ -85,11 +86,12 @@ export default function MarketplaceBrowser({
       <div className="marketplace-preview__selects">
         <label className="field">{t.species}<select className="input" value={species} onChange={event => setSpecies(event.target.value as PreviewSpecies | 'all')}>
           <option value="all">{t.allSpecies}</option>
-          {items.map(item => <option key={item.species} value={item.species}>{locale === 'ja' ? item.nameJa : item.lot.species}</option>)}
+          {speciesOptions.map(item => <option key={item.species} value={item.species}>{locale === 'ja' ? item.nameJa : item.lot.species}</option>)}
         </select></label>
         <label className="field">{t.availability}<select className="input" value={availability} onChange={event => setAvailability(event.target.value as PreviewAvailability | 'all')}>
           <option value="all">{t.allAvailability}</option>
           <option value="open">{t.open}</option><option value="reserved">{t.reserved}</option><option value="sold">{t.sold}</option>
+          {items.some(item => item.availability === 'unknown') && <option value="unknown">{t.unknown}</option>}
         </select></label>
       </div>
     </fieldset>
