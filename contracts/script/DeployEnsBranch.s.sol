@@ -365,21 +365,23 @@ contract DeployEnsBranch is Script {
         );
         console2.log("OK: science key set zone/species. Read back zone =", zoneReadBack);
 
-        _startAsScienceKey(scienceKeyKey, scienceKey);
+        // Denied writes are only simulated (prank), never broadcast: a reverting tx can't be sent.
+        vm.startPrank(scienceKey);
         try resolver.setText(karakuwaName, "area", "1200sqm") {
             revert("BUG: expected setText(area) to revert for the science key");
         } catch {
             console2.log("DENIED as expected: science key setText(area)");
         }
-        _stopActing();
+        vm.stopPrank();
 
-        _startAsScienceKey(scienceKeyKey, scienceKey);
+        // Denied writes are only simulated (prank), never broadcast: a reverting tx can't be sent.
+        vm.startPrank(scienceKey);
         try resolver.setAddress(karakuwaName, TEXT_COIN_TYPE, abi.encodePacked(scienceKey)) {
             revert("BUG: expected setAddress to revert for the science key");
         } catch {
             console2.log("DENIED as expected: science key setAddress");
         }
-        _stopActing();
+        vm.stopPrank();
     }
 
     // ------------------------------------------------------------------
