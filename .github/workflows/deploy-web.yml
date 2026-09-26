@@ -12,6 +12,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "packages/shared/package.json"
+      - "packages/shared/src/**"
       - "web/package.json"
       - ".github/workflows/deploy-web.yml"
   pull_request:
@@ -21,6 +22,7 @@ on:
       - "package.json"
       - "bun.lock"
       - "packages/shared/package.json"
+      - "packages/shared/src/**"
       - "web/package.json"
       - ".github/workflows/deploy-web.yml"
   workflow_dispatch:

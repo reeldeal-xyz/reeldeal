@@ -13,6 +13,7 @@ COPY web/package.json web/
 COPY frontend/package.json frontend/
 RUN bun install --frozen-lockfile --filter @repo/frontend
 COPY frontend/ frontend/
+COPY packages/shared/src/ packages/shared/src/
 RUN cd frontend && bun run build
 
 # Runtime dependencies only (no Storybook, check or type packages).
