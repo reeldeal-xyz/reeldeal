@@ -58,5 +58,6 @@ export const BuoyFile = z.object({
 
 export type SeriesFile = z.infer<typeof SeriesFile>;
 export type IndicesFile = z.infer<typeof IndicesFile>;
+export type TriggerJson = z.infer<typeof TriggerJson>;
 export type TriggersFile = z.infer<typeof TriggersFile>;
 export type BuoyFile = z.infer<typeof BuoyFile>;
