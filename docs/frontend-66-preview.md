@@ -22,7 +22,7 @@ The source PR's six seafood portraits and dockside hero are not ported. Cards co
 
 - `bun install --frozen-lockfile`: passed, lockfile unchanged.
 - `bun run --cwd frontend check`: passed, 53 files, zero errors/warnings/hints.
-- `bun test frontend/src/components/organisms/marketplace/filter.test.ts`: 2 passed, 8 assertions. Covers bilingual/full-width matching, combined filters, empty matches and unchanged fixtures.
+- `bun run --cwd frontend test`: includes `scripts/marketplace-filter.test.ts` in the standard suite. Its 2 tests / 8 assertions cover bilingual/full-width matching, combined filters, empty matches and unchanged fixtures.
 - `bun run --cwd frontend build`: passed.
 - `bun run --cwd frontend build-storybook`: passed. It still logs the existing Astro renderer `transport was disconnected` message and a large-chunk warning.
 - Inspected generated `astro-prerendered-stories.json`: inline marketplace styles are present; discovery includes the React hydration island and placeholder image; Japanese initial markup includes translated preview/action/alt text.

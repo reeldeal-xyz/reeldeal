@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { marketplacePreviewItems } from '../../../fixtures/marketplace-preview';
-import { filterPreviewItems } from './filter';
+import { marketplacePreviewItems } from '../src/fixtures/marketplace-preview';
+import { filterPreviewItems } from '../src/components/organisms/marketplace/filter';
 
 describe('local marketplace discovery', () => {
   test('finds the same fish through English, Japanese and full-width search', () => {
