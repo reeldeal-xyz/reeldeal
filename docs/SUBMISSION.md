@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/reeldeal-logo.svg" alt="Reel Deal" width="128"></p>
+
 # Submission: Reel Deal
 
 ETHGlobal Tokyo 2026, Classic track. Owner: Sailesh (#27). This draft is written to be

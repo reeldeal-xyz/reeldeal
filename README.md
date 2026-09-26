@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/reeldeal-logo.svg" alt="Reel Deal" width="128"></p>
+
 # Reel Deal
 
 **Community-funded relief payments for aquaculture farmers.**
