@@ -142,7 +142,6 @@ def test_upload_plot_then_list_and_use_it(published_bans):
 
     listed = client.get("/plots", params={"bbox": "141.679,38.899,141.683,38.903"}).json()
     assert f"upload:{code}" in {p["plotCode"] for p in listed}
-    assert "p1213-002" in {p["plotCode"] for p in listed}  # seed plots are still listed first
 
     risk = client.get(f"/hab/plots/upload:{code}/risk", params={"season": "2026"}).json()
     assert any(i["asOf"] == "2026-06-02" and i["value"] == 4 for i in risk["indices"])
@@ -151,6 +150,14 @@ def test_upload_plot_then_list_and_use_it(published_bans):
         "/plots", json={"plotCode": code, "geometry": PLOT, "species": ["scallop"], "operation": "longline"}
     )
     assert again.status_code == 409
+
+
+def test_plots_list_every_database_origin_over_the_seed():
+    listed = {p["plotCode"]: p for p in client.get("/plots").json()}
+    # The demo plots come from the database with their real 区画漁業権 zones, not the seed's synthetic rectangles.
+    demo = listed["p1213-001"]
+    assert demo["source"] == "fishery_right" and demo["areaM2"] > 100_000
+    assert client.get("/hab/plots/p1213-001/risk", params={"season": "2026"}).status_code == 200
 
 
 def test_upload_rejects_an_invalid_polygon():

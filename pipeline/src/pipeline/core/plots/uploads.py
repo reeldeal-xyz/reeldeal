@@ -1,4 +1,6 @@
-"""Uploaded plots (`POST /plots`), stored in PostGIS `geo.plots` with origin 'upload' (db/README.md).
+"""Plots in PostGIS `geo.plots` (db/README.md): uploads (`POST /plots`, origin 'upload') and the loaded registries
+(`fishery_right` 区画漁業権 polygons from scripts/load_fishery_rights.py, `synthetic`, `msil`). Reads return every live
+row whatever its origin; `source` is the origin.
 
 The database requires uploaded codes to start with `upload:`, so a submitted code gets that prefix; it can never
 collide with a surveyed or seeded plot. Geometry is stored as a MultiPolygon in EPSG:4326; area and centroid are
@@ -37,14 +39,14 @@ def _record(row: dict) -> PlotRecord:
         operation=row["operation"],
         sea_area=row["sea_area_id"],
         prefecture=None,
-        source="upload",
+        source=row["origin"],
     )
 
 
 _SELECT = """
-    SELECT plot_code, ST_AsGeoJSON(geom, 7)::json AS geojson, species, operation, sea_area_id
+    SELECT plot_code, origin, ST_AsGeoJSON(geom, 7)::json AS geojson, species, operation, sea_area_id
     FROM geo.plots
-    WHERE origin = 'upload' AND retired_at IS NULL
+    WHERE retired_at IS NULL
 """
 
 
@@ -58,7 +60,7 @@ def insert(plot_code: str, geom: BaseGeometry, geojson: dict, species: list[str]
                 INSERT INTO geo.plots (plot_code, origin, geom, species, operation, sea_area_id)
                 VALUES (%s, 'upload', ST_Multi(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), %s, %s,
                         (SELECT id FROM geo.sea_areas WHERE id = %s))
-                RETURNING plot_code, ST_AsGeoJSON(geom, 7)::json AS geojson, species, operation, sea_area_id
+                RETURNING plot_code, origin, ST_AsGeoJSON(geom, 7)::json AS geojson, species, operation, sea_area_id
                 """,
                 (code, json.dumps(geojson), species, operation, zone),
             ).fetchone()
@@ -68,8 +70,6 @@ def insert(plot_code: str, geom: BaseGeometry, geojson: dict, species: list[str]
 
 
 def get(plot_code: str) -> PlotRecord | None:
-    if not plot_code.startswith(PREFIX):
-        return None
     with db.connect() as conn:
         row = conn.execute(_SELECT + " AND plot_code = %s", (plot_code,)).fetchone()
     return _record(row) if row else None

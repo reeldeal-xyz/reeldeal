@@ -82,7 +82,8 @@ Principles:
   - Plots, sea areas and stations live in the separate PostGIS service (`db/`), which the pipeline reaches as a client through `DATABASE_URL` (role `pipeline`).
     - `POST /plots` stores uploads in `geo.plots` as `upload:<plotCode>`, the prefix the database requires.
     - `data/ref/plots.geojson` (15 synthetic demo plots `p1213-001…015` in `karakuwa-east`, matching the web app) and `data/ref/zones/*.geojson` (traced sea areas) stay a reviewed seed that is served without a database.
-    - `GET /plots` lists the seed, then the uploads. While the database is unavailable it lists the seed alone, and `POST /plots` answers 503.
+    - `scripts/load_fishery_rights.py` loads 区画漁業権 polygons into `geo.plots` as `<pref>-ku-<licence no.>` (origin `fishery_right`).
+    - `GET /plots` and the per-plot routes read every live `geo.plots` row, whatever its origin (`source` is the origin), so the demo plots come back with their real zone polygons. While the database is unavailable they fall back to the seed alone, and `POST /plots` answers 503.
   - The pipeline stores geometry, species, operation type (longline, raft, cage) and plot code. **No owner names or personal data.**
 - **Sea areas:** the prefectures' toxin/red-tide monitoring areas, digitized as polygons, are how bulletins map onto plots. Sea-area indices are what an on-chain zone consumes (`Q1`).
 - **Pixel vs plot:** plots are 10²–10³ m across, while grids are 300 m–20 km and often land-masked inside bays. Extraction uses the following order and records which one was used and how many pixels (the value is their median):

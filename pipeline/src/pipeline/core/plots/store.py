@@ -2,9 +2,9 @@
 
 Plots carry code, geometry, species, operation and sea area only. No owner names or personal data.
 
-Two sources: the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo plots, served even without a
-database), and uploads (`POST /plots`) stored in PostGIS (`uploads.py`). `lookup` and `query_all` merge them; when
-the database is unset or down they fall back to the seed alone.
+Two sources: `geo.plots` in PostGIS (`uploads.py`: uploads, the loaded fishery rights and the demo plots with their
+real zone polygons), and the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo plots as synthetic
+rectangles). `lookup` and `query_all` read the database; when it is unset or down they fall back to the seed.
 """
 
 import json
@@ -100,27 +100,26 @@ def query(bbox: tuple[float, float, float, float] | None = None, species: str | 
 
 
 def lookup(plot_code: str) -> PlotRecord | None:
-    """A seeded plot, or an uploaded one when the database is reachable."""
+    """The plot from the database, or from the seed when the database is unavailable or lacks the code."""
     from pipeline.core import db
 
     from . import uploads
 
-    if (p := get(plot_code)) is not None:
-        return p
     try:
-        return uploads.get(plot_code)
+        if (p := uploads.get(plot_code)) is not None:
+            return p
     except db.NoDatabase:
-        return None
+        pass
+    return get(plot_code)
 
 
 def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    """Seeded plots, then uploaded ones when the database is reachable."""
+    """Every live plot in the database; the seed alone while the database is unavailable."""
     from pipeline.core import db
 
     from . import uploads
 
     try:
-        uploaded = uploads.query(bbox, species)
+        return uploads.query(bbox, species)
     except db.NoDatabase:
-        uploaded = []
-    return query(bbox, species) + uploaded
+        return query(bbox, species)
