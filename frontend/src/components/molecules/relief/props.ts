@@ -5,7 +5,7 @@ export interface ContributionSplitProps {
   sellerAmount: string;
   fundAmount: string;
   fundShareLabel: string;
-  state: 'pending' | 'paid' | 'unavailable';
+  state: 'proposed' | 'pending' | 'paid' | 'unavailable';
   explanation: string;
 }
 

@@ -1,5 +1,6 @@
 ---
 import Amount from '../../atoms/Amount.astro';
+import Badge from '../../atoms/Badge.astro';
 import Status from '../../atoms/Status.astro';
 import type { ContributionSplitProps } from './props';
 import './relief.css';
@@ -14,7 +15,7 @@ const { reference, saleAmount, sellerAmount, fundAmount, fundShareLabel, state, 
       <h2 class="relief-card__title">Sale contribution</h2>
       <p class="relief-card__label">{reference}</p>
     </div>
-    <Status state={state} />
+    {state === 'proposed' ? <Badge label="Proposed split" tone="ink" /> : <Status state={state} />}
   </div>
   <dl class="relief-card__facts">
     <div class="relief-card__fact"><dt>Buyer pays</dt><dd><Amount value={saleAmount} /></dd></div>
