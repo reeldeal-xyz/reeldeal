@@ -6,3 +6,4 @@ export * from './compute';
 export * from './addresses';
 export * from './abi/ReliefPool';
 export * from './abi/HumanRegistry';
+export * from './abi/JPYC';

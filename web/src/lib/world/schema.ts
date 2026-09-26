@@ -27,3 +27,21 @@ export function actionForLevel(level: WorldLevel): string {
 export function identifiersForLevel(level: WorldLevel): readonly string[] {
   return level === 'level1' ? LEVEL1_IDENTIFIERS : LEVEL2_IDENTIFIERS;
 }
+
+// Bilingual label for level 2: the action intentionally accepts any of My Number Card, passport, or World ID
+// (Orb) -- schemaId 1 (Proof of Human/Orb), 9303 (passport), 9310 (My Number Card), see LEVEL2_SCHEMAS above.
+// Use this label everywhere level 2 is surfaced (badges, button copy, confirmation text) so the three
+// accepted credentials are never implied to be just one of them.
+export const LEVEL2_LABEL_JA = 'レベル2:マイナンバーカード・パスポート・World ID(Orb)';
+export const LEVEL2_LABEL_EN = 'Level 2: My Number Card, passport or World ID (Orb)';
+export const LEVEL2_LABEL_BILINGUAL = `${LEVEL2_LABEL_JA} / ${LEVEL2_LABEL_EN}`;
+
+/** Bilingual label for which specific credential verified a wallet, keyed by issuer_schema_id. Null for an
+ *  unrecognized/unset (0) schemaId -- see fetchWorldSchema in lib/liff/status.ts. */
+export function credentialLabelForSchema(schemaId: number): { ja: string; en: string } | null {
+  if (schemaId === LEVEL1_SCHEMA) return { ja: 'セルフィーチェック', en: 'Selfie Check' };
+  if (schemaId === 1) return { ja: 'World ID (Orb)', en: 'World ID (Orb)' };
+  if (schemaId === 9303) return { ja: 'パスポート', en: 'Passport' };
+  if (schemaId === 9310) return { ja: 'マイナンバーカード', en: 'My Number Card' };
+  return null;
+}

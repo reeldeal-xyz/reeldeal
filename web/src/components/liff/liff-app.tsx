@@ -19,10 +19,12 @@ import liff from '@line/liff';
 import { createPublicClient, http, type Address, type Hex } from 'viem';
 import { sepolia } from 'viem/chains';
 import { WorldVerify, type WorldVerifyOutcome } from '@/components/WorldVerify';
+import { WalletPanel } from '@/components/liff/wallet-panel';
 import { heldReasonText } from '@/lib/held-reasons';
 import { formatJpyc } from '@/lib/format';
 import { DEMO_PLOTS, SEASON_LABEL } from '@/lib/plots';
-import { fetchLiffStatus, fetchWorldLevel, type StatusPath } from '@/lib/liff/status';
+import { fetchLiffStatus, fetchWorldLevel, fetchWorldSchema, type StatusPath } from '@/lib/liff/status';
+import { LEVEL2_LABEL_BILINGUAL, LEVEL2_LABEL_EN, LEVEL2_LABEL_JA } from '@/lib/world/schema';
 import type { SlotRequest } from '@/lib/slot-request-store';
 import { getOrCreateWalletAddress } from '@/lib/wallet';
 
@@ -140,10 +142,14 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
   const [status, setStatus] = useState<BootStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  // `address` is the session's *pinned* wallet (server-resolved, issue #15): where this farmer's payouts
+  // actually land, used for every on-chain read/claim below. `deviceAddress` is this device's own on-device
+  // signing key (lib/wallet.ts) -- the two only match when this is the device that originally minted the
+  // pinned wallet. The wallet tab needs both to know whether it can sign here (see wallet-panel.tsx).
   const [address, setAddress] = useState<Address | null>(null);
+  const [deviceAddress, setDeviceAddress] = useState<Address | null>(null);
   const [isFriend, setIsFriend] = useState<boolean | null>(null);
   const [friendPromptError, setFriendPromptError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // --- Plot selection ("scan → request → verify → status") -------------------------------------
   const [plotLabel, setPlotLabel] = useState<string | null>(null);
@@ -156,6 +162,7 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
 
   // --- World ID bind/upgrade -----------------------------------------------------------------
   const [worldLevel, setWorldLevel] = useState<number | null>(null);
+  const [worldSchemaId, setWorldSchemaId] = useState<number | null>(null);
   const [worldBanner, setWorldBanner] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
 
   // --- Status screen -------------------------------------------------------------------------
@@ -195,6 +202,11 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
     try {
       const level = await fetchWorldLevel(publicClient, addresses.humanRegistry, address);
       setWorldLevel(level);
+      // Cheap extra read (same client/call shape as levelOf) so the wallet tab can show which credential
+      // verified this farmer without a second IDKit round trip -- see WalletPanel's "confirmed via" line.
+      fetchWorldSchema(publicClient, addresses.humanRegistry, address)
+        .then(setWorldSchemaId)
+        .catch((err) => console.warn('[liff] failed to read World ID schema', err));
       return level;
     } catch (err) {
       console.warn('[liff] failed to read World ID level', err);
@@ -307,6 +319,13 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
     };
   }, []);
 
+  // Read this device's own signing key client-side only (getOrCreateWalletAddress touches localStorage,
+  // which throws during SSR) -- a plain effect rather than folding it into boot()'s async flow keeps this
+  // independent of the session request's success/failure.
+  useEffect(() => {
+    setDeviceAddress(getOrCreateWalletAddress());
+  }, []);
+
   useEffect(() => {
     if (status === 'ready') refreshMyRequests();
   }, [status, refreshMyRequests]);
@@ -327,17 +346,6 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
     } catch (err) {
       console.warn('[liff] requestFriendship failed', err);
       setFriendPromptError('友だち追加を開けませんでした。LINEアプリから直接追加してください。 / Could not open the friend-add dialog. Please add Reel Deal from your LINE app.');
-    }
-  }
-
-  async function copyAddress() {
-    if (!address) return;
-    try {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard API can be unavailable in some in-app browsers; not fatal.
     }
   }
 
@@ -449,14 +457,15 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
             </div>
           )}
 
-          <div style={styles.card}>
-            <p style={styles.cardTitleJa}>ウォレット</p>
-            <p style={styles.cardTitleEn}>Your in-app wallet</p>
-            <div style={styles.addressBox}>{address ?? '—'}</div>
-            <button type="button" style={styles.buttonSecondary} onClick={copyAddress}>
-              {copied ? 'コピーしました / Copied' : 'アドレスをコピー / Copy address'}
-            </button>
-          </div>
+          <WalletPanel
+            client={publicClient}
+            deviceAddress={deviceAddress}
+            identityAddress={address}
+            worldLevel={worldLevel}
+            worldSchemaId={worldSchemaId}
+            reliefPoolAddress={addresses.reliefPool}
+            reliefPoolDeployBlock={fromBlock}
+          />
 
           {/* --- Plot selection ---------------------------------------------------------------- */}
           <div style={styles.card}>
@@ -525,7 +534,13 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
 
             <div style={styles.badgeRow}>
               <span style={{ ...styles.badge, ...(worldLevel && worldLevel > 0 ? styles.badgeSuccess : styles.badgeMuted) }}>
-                {worldLevel === null ? '確認中… / Checking…' : worldLevel === 0 ? '未確認 / Not verified' : `レベル ${worldLevel} / Level ${worldLevel}`}
+                {worldLevel === null
+                  ? '確認中… / Checking…'
+                  : worldLevel === 0
+                    ? '未確認 / Not verified'
+                    : worldLevel === 2
+                      ? LEVEL2_LABEL_BILINGUAL
+                      : 'レベル1:セルフィーチェック / Level 1: Selfie Check'}
               </span>
             </div>
 
@@ -545,11 +560,11 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
                   <WorldVerify
                     wallet={address}
                     level="level2"
-                    label="マイナンバーカードでアップグレード / Upgrade with My Number Card"
+                    label={`「${LEVEL2_LABEL_JA}」にアップグレード / Upgrade to ${LEVEL2_LABEL_EN}`}
                     onComplete={handleWorldComplete}
                   />
                 )}
-                {worldLevel === 2 && <p style={styles.smallMuted}>最高レベルで確認済みです。 / Fully verified.</p>}
+                {worldLevel === 2 && <p style={styles.smallMuted}>{LEVEL2_LABEL_BILINGUAL}で確認済みです。 / Fully verified at {LEVEL2_LABEL_BILINGUAL}.</p>}
               </>
             ) : null}
 

@@ -43,3 +43,30 @@ export function hasWallet(): boolean {
   if (typeof window === 'undefined') return false;
   return window.localStorage.getItem(STORAGE_KEY) !== null;
 }
+
+/** Backup ("Show recovery key"): returns the raw private key for this device's wallet. Callers must gate
+ *  this behind an explicit confirm step and a strong warning -- see components/liff/WalletPanel.tsx. Never
+ *  logged, never sent to the server. */
+export function exportPrivateKey(): Hex {
+  requireBrowser();
+  const existing = window.localStorage.getItem(STORAGE_KEY);
+  if (!existing) throw new Error('no wallet on this device');
+  return existing as Hex;
+}
+
+const PRIVATE_KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/;
+
+/** Import: restores a wallet on a new device from a raw private key (e.g. after reinstalling the app).
+ *  Overwrites whatever key was already on this device -- callers should confirm the resulting address
+ *  matches the session's pinned wallet before treating the import as successful. Throws on a malformed key. */
+export function importPrivateKey(privateKey: string): Hex {
+  requireBrowser();
+  const trimmed = privateKey.trim();
+  if (!PRIVATE_KEY_PATTERN.test(trimmed)) {
+    throw new Error('recovery key must be 32 bytes of hex, prefixed with 0x');
+  }
+  // Throws if the key isn't a valid secp256k1 scalar (e.g. zero or >= curve order).
+  const account = privateKeyToAccount(trimmed as Hex);
+  window.localStorage.setItem(STORAGE_KEY, trimmed);
+  return account.address;
+}
