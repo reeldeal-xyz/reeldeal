@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import 'leaflet/dist/leaflet.css';
 import { PIPELINE_API_URL } from 'astro:env/server';
 import { RULES } from '@repo/shared';
 import { heatCoverage } from '@repo/shared';
 import { readHeatRisk } from '../lib/heat-risk.server';
-import { geoPath, geoPoint, geoGraticule, readHmiData } from '../lib/hmi.server';
+import { readHmiData } from '../lib/hmi.server';
 
 const hmi = await readHmiData(PIPELINE_API_URL);
 const lang = Astro.url.searchParams.get('lang') === 'ja' ? 'ja' : 'en';
@@ -58,13 +59,16 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (lang === 'ja'
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (lang === 'ja' ? '水温データに接続できません。' : 'Heat data is unavailable.') : '';
 const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a surveyed farm'
   : plot?.source === 'msil' ? 'MSIL plot geometry' : plot ? 'Uploaded plot geometry' : '';
-const mapGrid = geoGraticule();
+const mapFeatures = JSON.stringify({
+  plots: hmi.status === 'available' ? hmi.plots.map((item) => ({ plotCode: item.plotCode, centroid: item.centroid, geometry: item.geometry, source: item.source, selected: item.plotCode === plot?.plotCode })) : [],
+  zones: hmi.status === 'available' ? hmi.zones.filter((zone) => zone.geometry).map((zone) => ({ geometry: zone.geometry, name: lang === 'ja' ? zone.nameJa ?? zone.name : zone.name })) : [],
+});
 const languageUrl = (locale: string) => { const params = new URLSearchParams(Astro.url.searchParams); params.set('lang', locale); return `/hmi?${params}`; };
 const speciesName = (value: string) => lang === 'ja' ? ({ nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', yellowtail: 'ブリ', sea_bream: 'マダイ', coho_salmon: 'ギンザケ', bluefin_tuna: 'クロマグロ' }[value] ?? value) : value.replaceAll('_', ' ');
 const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SST anomaly') : metric === 'SST_MONTH' ? (lang === 'ja' ? '月平均水温' : 'Monthly SST') : (lang === 'ja' ? '海面水温' : 'Sea surface temperature');
 ---
 <BaseLayout title={copy.title} description={copy.subtitle} section="hmi" lang={lang}>
-  <div class="hmi-page" data-copy={JSON.stringify(copy)} data-season={season} data-lang={lang}>
+  <div class="hmi-page" data-copy={JSON.stringify(copy)} data-season={season} data-lang={lang} data-map-features={mapFeatures}>
     <header class="hmi-heading">
       <div><h1>{copy.title}</h1><p>{copy.subtitle}</p></div>
       <div class="heading-tools"><nav class="language" aria-label="Language"><a href={languageUrl('en')} aria-current={lang === 'en' ? 'page' : undefined}>EN</a><a href={languageUrl('ja')} lang="ja" aria-current={lang === 'ja' ? 'page' : undefined}>日本語</a></nav><span class:list={['live-badge', hmi.status !== 'available' && 'offline']}><i></i>{hmi.status === 'available' ? copy.pipeline : hmi.status === 'not-configured' ? copy.notConfigured : copy.offline}</span></div>
@@ -98,23 +102,18 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
         <div class="panel-heading"><div><h2 id="map-title">{copy.map}</h2></div><span class="map-scale">38.85°N · 141.8°E</span></div>
         {statusText && <p class="notice" role="status">{statusText}</p>}
         <div class="map-wrap">
+          <nav class="map-layers" aria-label={lang === 'ja' ? '衛星データレイヤー' : 'Satellite data layers'}>
+            <button type="button" data-map-layer="satellite" aria-pressed="true">{lang === 'ja' ? '衛星写真' : 'Satellite'}</button>
+            <button type="button" data-map-layer="sst" aria-pressed="false">SST</button>
+            <button type="button" data-map-layer="anom" aria-pressed="false">{lang === 'ja' ? '水温偏差' : 'SST anomaly'}</button>
+            <button type="button" data-map-layer="chl" aria-pressed="false">{lang === 'ja' ? 'クロロフィルa' : 'Chlorophyll-a'}</button>
+          </nav>
           <div class="map-controls" aria-label={copy.mapControls}>
             <div><button type="button" data-map-zoom="in" aria-label={lang === 'ja' ? '拡大' : 'Zoom in'}>+</button><button type="button" data-map-zoom="out" aria-label={lang === 'ja' ? '縮小' : 'Zoom out'}>−</button><button type="button" data-map-zoom="reset">{copy.reset}</button></div>
-            <output data-map-scale aria-live="polite">100%</output>
           </div>
           <div class="area-controls"><button type="button" data-area-draw aria-pressed="false">{copy.draw}</button><button type="button" data-area-run disabled>{copy.analyze}</button><button type="button" data-area-clear disabled>{copy.clear}</button></div>
-          <svg id="hmi-map" class="map" viewBox="0 0 800 620" role="application" aria-label={lang === 'ja' ? '宮城県の養殖区画図。クリックして範囲を指定できます。' : 'Miyagi plot map. Click to draw a polygon area.'} tabindex="0">
-            <rect width="800" height="620" fill="#cbe9e8" />
-            <g class="map-features">
-              <rect x={mapGrid.bounds.x} y={mapGrid.bounds.y} width={mapGrid.bounds.width} height={mapGrid.bounds.height} class="map-extent" />
-              <g class="graticule">
-                {mapGrid.longitudes.map((line) => <><path d={line.d} /><text x={line.x} y={line.y}>{line.label}</text></>)}
-                {mapGrid.latitudes.map((line) => <><path d={line.d} /><text x={line.x} y={line.y}>{line.label}</text></>)}
-              </g>
-              {hmi.status === 'available' && hmi.zones.map((zone) => zone.geometry && <path d={geoPath(zone.geometry)} class="zone" fill-rule="evenodd"><title>{zone.nameJa ?? zone.name} · approximate monitoring zone</title></path>)}
-              {hmi.status === 'available' && hmi.plots.map((item) => { const [x,y] = geoPoint(item.centroid); const href = `/hmi?lang=${lang}&plot=${encodeURIComponent(item.plotCode)}&season=${season}&species=${encodeURIComponent(species)}&metric=${metric}`; const selected = item.plotCode === plot?.plotCode; const longitude = item.centroid[0].toFixed(4); const latitude = item.centroid[1].toFixed(4); return <g class={item.source === 'demo' ? 'farm demo' : 'farm'}><path d={geoPath(item.geometry)} class="farm-area"><title>{item.plotCode} · {item.source === 'demo' ? (lang === 'ja' ? 'デモ用' : 'demo') : item.source}</title></path><a href={href} aria-label={lang === 'ja' ? `${item.plotCode}を選択。北緯${latitude}度、東経${longitude}度` : `Select plot ${item.plotCode} at ${latitude}°N, ${longitude}°E`}><circle cx={x} cy={y} r={selected ? 9 : 6} data-marker-radius={selected ? 9 : 6} class="plot"><title>{item.plotCode} · {latitude}°N, {longitude}°E</title></circle></a></g>; })}
-            </g>
-          </svg>
+          <div id="hmi-map" class="map" role="application" aria-label={lang === 'ja' ? '宮城県の養殖区画図。クリックして範囲を指定できます。' : 'Miyagi plot map. Click to draw a polygon area.'} tabindex="0"></div>
+
           {!statusText && hmi.status === 'available' && !hmi.plots.length && <p class="empty-map">{lang === 'ja' ? '表示範囲内に区画がありません。' : 'No plots in this map extent.'}</p>}
         </div>
         <p class="map-help">{copy.mapHelp}</p>
@@ -145,182 +144,100 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
   </div>
 </BaseLayout>
 <script>
-  const hmiPage = document.querySelector<HTMLElement>('.hmi-page');
-  const uiCopy = JSON.parse(hmiPage?.dataset.copy ?? '{}') as Record<string, string>;
-  const season = hmiPage?.dataset.season ?? '2025';
-  const lang = hmiPage?.dataset.lang ?? 'en';
-  const svg = document.querySelector<SVGSVGElement>('#hmi-map');
-  const zoomReadout = document.querySelector<HTMLOutputElement>('[data-map-scale]');
-  if (svg && zoomReadout) {
-    const initial = { x: 0, y: 0, width: 800, height: 620 };
-    let view = { ...initial };
-    let drag: { pointerId: number; clientX: number; clientY: number; view: typeof initial; moved: boolean } | null = null;
-    let suppressClick = false;
+  import L from 'leaflet';
+
+  const page = document.querySelector<HTMLElement>('.hmi-page');
+  const copy = JSON.parse(page?.dataset.copy ?? '{}') as Record<string, string>;
+  const season = page?.dataset.season ?? '2025';
+  const lang = page?.dataset.lang ?? 'en';
+  const features = JSON.parse(page?.dataset.mapFeatures ?? '{"plots":[],"zones":[]}') as {
+    plots: { plotCode: string; centroid: [number, number]; geometry: GeoJSON.Geometry; source: string; selected: boolean }[];
+    zones: { geometry: GeoJSON.Geometry; name: string }[];
+  };
+  const element = document.querySelector<HTMLElement>('#hmi-map');
+  const map = element && L.map(element, { minZoom: 6, maxZoom: 16, zoomControl: false, preferCanvas: true }).setView([38.85, 141.8], 7);
+  if (map) {
+    const bounds: L.LatLngBoundsExpression = [[37.2, 140.5], [40.5, 143.1]];
+    map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
+    const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    }).addTo(map);
+    const gibs = 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
+    const overlays: Record<string, L.TileLayer.WMS> = {
+      sst: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
+      anom: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
+      chl: L.tileLayer.wms(gibs, { layers: 'OCI_PACE_Chlorophyll_a', format: 'image/png', transparent: true, opacity: 0.78, version: '1.1.1', attribution: 'NASA GIBS / PACE OCI' }),
+    };
+    const drawLayer = L.layerGroup().addTo(map);
+    const dataLayer = L.layerGroup().addTo(map);
+    features.zones.forEach((zone) => L.geoJSON(zone.geometry, { style: { color: '#f0d879', weight: 2, dashArray: '5 4', fillColor: '#f0d879', fillOpacity: 0.08 } }).bindTooltip(zone.name).addTo(dataLayer));
+    features.plots.forEach((plot) => {
+      const plotStyle = { color: plot.source === 'demo' ? '#fff1a7' : '#ff7555', weight: plot.selected ? 3 : 2, fillColor: plot.source === 'demo' ? '#e6b94f' : '#eb6046', fillOpacity: 0.35 };
+      L.geoJSON(plot.geometry, { style: plotStyle }).bindTooltip(plot.plotCode).on('click', () => {
+        const query = new URLSearchParams(location.search);
+        query.set('plot', plot.plotCode); location.assign('/hmi?' + query.toString());
+      }).addTo(dataLayer);
+      L.circleMarker([plot.centroid[1], plot.centroid[0]], { radius: plot.selected ? 8 : 6, color: '#fff', weight: 2, fillColor: plot.source === 'demo' ? '#e6b94f' : '#eb6046', fillOpacity: 1 }).bindTooltip(plot.plotCode).addTo(dataLayer);
+    });
+    map.fitBounds(bounds, { padding: [10, 10] });
+    const layerButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-map-layer]')];
+    const activate = (name: string) => {
+      Object.values(overlays).forEach((layer) => map.removeLayer(layer));
+      if (name !== 'satellite') overlays[name]?.addTo(map);
+      layerButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mapLayer === name)));
+    };
+    layerButtons.forEach((button) => button.addEventListener('click', () => activate(button.dataset.mapLayer ?? 'satellite')));
+    document.querySelectorAll<HTMLButtonElement>('[data-map-zoom]').forEach((button) => button.addEventListener('click', () => {
+      if (button.dataset.mapZoom === 'reset') map.fitBounds(bounds, { padding: [10, 10] });
+      else if (button.dataset.mapZoom === 'in') map.zoomIn(); else map.zoomOut();
+    }));
     const drawButton = document.querySelector<HTMLButtonElement>('[data-area-draw]');
     const runButton = document.querySelector<HTMLButtonElement>('[data-area-run]');
     const clearButton = document.querySelector<HTMLButtonElement>('[data-area-clear]');
     const areaHelp = document.querySelector<HTMLElement>('[data-area-help]');
     const areaResult = document.querySelector<HTMLElement>('[data-area-result]');
-    const mapFeatures = svg.querySelector<SVGGElement>('.map-features');
     let drawing = false;
     let coordinates: [number, number][] = [];
-    let sketch: SVGPolygonElement | null = null;
-    const mapPosition = (event: PointerEvent | MouseEvent): [number, number] => {
-      const point = svg.createSVGPoint(); point.x = event.clientX; point.y = event.clientY;
-      const position = point.matrixTransform(svg.getScreenCTM()!.inverse());
-      return [position.x, position.y];
-    };
-    const projectCoordinate = ([longitude, latitude]: [number, number]) => {
-      const scale = Math.cos(38.85 * Math.PI / 180);
-      const units = Math.min(744 / (2.6 * scale), 564 / 3.3);
-      return [(800 - 2.6 * scale * units) / 2 + (longitude - 140.5) * scale * units,
-        (620 - 3.3 * units) / 2 + (40.5 - latitude) * units];
-    };
-    const mapCoordinate = (event: PointerEvent | MouseEvent) => {
-      const [x, y] = mapPosition(event);
-      const scale = Math.cos(38.85 * Math.PI / 180);
-      const units = Math.min(744 / (2.6 * scale), 564 / 3.3);
-      const left = (800 - 2.6 * scale * units) / 2;
-      const top = (620 - 3.3 * units) / 2;
-      return [140.5 + (x - left) / (scale * units), 40.5 - (y - top) / units] as [number, number];
-    };
-    const refreshSketch = () => {
-      if (!mapFeatures) return;
-      sketch?.remove();
-      if (coordinates.length) {
-        const points = coordinates.map((coordinate) => {
-          const longitude = Math.max(140.5, Math.min(143.1, coordinate[0]));
-          const latitude = Math.max(37.2, Math.min(40.5, coordinate[1]));
-          return projectCoordinate([longitude, latitude]).join(',');
-        }).join(' ');
-        sketch = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        sketch.setAttribute('points', points); sketch.setAttribute('class', 'area-sketch');
-        mapFeatures.append(sketch);
-      }
+    let sketch: L.Polygon | undefined;
+    const redraw = () => {
+      if (sketch) drawLayer.removeLayer(sketch);
+      sketch = coordinates.length ? L.polygon(coordinates.map(([lng, lat]) => [lat, lng]), { color: '#c65339', weight: 3, dashArray: '6 4', fillColor: '#f5b84b', fillOpacity: 0.22 }).addTo(drawLayer) : undefined;
       if (runButton) runButton.disabled = coordinates.length < 3;
       if (clearButton) clearButton.disabled = coordinates.length === 0 && !drawing;
     };
     drawButton?.addEventListener('click', () => {
       drawing = !drawing;
-      if (!drawing) { svg.classList.remove('drawing'); drawButton.textContent = uiCopy.draw; drawButton.setAttribute('aria-pressed', 'false'); refreshSketch(); return; }
-      coordinates = []; areaResult?.setAttribute('hidden', ''); refreshSketch();
-      svg.classList.add('drawing'); svg.focus();
-      drawButton.textContent = uiCopy.cancel; drawButton.setAttribute('aria-pressed', 'true');
-      if (areaHelp) areaHelp.textContent = `${uiCopy.help} ${uiCopy.extent}`;
+      if (drawing) { coordinates = []; if (areaResult) areaResult.hidden = true; map.getContainer().classList.add('drawing'); drawButton.textContent = copy.cancel; drawButton.setAttribute('aria-pressed', 'true'); }
+      else { map.getContainer().classList.remove('drawing'); drawButton.textContent = copy.draw; drawButton.setAttribute('aria-pressed', 'false'); }
+      redraw();
+    });
+    map.on('click', (event: L.LeafletMouseEvent) => {
+      if (!drawing) return;
+      coordinates.push([event.latlng.lng, event.latlng.lat]); redraw();
     });
     clearButton?.addEventListener('click', () => {
-      drawing = false; coordinates = []; sketch?.remove(); sketch = null;
-      svg.classList.remove('drawing');
-      if (drawButton) { drawButton.textContent = uiCopy.draw; drawButton.setAttribute('aria-pressed', 'false'); }
-      refreshSketch();
-      if (areaHelp) areaHelp.textContent = `${uiCopy.help} ${uiCopy.extent}`;
+      drawing = false; coordinates = []; map.getContainer().classList.remove('drawing');
+      if (drawButton) { drawButton.textContent = copy.draw; drawButton.setAttribute('aria-pressed', 'false'); }
+      redraw(); if (areaHelp) areaHelp.textContent = copy.help + ' ' + copy.extent;
       if (areaResult) { areaResult.hidden = true; areaResult.textContent = ''; }
-    });
-    svg.addEventListener('click', (event) => {
-      if (!drawing || suppressClick || (event.target instanceof Element && event.target.closest('a'))) return;
-      event.preventDefault(); coordinates.push(mapCoordinate(event)); refreshSketch();
     });
     runButton?.addEventListener('click', async () => {
       if (coordinates.length < 3 || !areaResult) return;
-      drawing = false; svg.classList.remove('drawing');
-      if (drawButton) { drawButton.textContent = uiCopy.draw; drawButton.setAttribute('aria-pressed', 'false'); }
+      drawing = false; map.getContainer().classList.remove('drawing');
+      if (drawButton) { drawButton.textContent = copy.draw; drawButton.setAttribute('aria-pressed', 'false'); }
       const ring = [...coordinates, coordinates[0]];
-      areaResult.hidden = false; areaResult.textContent = uiCopy.sampling;
-      runButton.disabled = true;
+      areaResult.hidden = false; areaResult.textContent = copy.sampling; runButton.disabled = true;
       try {
-        const response = await fetch('/api/risk/heat/area', { method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ feature: { type: 'Feature', properties: null, geometry: { type: 'Polygon', coordinates: [ring] } }, start: `${season}-06-01`, end: `${season}-10-31` }) });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Area analysis unavailable.');
+        const response = await fetch('/api/risk/heat/area', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ feature: { type: 'Feature', properties: null, geometry: { type: 'Polygon', coordinates: [ring] } }, start: season + '-06-01', end: season + '-10-31' }) });
+        const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Area analysis unavailable.');
         const observed = result.indices.filter((item: { index: string; value: number | null }) => item.index === 'SST' && item.value !== null);
         const mean = observed.length ? observed.reduce((sum: number, item: { value: number }) => sum + item.value, 0) / observed.length : null;
-        areaResult.textContent = lang === 'ja'
-          ? `${(result.plot.areaM2 / 1_000_000).toFixed(2)} km² · 水温観測 ${observed.length}日 · ${mean === null ? uiCopy.noData : `平均水温 ${mean.toFixed(1)}°C`} · ${result.plot.seaArea ?? '海域未分類'}`
-          : `${(result.plot.areaM2 / 1_000_000).toFixed(2)} km² · ${observed.length} observed SST days · ${mean === null ? uiCopy.noData : `mean SST ${mean.toFixed(1)} °C`} · ${result.plot.seaArea ?? 'unclassified sea area'}`;
-      } catch (error) {
-        areaResult.textContent = lang === 'ja' ? '範囲を解析できませんでした。' : error instanceof Error ? error.message : 'Area analysis unavailable.';
-      } finally { runButton.disabled = coordinates.length < 3; }
+        areaResult.textContent = lang === 'ja' ? (mean === null ? copy.noData : '平均水温 ' + mean.toFixed(1) + '°C · 観測 ' + observed.length + '日') : (mean === null ? copy.noData : 'Mean SST ' + mean.toFixed(1) + '°C · ' + observed.length + ' observations');
+      } catch (error) { areaResult.textContent = lang === 'ja' ? '範囲を解析できませんでした。' : error instanceof Error ? error.message : 'Area analysis unavailable.'; }
+      finally { runButton.disabled = coordinates.length < 3; }
     });
-    const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
-    const update = () => {
-      svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.width} ${view.height}`);
-      const scale = initial.width / view.width;
-      svg.querySelectorAll<SVGCircleElement>('[data-marker-radius]').forEach((marker) => {
-        marker.setAttribute('r', String(Number(marker.dataset.markerRadius) / scale));
-      });
-      zoomReadout.value = `${Math.round(scale * 100)}%`;
-    };
-    const zoomAt = (nextScale: number, x = view.x + view.width / 2, y = view.y + view.height / 2) => {
-      const scale = clamp(nextScale, 1, 8);
-      const width = initial.width / scale;
-      const height = initial.height / scale;
-      const ratioX = (x - view.x) / view.width;
-      const ratioY = (y - view.y) / view.height;
-      view = {
-        x: clamp(x - ratioX * width, initial.x, initial.x + initial.width - width),
-        y: clamp(y - ratioY * height, initial.y, initial.y + initial.height - height),
-        width, height,
-      };
-      update();
-    };
-    document.querySelectorAll<HTMLButtonElement>('[data-map-zoom]').forEach((button) => button.addEventListener('click', () => {
-      const scale = initial.width / view.width;
-      if (button.dataset.mapZoom === 'reset') zoomAt(1);
-      else zoomAt(scale * (button.dataset.mapZoom === 'in' ? 1.5 : 1 / 1.5));
-      svg.focus();
-    }));
-    svg.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      const bounds = svg.getBoundingClientRect();
-      const x = view.x + (event.clientX - bounds.left) / bounds.width * view.width;
-      const y = view.y + (event.clientY - bounds.top) / bounds.height * view.height;
-      zoomAt(initial.width / view.width * (event.deltaY < 0 ? 1.2 : 1 / 1.2), x, y);
-    }, { passive: false });
-    svg.addEventListener('pointerdown', (event) => {
-      if (drawing || event.button !== 0 || (event.target instanceof Element && event.target.closest('a'))) return;
-      drag = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY, view: { ...view }, moved: false };
-      svg.setPointerCapture(event.pointerId);
-    });
-    svg.addEventListener('pointermove', (event) => {
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const bounds = svg.getBoundingClientRect();
-      const dx = (event.clientX - drag.clientX) / bounds.width * drag.view.width;
-      const dy = (event.clientY - drag.clientY) / bounds.height * drag.view.height;
-      if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
-      view = {
-        ...drag.view,
-        x: clamp(drag.view.x - dx, initial.x, initial.x + initial.width - drag.view.width),
-        y: clamp(drag.view.y - dy, initial.y, initial.y + initial.height - drag.view.height),
-      };
-      update();
-    });
-    const stopDrag = (event: PointerEvent) => {
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      suppressClick = drag.moved;
-      drag = null;
-    };
-    svg.addEventListener('pointerup', stopDrag);
-    svg.addEventListener('pointercancel', stopDrag);
-    svg.addEventListener('click', (event) => {
-      if (!suppressClick) return;
-      event.preventDefault();
-      event.stopPropagation();
-      suppressClick = false;
-    }, true);
-    svg.addEventListener('keydown', (event) => {
-      const scale = initial.width / view.width;
-      if (event.key === '+' || event.key === '=') zoomAt(scale * 1.5);
-      else if (event.key === '-') zoomAt(scale / 1.5);
-      else if (event.key === '0') zoomAt(1);
-      else if (event.key.startsWith('Arrow')) {
-        event.preventDefault();
-        const stepX = view.width * 0.08;
-        const stepY = view.height * 0.08;
-        view.x = clamp(view.x + (event.key === 'ArrowRight' ? stepX : event.key === 'ArrowLeft' ? -stepX : 0), initial.x, initial.x + initial.width - view.width);
-        view.y = clamp(view.y + (event.key === 'ArrowDown' ? stepY : event.key === 'ArrowUp' ? -stepY : 0), initial.y, initial.y + initial.height - view.height);
-        update();
-      }
-    });
+    map.on('click', () => { if (drawing && areaHelp) areaHelp.textContent = copy.help + ' ' + copy.extent; });
+    setTimeout(() => map.invalidateSize(), 0);
   }
 </script>
 <style>
@@ -345,8 +262,8 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
   .swatch.heat { background: #db714d; }.swatch.hab { background: #8d60a9; }.swatch.storm { background: #547bca; }.disabled { opacity: .62; }
   .layer-note,.mode-panel > p,.source-note,.coverage { margin-top: 9px; color: var(--hmi-muted); font-size: .7rem; line-height: 1.45; }
   .mode-switch { display: flex; gap: 5px; }.mode-switch button { min-height: 34px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; font-size: .72rem; font-weight: 700; }.mode-switch [aria-pressed="true"] { color: white; background: #124750; }.mode-switch button:disabled { opacity: .6; }
-  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: auto; aspect-ratio: 800 / 620; touch-action: none; cursor: grab; }.map:active { cursor: grabbing; }.map.drawing { cursor: crosshair; }.map:focus-visible { outline: 3px solid #0b5ed7; outline-offset: -3px; }.map-controls { position: absolute; z-index: 2; top: 9px; right: 9px; display: flex; align-items: center; gap: 7px; padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; }.map-controls > div { display: flex; gap: 3px; }.map-controls button { min-width: 32px; min-height: 32px; border: 1px solid #98b1ad; border-radius: 4px; color: var(--hmi-ink); background: white; font: 800 .8rem var(--font-body); cursor: pointer; }.map-controls button[data-map-zoom='in'],.map-controls button[data-map-zoom='out'] { font-size: 1.05rem; }.map-controls output { min-width: 38px; color: var(--hmi-muted); font-size: .68rem; text-align: right; }.area-controls { position: absolute; z-index: 2; bottom: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 5px; max-width: calc(100% - 20px); padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; }.area-controls button { min-height: 40px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: 700 .74rem var(--font-body); cursor: pointer; }.area-controls button:first-child { color: white; border-color: #124750; background: #124750; }.area-controls button:disabled { opacity: .48; cursor: default; }.area-sketch { fill: #f5b84b38; stroke: #c65339; stroke-width: 3; stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none; }.area-result { margin-top: 8px; padding: 10px; border-radius: 6px; color: #263f37; background: #edf5ed; font-size: .78rem; line-height: 1.45; }.area-result[hidden] { display: none; }.map-help { margin: 6px 0 0; color: var(--hmi-muted); font-size: .66rem; }.graticule { fill: none; stroke: #66999c; stroke-width: .7; opacity: .26; }.graticule text { fill: #526b6a; stroke: none; font-size: 11px; }.map-extent { fill: none; stroke: #9bb9b8; stroke-width: 1; vector-effect: non-scaling-stroke; }.zone { fill: #b8bb88; fill-opacity: .2; stroke: #75846c; stroke-width: 1.5; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }.farm-area { fill: #df6948; fill-opacity: .22; stroke: #c65339; stroke-width: 2; vector-effect: non-scaling-stroke; }.farm.demo .farm-area { fill: #dfa83f; stroke: #57461e; stroke-dasharray: 5 3; }.plot { fill: #e15f43; stroke: white; stroke-width: 3; vector-effect: non-scaling-stroke; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }
+  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: clamp(390px, 58vh, 620px); touch-action: none; cursor: grab; background: #cbe9e8; }.map:active { cursor: grabbing; }.map.drawing { cursor: crosshair; }.map:focus-visible { outline: 3px solid #0b5ed7; outline-offset: -3px; }.map-layers,.map-controls,.area-controls { position: absolute; z-index: 1000; display: flex; gap: 5px; padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; box-shadow: 0 1px 4px #163e4430; }.map-layers { top: 9px; left: 9px; max-width: calc(100% - 130px); overflow-x: auto; }.map-layers button,.map-controls button,.area-controls button { flex: none; min-height: 38px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: 700 .74rem var(--font-body); cursor: pointer; }.map-layers button[aria-pressed="true"] { color: white; border-color: #124750; background: #124750; }.map-controls { top: 9px; right: 9px; }.map-controls > div { display: flex; gap: 3px; }.map-controls button { min-width: 38px; padding: 0 8px; }.map-controls button[data-map-zoom='in'],.map-controls button[data-map-zoom='out'] { font-size: 1.05rem; }.area-controls { bottom: 10px; left: 10px; flex-wrap: wrap; max-width: calc(100% - 20px); }.area-controls button { min-height: 42px; }.area-controls button:first-child { color: white; border-color: #124750; background: #124750; }.area-controls button:disabled { opacity: .48; cursor: default; }.map .drawing { cursor: crosshair; }.area-result { margin-top: 8px; padding: 10px; border-radius: 6px; color: #263f37; background: #edf5ed; font-size: .78rem; line-height: 1.45; }.area-result[hidden] { display: none; }.map-help { margin: 6px 0 0; color: var(--hmi-muted); font-size: .66rem; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }.leaflet-container { font: inherit; }
   .detail-card h2 { margin-bottom: 7px; text-transform: capitalize; }.detail-card > p:not(.eyebrow) { color: var(--hmi-muted); font-size: .78rem; line-height: 1.45; }.section-title { align-items: end; }.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }.chart polyline { fill: none; stroke: #ce6548; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }.chart-grid { fill: none; stroke: #d9e3dd; stroke-width: 1; }.chart text { fill: var(--hmi-muted); font-size: 11px; }.empty-chart { margin-top: 12px; }.threshold { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e9e4; font-size: .75rem; }.threshold div { display: grid; gap: 2px; }.threshold span { color: var(--hmi-muted); font-size: .67rem; }.threshold b { white-space: nowrap; }.forecast-card { border-color: #dbcbc1; background: #faf6f0; }.hmi-foot { padding-top: 13px; color: var(--hmi-muted); font-size: .68rem; }
   @media(max-width: 980px) { .hmi-workspace { grid-template-columns: 190px minmax(0,1fr); }.detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); }.detail-card { min-width: 0; } }
-  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.heading-tools { justify-content: space-between; margin-top: 10px; }.live-badge { display: inline-flex; align-items: center; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.panel-heading { align-items: start; }.map-scale { text-align: right; }.map-controls { top: 5px; right: 5px; gap: 3px; padding: 3px; }.map-controls button { min-width: 36px; min-height: 36px; }.map-controls output { min-width: 34px; }.area-controls { bottom: 5px; left: 5px; gap: 4px; padding: 4px; }.area-controls button { min-height: 44px; padding: 0 8px; font-size: .69rem; }.map-legend { gap: 8px; }.detail-rail { gap: 9px; } }
+  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.heading-tools { justify-content: space-between; margin-top: 10px; }.live-badge { display: inline-flex; align-items: center; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.panel-heading { align-items: start; }.map { height: min(52vh, 460px); min-height: 380px; }.map-layers { top: 5px; left: 5px; max-width: calc(100% - 110px); gap: 3px; padding: 3px; }.map-layers button,.map-controls button { min-height: 40px; padding: 0 7px; font-size: .68rem; }.map-controls { top: 5px; right: 5px; gap: 3px; padding: 3px; }.area-controls { bottom: 5px; left: 5px; gap: 4px; padding: 4px; }.area-controls button { min-height: 44px; padding: 0 8px; font-size: .69rem; }.map-legend { gap: 8px; }.detail-rail { gap: 9px; } }
 </style>
