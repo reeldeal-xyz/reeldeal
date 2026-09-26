@@ -10,6 +10,8 @@ Solidity contracts, ENS adapters/interfaces, tests, and deployment records. Reco
 entity: Contracts
 type: component
 properties:
+  adr:
+    default: docs/adrs/0005-trigger-and-settlement.md
   paths:
     default: contracts/
 states: [observed]
@@ -23,6 +25,8 @@ Shared feed and Trigger contracts, computation, exported ABIs, and deployment ad
 entity: Shared
 type: component
 properties:
+  adr:
+    default: docs/adrs/0005-trigger-and-settlement.md
   paths:
     default: packages/shared/
 states: [observed]
@@ -36,6 +40,8 @@ Current TypeScript file-backed feed API, ingestion/computation, tests, and pinne
 entity: Pipeline
 type: component
 properties:
+  adr:
+    default: docs/adrs/0003-risk-api-and-keeper.md
   paths:
     default: pipeline/
 states: [observed]
@@ -49,6 +55,8 @@ Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LI
 entity: Application
 type: component
 properties:
+  adr:
+    default: docs/adrs/0002-astro-and-app-core.md
   paths:
     default: web/
 states: [observed]
@@ -62,6 +70,8 @@ Bun workspace configuration, dependency lock, repository scripts, CI, and agent 
 entity: Tooling
 type: component
 properties:
+  adr:
+    default: docs/adrs/0001-observed-code-and-design-intent.md
   paths:
     default: scripts/ .github/ .claude/ package.json bun.lock tsconfig.base.json skills-lock.json .gitignore .gitmodules
 states: [observed]
@@ -75,6 +85,8 @@ Product description, architecture, integration contracts, and repository instruc
 entity: Documentation
 type: component
 properties:
+  adr:
+    default: docs/adrs/README.md
   paths:
     default: README.md CLAUDE.md docs/
 states: [observed]
@@ -90,6 +102,8 @@ Astro frontend and app-core, owned by #54/#56/#63. No completed migration is cla
 entity: AstroApplication
 type: planned
 properties:
+  adr:
+    default: docs/adrs/0002-astro-and-app-core.md
   status:
     default: planned
 states: [planned]
@@ -103,6 +117,8 @@ Python/FastAPI risk API and producer schemas, owned by #82/#79. Verify live data
 entity: FastApiRisk
 type: planned
 properties:
+  adr:
+    default: docs/adrs/0003-risk-api-and-keeper.md
   status:
     default: planned
 states: [planned]
@@ -116,6 +132,8 @@ Separate app/risk schemas with agreed geographic ownership, planned under #57/#5
 entity: Postgres
 type: planned
 properties:
+  adr:
+    default: docs/adrs/0004-postgres-schema-ownership.md
   status:
     default: planned
 states: [planned]

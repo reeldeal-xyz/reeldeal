@@ -5,6 +5,9 @@
 Fisheries and aquaculture relief funded by donations, with public ocean-data
 evidence and Solidity settlement. This spec describes repository boundaries;
 source presence does not prove a provider is live or a deployment is healthy.
+Decision context and consequences live in the [ADRs](../../docs/adrs/README.md),
+derived from the inspected code and owning issues. Keep their status separate from
+implementation and deployment evidence.
 
 ## Observed architecture
 
