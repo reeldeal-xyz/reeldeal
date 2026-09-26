@@ -1,7 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { createHmac } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { _resetNotificationLogCacheForTests } from '@/lib/notification-log';
 
 const SECRET = 'test-webhook-secret';
+const notificationLogDir = mkdtempSync(join(tmpdir(), 'umi-webhook-notification-log-'));
 
 const pushPaidMock = mock(async () => {});
 const pushHeldMock = mock(async () => {});
@@ -103,7 +108,12 @@ function heldItem(overrides: Partial<Record<'eventId' | 'plotLabel' | 'reason', 
       },
       transaction: {
         from: '0xkeeper',
-        txHash: '0xtxhash',
+        // Distinct from paidItem()'s txHash: with the same indexInLog (0), an identical txHash would
+        // collide on claimNotification's chain event id (txHash:logIndex) whenever a test batches both
+        // in one delivery -- a real Paid and Held always land at different log indices in the same tx,
+        // this fixture just doesn't bother modeling that since these two events are never actually
+        // decoded from the same real transaction receipt in these tests.
+        txHash: '0xtxhash-held',
         txIndexInBlock: 0,
         blockHash: '0xblockhash',
         blockNumber: 43,
@@ -152,6 +162,7 @@ describe('POST /api/multibaas/webhook', () => {
 
   afterAll(() => {
     process.env.MULTIBAAS_WEBHOOK_SECRET = originalSecret;
+    rmSync(notificationLogDir, { recursive: true, force: true });
   });
 
   beforeEach(() => {
@@ -161,6 +172,10 @@ describe('POST /api/multibaas/webhook', () => {
     lineUserIdForPlotMock.mockClear();
     lineUserIdForWalletMock.mockImplementation(async () => null);
     lineUserIdForPlotMock.mockImplementation(async () => null);
+    // Fresh notification-log file per test: dedup is real (JSON fallback, no DATABASE_URL in tests) and
+    // several tests reuse the same default eventId/txHash fixtures, which would otherwise collide.
+    process.env.NOTIFICATION_LOG_FILE = join(notificationLogDir, `${Math.random()}.json`);
+    _resetNotificationLogCacheForTests();
   });
 
   afterEach(() => {

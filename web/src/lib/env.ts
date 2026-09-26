@@ -73,6 +73,14 @@ export const env = {
     const n = raw ? Number(raw) : NaN;
     return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.7;
   },
+  // JSON-file fallbacks (sponsor-polish task) for notification-log.ts / keeper-runs.ts, same policy as
+  // payoutDirectoryFile above: not durable on a read-only/ephemeral filesystem, fine for local dev/tests.
+  notificationLogFile: () => process.env.NOTIFICATION_LOG_FILE || '.data/notification-log.json',
+  keeperRunsFile: () => process.env.KEEPER_RUNS_FILE || '.data/keeper-runs.json',
+  // Guards POST /api/coop/approve-attest (sponsor-polish task): a simple shared secret for the co-op's
+  // "Approve and attest" button, distinct from KEEPER_API_TOKEN (which stays server-only and is never
+  // sent to the browser). Unset means the route refuses every request (fail closed).
+  coopPasscode: () => process.env.COOP_PASSCODE || undefined,
 };
 
 // Public, client-safe config (issues #19/#20/#21). Unlike `env` above these never throw: an unset address means
