@@ -5,29 +5,34 @@
   Tokens are namespaced --ops-* so they never collide with the root layout or the map screen's own styling.
 */
 :global(:root) {
-  --ops-bg: #0a1620;
-  --ops-surface: #101f2d;
-  --ops-surface-raised: #16293a;
-  --ops-border: #23394c;
-  --ops-border-soft: #1a2c3c;
-  --ops-text: #e9f2f6;
-  --ops-muted: #8aa6b8;
-  --ops-muted-soft: #5c7688;
-  --ops-accent: #e8834a;
-  --ops-accent-strong: #ff9a5c;
-  --ops-accent-soft: rgba(232, 131, 74, 0.14);
-  --ops-good: #4fbe8e;
-  --ops-good-soft: rgba(79, 190, 142, 0.14);
-  --ops-warn: #e0b84b;
-  --ops-warn-soft: rgba(224, 184, 75, 0.14);
-  --ops-bad: #e2685f;
-  --ops-bad-soft: rgba(226, 104, 95, 0.14);
-  --ops-font-display: 'Fraunces', Georgia, serif;
-  --ops-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Eric's storefront palette (frontend/src/styles/tokens.css): paper, ink, lime, yellow, pink. */
+  --ops-bg: #f2eddf;
+  --ops-surface: #faf6ec;
+  --ops-surface-raised: #f5ead5;
+  --ops-border: #15110f;
+  --ops-border-soft: #d8c5a2;
+  --ops-text: #15110f;
+  --ops-muted: #51463d;
+  --ops-muted-soft: #6f6256;
+  --ops-accent: #4a2418;
+  --ops-accent-strong: #2e160e;
+  --ops-accent-soft: rgba(184, 255, 54, 0.45);
+  --ops-lime: #b8ff36;
+  --ops-yellow: #ffcf3f;
+  --ops-pink: #ff72b8;
+  --ops-water: #18b8ee;
+  --ops-good: #1d6b33;
+  --ops-good-soft: rgba(184, 255, 54, 0.55);
+  --ops-warn: #6b4700;
+  --ops-warn-soft: rgba(255, 207, 63, 0.55);
+  --ops-bad: #a1203a;
+  --ops-bad-soft: rgba(255, 114, 184, 0.35);
+  --ops-font-display: 'Arial Black', Impact, ui-sans-serif, system-ui, sans-serif;
+  --ops-font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --ops-font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
-  --ops-radius: 12px;
+  --ops-radius: 8px;
   --ops-radius-sm: 8px;
-  --ops-waterline: linear-gradient(90deg, var(--ops-accent) 0%, rgba(232, 131, 74, 0.35) 45%, transparent 100%);
+  --ops-waterline: linear-gradient(90deg, #15110f 0%, #15110f 100%);
 }
 
 .shell {
@@ -569,7 +574,119 @@
 
 /* The ops screens paint edge to edge: the root layout's white body (and its default margin) must not
    show around the dark shell. Scoped with :has so the map screen at "/" is untouched. */
+:global(html:has([data-ops-shell])),
 :global(body:has([data-ops-shell])) {
-  margin: 0;
+  /* !important: the root layout sets an inline body margin of 24px for the map/LIFF screens. */
+  margin: 0 !important;
   background: var(--ops-bg);
+}
+
+
+/* ---------------------------------------------------------------------- Eric's storefront look
+   Ink outlines, pill buttons with an offset shadow, black nav pills with a lime active state. */
+.nav {
+  background: var(--ops-surface);
+  border-bottom: 2px solid var(--ops-border);
+  border-image: none;
+}
+
+.brandMark {
+  color: var(--ops-text);
+  font-weight: 900;
+}
+
+.navLink {
+  color: var(--ops-bg);
+  background: var(--ops-text);
+  border: 2px solid var(--ops-text);
+  font-weight: 800;
+}
+
+.navLink:hover {
+  color: var(--ops-text);
+  background: var(--ops-yellow);
+}
+
+.navLinkActive,
+.navLinkActive:hover {
+  color: var(--ops-text);
+  background: var(--ops-lime);
+}
+
+.title {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.sectionTitle {
+  font-weight: 900;
+}
+
+.eyebrow {
+  color: var(--ops-muted);
+  font-weight: 800;
+}
+
+.card,
+.tableWrap,
+.notice,
+.emptyState {
+  border: 2px solid var(--ops-border);
+}
+
+.button {
+  border: 2px solid var(--ops-border);
+  border-radius: 999px;
+  font-weight: 800;
+}
+
+.buttonPrimary {
+  background: var(--ops-lime);
+  color: var(--ops-text);
+  box-shadow: 3px 3px 0 var(--ops-border);
+}
+
+.buttonPrimary:not(:disabled):hover {
+  background: var(--ops-yellow);
+}
+
+.buttonPrimary:not(:disabled):active {
+  box-shadow: 1px 1px 0 var(--ops-border);
+}
+
+.buttonGhost {
+  background: var(--ops-surface);
+}
+
+.buttonGhost:not(:disabled):hover {
+  background: var(--ops-yellow);
+  border-color: var(--ops-border);
+  color: var(--ops-text);
+}
+
+.input {
+  background: var(--ops-surface);
+  border: 2px solid var(--ops-border);
+}
+
+.table th {
+  color: var(--ops-muted);
+  background: var(--ops-surface-raised);
+}
+
+.table tbody tr:hover {
+  background: rgba(21, 17, 15, 0.04);
+}
+
+.badge {
+  border: 1.5px solid var(--ops-border);
+  color: var(--ops-text);
+}
+
+.badgeGood,
+.badgeWarn,
+.badgeBad,
+.badgeAccent,
+.badgeNeutral {
+  color: var(--ops-text);
 }

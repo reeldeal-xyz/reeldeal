@@ -18,12 +18,12 @@ const ROUTER = DEPLOYED.SaleRouter as Address;
 const LINK = { color: 'var(--ops-accent)' } as const;
 
 const SPECIES_TINT: Record<Listing['species'], string> = {
-  katsuo: '#4f7fbe',
-  sanma: '#9aa9b8',
-  saba: '#4fbe8e',
-  hotate: '#e8834a',
-  mebachi: '#e2685f',
-  awabi: '#8aa6b8',
+  katsuo: '#b8ff36',
+  sanma: '#ff72b8',
+  saba: '#ffcf3f',
+  hotate: '#18b8ee',
+  mebachi: '#b8ff36',
+  awabi: '#ff72b8',
 };
 
 type Step = 'quote' | 'approve' | 'checkout' | 'done' | 'error';
@@ -187,13 +187,14 @@ export function MarketScreen({ reliefPool, reliefPoolDeployBlock }: { reliefPool
                   style={{
                     height: 88,
                     borderRadius: 10,
-                    background: `linear-gradient(135deg, ${SPECIES_TINT[listing.species]} 0%, var(--ops-surface) 110%)`,
+                    background: SPECIES_TINT[listing.species],
+                    border: '2px solid var(--ops-border)',
                     display: 'flex',
                     alignItems: 'flex-end',
                     padding: 12,
                     fontSize: 22,
-                    fontWeight: 700,
-                    color: '#fff',
+                    color: 'var(--ops-text)',
+                    fontWeight: 900,
                   }}
                 >
                   {listing.nameJa}
