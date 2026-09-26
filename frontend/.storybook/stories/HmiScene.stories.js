@@ -54,8 +54,9 @@ export const MobileLayers = {
   },
 };
 export const Mobile320 = { globals: { viewport: { value: 'mobile320', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };
-const mobileControls = async ({ canvasElement, args }) => {
-  await waitFor(() => expect(canvasElement.ownerDocument.defaultView.innerWidth).toBeLessThan(700));
+const mobileControls = async ({ canvasElement, args, globals }) => {
+  const width = { iphone17: 402, mobile320: 320, mobile390: 390 }[globals.viewport.value];
+  await waitFor(() => expect(canvasElement.ownerDocument.defaultView.innerWidth).toBe(width));
   await initMap(canvasElement);
   const canvas = within(canvasElement);
   const toggle = canvas.getByRole('button', { name: args.lang === 'ja' ? '日本沿岸' : 'Japan coast', exact: true });
