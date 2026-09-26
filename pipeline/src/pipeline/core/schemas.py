@@ -67,7 +67,7 @@ class Plot(Model):
     prefecture: str | None = None
     area_m2: float
     centroid: tuple[float, float]
-    source: Literal["msil", "upload", "demo"] = Field(description="demo: synthetic plot for the Kesennuma demo, not surveyed")
+    source: Literal["msil", "upload", "demo", "fishery_right"] = Field(description="demo: synthetic fallback; fishery_right: licensed 区画漁業権 polygon")
 
 
 class PlotCreate(Model):
