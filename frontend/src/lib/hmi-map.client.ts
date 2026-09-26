@@ -57,7 +57,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     minZoom: 4, maxZoom: 16, zoomControl: false, attributionControl: false,
     scrollWheelZoom: true, touchZoom: true, dragging: true, bounceAtZoomLimits: false,
   }).setView([38.84, 141.61], 10);
-  // Bottom-left and lifted above the dock (hmi.css), so attribution is never covered by the dock or the observations toggle.
+  // Keep map attribution anchored to the map edge, below the controls.
   L.control.attribution({ position: 'bottomleft' }).addTo(map);
   map.setMaxBounds([[20.0, 122.0], [46.5, 154.0]]);
   // Only the selected basemap is loaded; hidden tile failures must not obscure the visible map.
@@ -247,23 +247,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   };
   selectedMarker();
 
-  // Attribution stays readable: lift it above an open bottom panel that would otherwise cover it.
-  const attributionCorner = mapElement.querySelector<HTMLElement>('.leaflet-bottom.leaflet-left');
-  const placeAttribution = () => {
-    if (!attributionCorner) return;
-    attributionCorner.style.bottom = '';
-    const shelf = scene!.querySelector<HTMLElement>('.bottom-shelf[data-open]');
-    if (!shelf) return;
-    const corner = attributionCorner.getBoundingClientRect();
-    const panel = shelf.getBoundingClientRect();
-    if (panel.left >= corner.right || panel.right <= corner.left) return;
-    const panelTop = parseFloat(getComputedStyle(shelf).bottom) + shelf.offsetHeight;
-    attributionCorner.style.bottom = `${Math.ceil(panelTop + 6)}px`;
-  };
-  window.addEventListener('resize', placeAttribution);
-  const shelfSize = new ResizeObserver(placeAttribution);
-  scene.querySelectorAll('.bottom-shelf').forEach((shelf) => shelfSize.observe(shelf));
-
   function openShelf(name: string | null) {
     scene!.querySelectorAll<HTMLElement>('.map-shelf').forEach((shelf) => {
       const open = shelf.id === `${name}-shelf`;
@@ -275,7 +258,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     });
     if (name !== 'area' && drawing) setDrawing(false);
     if (name === 'forecast') weather.open();
-    placeAttribution();
   }
   scene.querySelectorAll<HTMLButtonElement>('[data-shelf]').forEach((button) => button.addEventListener('click', () => {
     openShelf(button.getAttribute('aria-expanded') === 'true' ? null : button.dataset.shelf ?? null);
@@ -463,7 +445,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       syncHab();
       selectedMarker();
       showSelectedPlot();
-      placeAttribution();
       if (push) history.pushState(null, '', url);
       syncLanguageLinks(url);
       hideMessage('update');
