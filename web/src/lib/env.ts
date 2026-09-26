@@ -6,9 +6,19 @@ export const env = {
   worldRpId: () => need('WORLD_RP_ID'),
   worldRpSigningKey: () => need('WORLD_RP_SIGNING_KEY'),
   binderKey: () => need('BINDER_PRIVATE_KEY'),
+  // Messaging API channel: LINE_CHANNEL_SECRET both verifies webhook signatures and, as
+  // client_secret, mints stateless channel access tokens (see lib/line.ts).
   lineChannelSecret: () => need('LINE_CHANNEL_SECRET'),
-  lineAccessToken: () => need('LINE_CHANNEL_ACCESS_TOKEN'),
+  lineMessagingChannelId: () => need('LINE_MESSAGING_CHANNEL_ID'),
+  // Intentionally optional: LINE_CHANNEL_ACCESS_TOKEN is a manual override/fallback.
+  // Normally left empty so lib/line.ts mints a short-lived token via client_credentials instead.
+  lineChannelAccessTokenOverride: () => process.env.LINE_CHANNEL_ACCESS_TOKEN || undefined,
+  // LINE Login channel: used as client_id when verifying LIFF ID tokens (issue #13).
   lineLoginChannelId: () => need('LINE_LOGIN_CHANNEL_ID'),
+  // Reserved: not required to verify ID tokens, but configured for future LINE Login server calls (issue #15).
+  lineLoginChannelSecret: () => need('LINE_LOGIN_CHANNEL_SECRET'),
+  // Signs the LIFF session cookie (issue #13). Any random string; rotate to invalidate all sessions.
+  sessionSecret: () => need('SESSION_SECRET'),
   multibaasWebhookSecret: () => need('MULTIBAAS_WEBHOOK_SECRET'),
   pipelineFeedUrl: () => process.env.PIPELINE_FEED_URL ?? 'http://localhost:8787',
 };
