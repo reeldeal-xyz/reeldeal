@@ -14,6 +14,7 @@ import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
 import type { HabLayerResult } from '../lib/hab-layers.server';
 import { HAB_MONTHS, scaleGradient } from '../lib/hab-layers';
+import { operationColor, selectHmiView } from '../lib/plot-layer';
 
 interface Props {
   hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string;
@@ -26,12 +27,9 @@ const {
 } = Astro.props;
 const ja = lang === 'ja';
 const plots = hmi.status === 'available' ? hmi.plots : [];
-const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
+const { supportedSpecies, species, plot } = selectHmiView(plots, plotCode, requestedSpecies);
 const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
 
-const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
-const species = supportedSpecies.includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
 const speciesPlots = plots.filter((item) => item.species.includes(species));
 
 const copy = ja ? {
@@ -54,6 +52,9 @@ const copy = ja ? {
   loading: '観測値を読み込み中…', loaded: '読み込み完了', updateFailed: '観測値を更新できませんでした。再度お試しください。',
   panelFailed: '観測値を更新できませんでした。', outlines: '地図 · OpenStreetMap', satelliteNote: '衛星写真 · Esri',
   overlayUnavailable: '{layer}の画像は{time}には利用できません。',
+  plots: '養殖区画', plotSelect: 'クリックでこの区画を選択', plotHeatLoading: '海面水温を取得中…',
+  plotHeat: '{season}年の海面水温: 平均 {mean}°C · 最高 {max}°C · {days}日', plotHeatNotBuilt: '{season}年の水温データは未作成です',
+  plotHeatNoPixels: '{season}年の有効な海面水温画素はありません', plotHeatUnavailable: '水温データに接続できません',
 } : {
   mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
@@ -74,6 +75,9 @@ const copy = ja ? {
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.',
+  plots: 'Farm plots', plotSelect: 'Click to select this plot', plotHeatLoading: 'Loading sea temperature…',
+  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNotBuilt: 'No heat data built for {season}',
+  plotHeatNoPixels: 'No valid sea temperature pixels in {season}', plotHeatUnavailable: 'Heat data unavailable',
 };
 const speciesNames: Record<string, string> = ja ? {
   scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', yellowtail: 'ブリ',
@@ -113,8 +117,8 @@ const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区
   : plot?.source === 'fishery_right' ? (ja ? '区画漁業権の許可区画' : 'Licensed fishery-right polygon')
   : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
 const operationNames: Record<string, string> = ja
-  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀' }
-  : { longline: 'longline', raft: 'raft', cage: 'cage' };
+  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', other: 'その他・複合' }
+  : { longline: 'longline', raft: 'raft', cage: 'cage', other: 'other / mixed' };
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
@@ -140,7 +144,18 @@ const clientCopy = JSON.stringify({
   areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
   updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
   overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, habLog: ja ? '（対数）' : '(log)',
+  plotSelect: copy.plotSelect, plotHeatLoading: copy.plotHeatLoading, plotHeat: copy.plotHeat, plotHeatNotBuilt: copy.plotHeatNotBuilt,
+  plotHeatNoPixels: copy.plotHeatNoPixels, plotHeatUnavailable: copy.plotHeatUnavailable,
 });
+const sourceNames: Record<string, string> = ja
+  ? { demo: 'デモ用形状', msil: 'MSIL区画形状', fishery_right: '区画漁業権の許可区画', upload: '登録区画形状' }
+  : { demo: 'Synthetic demo geometry', msil: 'MSIL plot geometry', fishery_right: 'Licensed fishery-right polygon', upload: 'Uploaded plot geometry' };
+const plotLabels = JSON.stringify({
+  sources: sourceNames, operations: operationNames, species: speciesNames,
+  noSpecies: ja ? '魚種の登録なし' : 'No species recorded', noSeaArea: ja ? '海域区分外' : 'Outside mapped sea areas',
+  hectares: 'ha', locale: ja ? 'ja-JP' : 'en-US',
+});
+const operationsShown = [...new Set(plots.map((item) => item.operation))];
 const languageHref = (locale: 'en' | 'ja') => {
   const params = new URLSearchParams({ lang: locale, season, metric, habMonth });
   if (species) params.set('species', species);
@@ -149,7 +164,7 @@ const languageHref = (locale: 'en' | 'ja') => {
 };
 ---
 
-  <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''} data-lang={lang} data-copy={clientCopy}>
+  <div class="hmi-page" data-map-features={mapFeatures} data-endpoint={endpoint} data-season={season} data-species={species} data-plot={plot?.plotCode ?? ''} data-lang={lang} data-copy={clientCopy} data-plot-labels={plotLabels}>
     <div id="hmi-map" role="application" aria-label={copy.mapLabel} aria-describedby="hmi-map-help" tabindex="0"></div>
     <p id="hmi-map-help" class="sr-only">{ja ? '矢印キーで移動、＋／−で拡大・縮小します。区画は「養殖区画」の選択欄から選べます。' : 'Use the arrow keys to pan and +/− to zoom. Choose a plot with the Farm plot select.'}</p>
     <div class="market-actions">
@@ -194,11 +209,15 @@ const languageHref = (locale: 'en' | 'ja') => {
     <section id="layers-shelf" class="map-shelf side-shelf" aria-labelledby="layers-heading" inert>
       <header><h2 id="layers-heading">{copy.layers}</h2><button type="button" data-close-shelf aria-label={ja ? 'レイヤーを閉じる' : 'Close layers'}>×</button></header>
       <fieldset class="layer-choices"><legend class="sr-only">{ja ? '地図画像' : 'Map imagery'}</legend>
+        <label><input type="checkbox" name="map-layer" value="plots" checked disabled={!plots.length} /><span>{copy.plots}{plots.length ? ` · ${plots.length}` : ''}</span></label>
         <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>{copy.satellite}</span></label>
         <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
         <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
         <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
+      {!!plots.length && <ul class="plot-legend" aria-label={ja ? '区画の凡例' : 'Plot legend'}>
+        {operationsShown.map((operation) => <li><i style={`background: ${operationColor(operation)}`}></i>{operationNames[operation] ?? operation}</li>)}
+      </ul>}
       <label class="shelf-select">{ja ? 'HAB指標（クロロフィルa）の月' : 'HAB chl-a month'}
         <select name="habMonth" form="hmi-view">
           {HAB_MONTHS.map((value) => <option value={value} selected={value === habMonth}>{monthName(value)}</option>)}

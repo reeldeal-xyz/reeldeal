@@ -24,6 +24,7 @@ function mockClient(overrides: {
   logsError?: Error;
 } = {}): PublicClient {
   return {
+    getBlockNumber: async () => 200n,
     readContract: (async ({ functionName, args }: { functionName: string; args?: unknown[] }) => {
       if (overrides.readContract) return overrides.readContract({ functionName, args });
       throw new Error(`unexpected readContract(${functionName})`);
@@ -50,9 +51,9 @@ describe('computeFundTotals', () => {
       { type: 'Donated', amountWei: '1000', blockNumber: 1, txHash: '0x1', logIndex: 0 },
       { type: 'Donated', amountWei: '2000', blockNumber: 2, txHash: '0x2', logIndex: 0 },
       { type: 'Paid', amountWei: '500', blockNumber: 3, txHash: '0x3', logIndex: 0 },
-      { type: 'Held', blockNumber: 4, txHash: '0x4', logIndex: 0 },
-      { type: 'Held', blockNumber: 5, txHash: '0x5', logIndex: 0 },
-      { type: 'Claimed', amountWei: '300', blockNumber: 6, txHash: '0x6', logIndex: 0 },
+      { type: 'Held', eventId: '0xe1', plotLabel: 'p1', blockNumber: 4, txHash: '0x4', logIndex: 0 },
+      { type: 'Held', eventId: '0xe1', plotLabel: 'p2', blockNumber: 5, txHash: '0x5', logIndex: 0 },
+      { type: 'Claimed', eventId: '0xe1', plotLabel: 'p1', amountWei: '300', blockNumber: 6, txHash: '0x6', logIndex: 0 },
     ];
     expect(computeFundTotals(events)).toEqual({ donatedWei: '3000', paidWei: '800', heldCount: 1 });
   });

@@ -4,6 +4,7 @@ import HmiScene from '../components/HmiScene.astro';
 import { NEXT_PUBLIC_REOWN_PROJECT_ID, PIPELINE_API_URL } from 'astro:env/server';
 import { readHmiData } from '../lib/hmi.server';
 import { readHeatRisk } from '../lib/heat-risk.server';
+import { selectHmiView } from '../lib/plot-layer';
 import { readSpecies } from '../lib/species.server';
 import { habMonth } from '../lib/hab-layers';
 import { readHabLayer } from '../lib/hab-layers.server';
@@ -19,9 +20,7 @@ const requestedSpecies = Astro.url.searchParams.get('species') ?? '';
 const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
   : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
 const plots = hmi.status === 'available' ? hmi.plots : [];
-const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
-const species = plots.flatMap((item) => item.species).includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
-const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
+const { species, plot } = selectHmiView(plots, plotCode, requestedSpecies);
 const month = habMonth(Astro.url.searchParams.get('habMonth'));
 const [risk, speciesInfo, hab] = await Promise.all([
   plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,

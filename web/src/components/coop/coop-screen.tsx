@@ -12,7 +12,7 @@ import { attemptScienceKeySetAddress, setPlotZone, type EnsAddresses } from '@/l
 import { formatJpyc, shortAddress } from '@/lib/format';
 import { DEMO_PLOTS, ensNameForPlot, liffPlotUrl, SEASON_LABEL } from '@/lib/plots';
 import { toCsv, downloadCsv } from '@/lib/csv';
-import { EscalationCard } from './escalation-card';
+import { EventConsole } from './event-console';
 import { PlotQrCode } from './plot-qr-code';
 
 const FIRST_PLOT = DEMO_PLOTS[0]?.plotLabel ?? '';
@@ -139,7 +139,7 @@ export function CoopScreen({
             />
           </div>
         ) : null}
-        <EscalationCard />
+        <EventConsole />
 
         {!ensAddresses.parentRegistry ? (
           <div className={styles.section}>

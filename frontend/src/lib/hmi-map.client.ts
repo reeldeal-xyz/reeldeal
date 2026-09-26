@@ -1,7 +1,12 @@
 import L from 'leaflet';
 import { hmiLayerDate } from './hmi-layer-date';
+import { observationSummary } from './hmi-presentation';
+import { operationColor, plotFacts, type PlotLabels } from './plot-layer';
 
-type Plot = { plotCode: string; centroid: [number, number]; geometry: GeoJSON.Geometry; species: string[]; source: string };
+type Plot = {
+  plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
+  operation: string; areaM2: number; seaArea: string | null;
+};
 type Zone = { geometry: GeoJSON.Geometry | null; name: string; nameJa?: string | null };
 type HabSource = {
   url: string; bounds: L.LatLngBoundsLiteral; note: string; period: string;
@@ -16,7 +21,9 @@ const ENGLISH: Record<string, string> = {
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly',
-  habLog: '(log)',
+  habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Loading sea temperature…',
+  plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNotBuilt: 'No heat data built for {season}',
+  plotHeatNoPixels: 'No valid sea temperature pixels in {season}', plotHeatUnavailable: 'Heat data unavailable',
 };
 
 const SEASON_MIN = 2022;
@@ -28,6 +35,10 @@ const mapElement = scene?.querySelector<HTMLElement>('#hmi-map');
 if (scene && mapElement && !scene.dataset.mapReady) {
   scene.dataset.mapReady = 'true';
   const copy = { ...ENGLISH, ...JSON.parse(scene.dataset.copy ?? '{}') as Record<string, string> };
+  const plotLabels = JSON.parse(scene.dataset.plotLabels ?? 'null') as PlotLabels | null ?? {
+    sources: {}, operations: {}, species: {}, noSpecies: 'No species recorded', noSeaArea: 'Outside mapped sea areas',
+    hectares: 'ha', locale: 'en-US',
+  };
   const lang = scene.dataset.lang === 'ja' ? 'ja' : 'en';
   const features = JSON.parse(scene.dataset.mapFeatures ?? '{"plots":[],"zones":[]}') as { plots: Plot[]; zones: Zone[] };
   const dock = scene.querySelector<HTMLFormElement>('.coast-dock')!;
@@ -68,6 +79,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   const retryButton = scene.querySelector<HTMLButtonElement>('[data-map-retry]')!;
   const layerInputs = [...scene.querySelectorAll<HTMLInputElement>('input[name="map-layer"]')];
   const habInput = layerInputs.find((input) => input.value === 'hab');
+  const plotsInput = layerInputs.find((input) => input.value === 'plots');
   const markerByCode = new Map<string, { marker: L.CircleMarker; plot: Plot }>();
   let drawing = false;
   let busy = false;
@@ -124,6 +136,97 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     });
     markerByCode.set(plot.plotCode, { marker, plot });
   }
+  // Every plot as a polygon, coloured by operation; hover shows its facts, then the season's sea temperature.
+  const plotStyle = (plot: Plot, hover = false): L.PathOptions => {
+    const selected = plot.plotCode === plotInput.value;
+    return {
+      color: selected || hover ? '#ffffff' : operationColor(plot.operation), weight: selected || hover ? 2.5 : 1,
+      fillColor: operationColor(plot.operation), fillOpacity: hover ? 0.6 : selected ? 0.45 : 0.28,
+    };
+  };
+  const plotLayers = new Map<string, { layer: L.GeoJSON; plot: Plot }>();
+  const plotGroup = L.layerGroup();
+  const heatCache = new Map<string, Promise<string | null>>();
+  let heatRequest: { key: string; controller: AbortController } | undefined;
+  const plotHeat = (plot: Plot): Promise<string | null> => {
+    const key = `${plot.plotCode}|${seasonInput.value}`;
+    const cached = heatCache.get(key);
+    if (cached) return cached;
+    if (!scene.dataset.endpoint) return Promise.resolve(null);
+    // One request in flight: moving to another plot cancels the last one, which is then fetched again on return.
+    if (heatRequest) { heatRequest.controller.abort(); heatCache.delete(heatRequest.key); }
+    const controller = new AbortController();
+    heatRequest = { key, controller };
+    const season = seasonInput.value;
+    // The plot's own heat series from the pipeline (the same values the Observations panel shows for a selected plot).
+    const url = `/api/risk/heat/${encodeURIComponent(plot.plotCode)}?season=${season}`;
+    const request = fetch(url, { signal: controller.signal, headers: { accept: 'application/json' } }).then(async (response) => {
+      if (response.status === 404) return copy.plotHeatNotBuilt.replace('{season}', season);
+      if (!response.ok) { heatCache.delete(key); return copy.plotHeatUnavailable; }
+      const result = await response.json() as { data: { indices: { index: string; asOf: string; value: number | null }[] } };
+      const summary = observationSummary(result.data.indices.filter((item) => item.index === 'SST'));
+      return summary
+        ? copy.plotHeat.replace('{season}', season).replace('{mean}', summary.mean.toFixed(1))
+          .replace('{max}', summary.max.toFixed(1)).replace('{days}', String(summary.count))
+        : copy.plotHeatNoPixels.replace('{season}', season);
+    }).catch((error: Error) => {
+      heatCache.delete(key);
+      return error.name === 'AbortError' ? null : copy.plotHeatUnavailable;
+    }).finally(() => { if (heatRequest?.key === key) heatRequest = undefined; });
+    heatCache.set(key, request);
+    return request;
+  };
+  const tooltipFor = (plot: Plot) => {
+    const box = document.createElement('div');
+    box.className = 'plot-tip';
+    const title = box.appendChild(document.createElement('strong'));
+    title.textContent = plot.plotCode;
+    for (const line of plotFacts(plot, plotLabels)) box.appendChild(document.createElement('span')).textContent = line;
+    const heat = box.appendChild(document.createElement('span'));
+    heat.className = 'plot-tip-heat';
+    heat.hidden = !scene.dataset.endpoint;
+    heat.textContent = copy.plotHeatLoading;
+    if (plot.species.length) box.appendChild(document.createElement('em')).textContent = copy.plotSelect;
+    return { box, heat };
+  };
+  let hoverTimer: number | undefined;
+  for (const plot of features.plots) {
+    const layer = L.geoJSON(plot.geometry, { style: () => plotStyle(plot) });
+    const tip = tooltipFor(plot);
+    layer.bindTooltip(tip.box, { sticky: true, direction: 'top', offset: [0, -8], className: 'plot-tooltip' });
+    layer.on('mouseover', () => {
+      if (drawing) return;
+      layer.setStyle(plotStyle(plot, true));
+      layer.bringToFront();
+      window.clearTimeout(hoverTimer);
+      if (!scene.dataset.endpoint) return;
+      const show = () => { void plotHeat(plot).then((text) => { if (text) tip.heat.textContent = text; }); };
+      if (heatCache.has(`${plot.plotCode}|${seasonInput.value}`)) { show(); return; }
+      tip.heat.textContent = copy.plotHeatLoading;
+      // Debounced, so sweeping the pointer across the coast doesn't sample every plot on the way.
+      hoverTimer = window.setTimeout(show, 250);
+    });
+    layer.on('mouseout', () => { window.clearTimeout(hoverTimer); layer.setStyle(plotStyle(plot)); });
+    layer.on('click', () => {
+      if (drawing || busy || !plot.species.length) return;
+      if (!plot.species.includes(selectedSpecies())) {
+        const option = dock.querySelector<HTMLInputElement>(`input[name="species"][value="${CSS.escape(plot.species[0])}"]`);
+        if (option) option.checked = true;
+      }
+      plotInput.value = plot.plotCode;
+      void updateView({ plot: plot.plotCode });
+    });
+    plotGroup.addLayer(layer);
+    plotLayers.set(plot.plotCode, { layer, plot });
+  }
+  const restylePlots = () => plotLayers.forEach(({ layer, plot }) => layer.setStyle(plotStyle(plot)));
+  const renderPlots = () => {
+    const on = plotsInput?.checked ?? true;
+    if (on && !map.hasLayer(plotGroup)) plotGroup.addTo(map);
+    if (!on && map.hasLayer(plotGroup)) map.removeLayer(plotGroup);
+  };
+  renderPlots();
+  plotsInput?.addEventListener('change', renderPlots);
   const points = features.plots.map((plot) => [plot.centroid[1], plot.centroid[0]] as [number, number]);
   if (points.length) map.fitBounds(points, { padding: [70, 70], maxZoom: 12 });
   const selectedMarker = () => {
@@ -133,6 +236,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       if (!visible && map.hasLayer(marker)) map.removeLayer(marker);
       marker.setStyle({ radius: code === plotInput.value ? 7 : 4, weight: code === plotInput.value ? 2 : 1 });
     });
+    restylePlots();
   };
   // Bring a newly selected plot into view without changing the zoom.
   const showSelectedPlot = () => {
@@ -199,7 +303,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     if (!satellite && map.hasLayer(imagery)) { map.removeLayer(imagery); hideMessage(imagery); }
     activeOverlays.forEach((overlay) => { map.removeLayer(overlay); hideMessage(overlay); });
     activeOverlays.clear();
-    const selected = layerInputs.filter((input) => input.checked && input.value !== 'satellite');
+    const selected = layerInputs.filter((input) => input.checked && input.value !== 'satellite' && input.value !== 'plots');
     // Current season: a date safely inside NASA's near-real-time lag; past seasons: the season's end (#148).
     const time = hmiLayerDate(seasonInput.value);
     const notes: string[] = [];
@@ -244,7 +348,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     const habOn = !!habInput?.checked && !!habSourceRaw();
     if (habSourceRaw() !== rendered.hab || seasonInput.value !== rendered.season || habOn !== rendered.habOn) renderMapLayers();
   }
-  layerInputs.forEach((input) => input.addEventListener('change', () => {
+  layerInputs.filter((input) => input !== plotsInput).forEach((input) => input.addEventListener('change', () => {
     if (input === habInput) input.dataset.wanted = String(input.checked);
     renderMapLayers();
   }));

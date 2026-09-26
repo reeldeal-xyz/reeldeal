@@ -141,7 +141,7 @@ select:focus-visible {
 
 .site-nav a {
   min-width: 0;
-  min-height: 34px;
+  min-height: var(--tap-size);
   padding-inline: 2px;
   border-radius: 999px;
   background: var(--color-ink);
