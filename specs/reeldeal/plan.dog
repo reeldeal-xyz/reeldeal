@@ -1,0 +1,15 @@
+# Spec development
+
+Task status lives in #54 (application), #82 (risk API), and #32 (HMI).
+Dotdog workflow improvements are tracked in #86.
+
+1. Query the observed map and read the affected authored spec plus owning ticket.
+2. Specify acceptance and shared-boundary changes before implementing.
+3. Implement and run the relevant domain tests; add source scopes for new areas.
+4. Stage new files, run `bun run dog:map`, then `bun run dog:check`.
+5. For each reported spec area, review the source diff and update the spec if needed.
+   A behavior-preserving edit can keep the prose; explain that in the PR.
+6. Acknowledge only reviewed areas with `bun run dog:review Contracts Shared`
+   (substitute the actual names), then remap and check again.
+7. Include spec, code, and review-hash changes in the same PR. CI must pass;
+   a passing hash check is not evidence that domain tests or live checks passed.

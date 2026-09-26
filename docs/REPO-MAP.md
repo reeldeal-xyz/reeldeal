@@ -5,6 +5,7 @@ bun install --frozen-lockfile
 bun run dog:map
 bun run dog:query ReliefPool
 bun run dog:trace file:contracts/src/ReliefPool.sol
+bun run dog:check
 bun run dog:test
 ```
 
@@ -12,6 +13,8 @@ Run from the repository root. Stage new files before mapping; the inventory uses
 `git ls-files` and reads current working-tree bytes. Refresh after changing code
 or switching branches. `coverage.json` records the commit, dirty state, exclusions,
 file hashes, and unresolved imports. Generated files stay local in `.doghouse/`.
+`dog:check` fails for changed content (even with preserved timestamps), added or
+removed files, new untracked sources, changed revisions, or a changed graph artifact.
 
 The map covers tracked contracts, interfaces, Solidity tests/deployment scripts,
 deployment records, pipeline, shared types/ABIs, UI, scripts, config, and docs.
@@ -35,8 +38,20 @@ systems remain in [#54](https://github.com/ss251/reeldeal/issues/54) and
 existing code, not a recommendation to build more Next.js. Do not add absent
 systems to the observed graph.
 
-If authored `.dog` specs are added, keep them separate from generated inventory.
-Use `bunx --no-install dotdog parse <file>` to inspect them and
-`bunx --no-install dotdog validate <spec-dir>` / `compile <spec-dir>` for a spec
-project. This repository currently uses the observed repo graph, not a generated
-template spec pretending to describe completed features.
+Authored specs live in `specs/reeldeal/`: product boundaries, development rules,
+source-linked observed/planned entities, and the spec-development workflow.
+`bun run dog:spec` validates and compiles them; `bun run dog:serve` exposes the
+compiled spec to agents over local MCP stdio. Generated `.dag` files are ignored.
+Compile again after editing a spec. No global MCP configuration is changed.
+
+`dog:check` also checks every included non-spec file against an observed spec scope.
+It compares each area's source hashes and entity definition with `review.json`.
+After reviewing a reported source diff, update the spec if necessary, then explicitly
+acknowledge only those areas, for example `bun run dog:review Contracts Shared`.
+Stage new files first. Commit the spec, code, and review hashes together; remap and
+check afterward. Remapping and CI never update review hashes. This is a review
+reminder, not proof of semantic correctness, ABI compatibility, or live-data freshness.
+
+The Dotdog GitHub workflow tests the checker, maps the checkout, and checks spec
+coverage/drift on every PR and main push. It does not deploy or need deployment
+secrets. GitHub owns ticket status; keep task details in the linked tickets.

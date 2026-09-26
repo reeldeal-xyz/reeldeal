@@ -15,7 +15,11 @@
     "dog:map": "bun scripts/dog-map.ts",
     "dog:query": "dotdog query --dag .doghouse/generated/repo.dag",
     "dog:trace": "dotdog trace --dag .doghouse/generated/repo.dag",
-    "dog:test": "bun test scripts/dog-map.test.ts"
+    "dog:test": "bun test scripts/dog-map.test.ts",
+    "dog:check": "bun scripts/dog-check.ts",
+    "dog:spec": "bun scripts/dog-check.ts spec",
+    "dog:review": "bun scripts/dog-check.ts review",
+    "dog:serve": "dotdog serve specs"
   },
   "devDependencies": {
     "@types/bun": "latest",

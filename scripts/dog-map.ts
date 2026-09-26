@@ -8,10 +8,19 @@ import { fileURLToPath } from 'node:url';
 const cli = fileURLToPath(new URL('../node_modules/dotdog/dist/cli.js', import.meta.url));
 const excluded = /(^|\/)(\.env(?:\.[^/]*)?|\.git|\.doghouse|\.aws|\.azure|\.gcp|\.ssh|\.npmrc|credentials(?:\.[^/]*)?|node_modules|vendor|\.data|\.run|\.next|out|cache|dist|build|coverage|id_rsa|id_ed25519)(\/|$)|\.(?:pem|key|p12|crt|log|tsbuildinfo)$|^contracts\/lib\//i;
 
+export const sha256 = (content: string | Uint8Array) => createHash('sha256').update(content).digest('hex');
+export const runDotdog = (root: string, ...args: string[]) => execFileSync(process.execPath, [cli, ...args], { cwd: root, encoding: 'utf8' });
+
+export function repositoryFiles(root: string) {
+  const list = (...args: string[]) => execFileSync('git', ['ls-files', '-z', ...args], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean).sort();
+  const include = (file: string) => !excluded.test(file) && lstatSync(join(root, file), { throwIfNoEntry: false })?.isFile();
+  const tracked = list();
+  return { tracked, files: tracked.filter(include), untracked: list('--others', '--exclude-standard').filter(include) };
+}
+
 export function mapRepository(root: string) {
   const git = (...args: string[]) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trimEnd();
-  const tracked = git('ls-files', '-z').split('\0').filter(Boolean).sort();
-  const files = tracked.filter((file) => !excluded.test(file) && lstatSync(join(root, file), { throwIfNoEntry: false })?.isFile());
+  const { tracked, files } = repositoryFiles(root);
   const snapshot = mkdtempSync(join(tmpdir(), 'reeldeal-dotdog-'));
   try {
     for (const file of files) {
@@ -19,7 +28,7 @@ export function mapRepository(root: string) {
       mkdirSync(dirname(target), { recursive: true });
       copyFileSync(join(root, file), target);
     }
-    const result = JSON.parse(execFileSync(process.execPath, [cli, 'map', snapshot, '--project', 'reeldeal', '--json'], { encoding: 'utf8' }));
+    const result = JSON.parse(runDotdog(root, 'map', snapshot, '--project', 'reeldeal', '--json'));
     const graph = JSON.parse(readFileSync(result.dagFile, 'utf8'));
     const nodes = new Map(graph.nodes.filter((node: any) => node.properties?.path).map((node: any) => [node.properties.path, node]));
     const id = (file: string) => `file:${file}`;
@@ -30,7 +39,7 @@ export function mapRepository(root: string) {
     for (const edge of graph.edges) if (edge.source === snapshot) edge.source = '.';
     const hashes: Record<string, string> = {};
     for (const file of files) {
-      const hash = createHash('sha256').update(readFileSync(join(snapshot, file))).digest('hex');
+      const hash = sha256(readFileSync(join(snapshot, file)));
       hashes[file] = hash;
       let node: any = nodes.get(file);
       if (!node) {
@@ -66,8 +75,9 @@ export function mapRepository(root: string) {
     graph.unknowns = ['File inventory is complete for included tracked regular files; symbol/call graphs are not inferred.', 'Static import links are heuristic. Aliases, remappings, external packages, dynamic imports, and Python imports may remain unresolved.', ...unresolved.map(({ file, specifier }) => `${file}: unresolved import ${specifier}`)];
     const output = join(root, '.doghouse', 'generated');
     mkdirSync(output, { recursive: true });
-    writeFileSync(join(output, 'repo.dag'), JSON.stringify(graph, null, 2) + '\n');
-    const coverage = { revision: git('rev-parse', 'HEAD'), dirty: Boolean(git('status', '--porcelain')), tracked: tracked.length, included: files.length, excluded: tracked.filter((file) => !files.includes(file)), dotdogScanned: result.scanned, nodes: graph.nodes.length, edges: graph.edges.length, hashes, unresolved };
+    const graphText = JSON.stringify(graph, null, 2) + '\n';
+    writeFileSync(join(output, 'repo.dag'), graphText);
+    const coverage = { revision: git('rev-parse', 'HEAD'), dirty: Boolean(git('status', '--porcelain')), tracked: tracked.length, included: files.length, excluded: tracked.filter((file) => !files.includes(file)), dotdogScanned: result.scanned, nodes: graph.nodes.length, edges: graph.edges.length, graphHash: sha256(graphText), hashes, unresolved };
     writeFileSync(join(output, 'coverage.json'), JSON.stringify(coverage, null, 2) + '\n');
     return coverage;
   } finally {
