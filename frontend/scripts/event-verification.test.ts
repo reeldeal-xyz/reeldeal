@@ -1,7 +1,7 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
-import { eventVerificationPreviews as previews } from '../../../fixtures/event-verification-preview';
-import { reviewState, type EventVerificationPreview } from './review';
+import { eventVerificationPreviews as previews } from '../src/fixtures/event-verification-preview';
+import { reviewState, type EventVerificationPreview } from '../src/components/organisms/event-verification/review';
 
 describe('event evidence presentation gate', () => {
   test('shows supplied comparison results without deriving a payment outcome', () => {
