@@ -19,7 +19,8 @@ implementation and deployment evidence.
   is not determined by file modification time.
 - `Application`: `frontend/` hosts the Astro coastal map, marketplace, and relief UI;
   Storybook validates components. `web/` owns API routes, keeper, identity, LINE,
-  and operations pages, with its homepage redirecting to `/coop`.
+  and operations pages; its homepage and nav brand link redirect to the Astro
+  app's `/hmi` (the old Next.js map/replay route is removed).
 - `Tooling` and `Documentation`: repository operation and maintained contracts.
 
 ## Planned integration

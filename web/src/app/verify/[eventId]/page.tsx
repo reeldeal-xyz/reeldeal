@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import type { Hex } from 'viem';
 import { VerifyClient, type OnChainProps } from '@/components/verify/VerifyClient';
 import { getBuoy, getCsv } from '@/lib/feed-client';
@@ -25,7 +24,11 @@ export default async function VerifyPage({ params }: { params: Promise<{ eventId
         <div className={styles.notFound}>
           <p>
             This doesn&apos;t match any (zone, species, peril, tier) combination in RULES for the 2022-2025 replay or the 2026
-            toxin ban. Pick an event from <Link className={styles.link} href="/map">the map</Link> instead.
+            toxin ban. Pick an event from{' '}
+            <a className={styles.link} href="https://app.13-196-78-137.sslip.io/hmi">
+              the map
+            </a>{' '}
+            instead.
           </p>
         </div>
       </main>

@@ -50,6 +50,9 @@ await withServer(undefined, async (request) => {
   const root = await request('/');
   assert.equal(root.status, 302);
   assert.equal(root.headers.get('location'), '/hmi');
+  const mapRedirect = await request('/map');
+  assert.equal(mapRedirect.status, 302);
+  assert.equal(mapRedirect.headers.get('location'), '/hmi');
   const health = await request('/health');
   assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await health.json(), { status: 'ok', service: 'umi-frontend' });
@@ -136,7 +139,7 @@ await withServer(undefined, async (request) => {
     assert(!response.headers.get('content-type')?.includes('text/html'), `Asset returned HTML: ${asset}`);
     assert((await response.arrayBuffer()).byteLength > 0, `Empty asset: ${asset}`);
   }
-  for (const path of ['/map', '/donate', '/liff', '/coop', '/holder', '/verify/event-1']) {
+  for (const path of ['/donate', '/liff', '/coop', '/holder', '/verify/event-1']) {
     const response = await request(path);
     assert.equal(response.status, 503, `Unconfigured legacy route: ${path}`);
     assert.equal(response.headers.get('cache-control'), 'no-store');
@@ -156,7 +159,7 @@ await withServer('https://legacy.example.test/ignored-base', async (request) => 
 });
 
 await withServer('self', async (request) => {
-  const response = await request('/map');
+  const response = await request('/liff');
   assert.equal(response.status, 503);
   assert.equal(response.headers.get('location'), null);
   assert.equal(response.headers.get('cache-control'), 'no-store');
