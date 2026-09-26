@@ -14,7 +14,7 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { ReliefPoolAbi, eventIdOf, idOf } from '@repo/shared';
-import { runKeeper, type KeeperRunDeps } from './run';
+import { NotAttestedError, runKeeper, type KeeperRunDeps } from './run';
 import type { KeeperPublicClient, KeeperWalletClient } from './chain-clients';
 import type { AttestGateState } from '@/lib/jev-gate';
 
@@ -256,6 +256,40 @@ describe('runKeeper', () => {
     expect(result.attestTxHash).toBeUndefined();
     expect(result.trigger).toBeUndefined();
     expect(chain.simulateCalls.map((c) => c.functionName)).toEqual(['settle']);
+  });
+
+  describe('stage (co-op event console)', () => {
+    const signers = () => [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address];
+
+    test("stage 'attest' anchors the trigger and leaves every plot unsettled", async () => {
+      const chain = buildFakeChain({ registeredSigners: signers(), enrolledPlots: ['p1', 'p2'] });
+      const result = await runKeeper({ referenceEventId: REF_ID, stage: 'attest' }, baseDeps(chain));
+
+      expect(result.status).toBe('ok');
+      expect(result.attestTxHash).toBeDefined();
+      expect(result.unsettledPlots).toEqual(['p1', 'p2']);
+      expect(result.settleTxHashes).toEqual([]);
+      expect(chain.simulateCalls.map((c) => c.functionName)).toEqual(['attest']);
+    });
+
+    test("stage 'settle' on an unattested event throws NotAttestedError and sends nothing", async () => {
+      const chain = buildFakeChain({ registeredSigners: signers(), enrolledPlots: ['p1'] });
+      await expect(runKeeper({ referenceEventId: REF_ID, stage: 'settle' }, baseDeps(chain))).rejects.toBeInstanceOf(NotAttestedError);
+      expect(chain.simulateCalls).toEqual([]);
+    });
+
+    test("stage 'settle' on an attested event settles without attesting again", async () => {
+      const chain = buildFakeChain({
+        alreadyAttested: true,
+        enrolledPlots: ['p1'],
+        settleOutcomes: { p1: { type: 'Paid', farmer: FARMER_A, amount: 1n } },
+      });
+      const result = await runKeeper({ referenceEventId: REF_ID, stage: 'settle' }, baseDeps(chain));
+
+      expect(result.attestTxHash).toBeUndefined();
+      expect(result.settleTxHashes).toHaveLength(1);
+      expect(chain.simulateCalls.map((c) => c.functionName)).toEqual(['settle']);
+    });
   });
 
   test('idempotent: plots already Paid/Held/Claimed/Swept are excluded from the settle batch', async () => {

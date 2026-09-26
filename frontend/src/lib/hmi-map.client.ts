@@ -20,7 +20,7 @@ const ENGLISH: Record<string, string> = {
   tilesFailed: 'Map tiles failed to load. Plot and observation data remain available.',
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
-  overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
+  overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly',
   habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
   plotHeat: 'Sea temp {season}: mean {mean}°C · max {max}°C · {days} days', plotHeatNone: 'No sea temperature data for {season}',
   plotHeatUnavailable: 'Observation service unavailable for {season}.', plotHeatInvalid: 'Plot observation response failed validation.',
@@ -72,10 +72,8 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   const layers: Record<string, { name: string; label: string }> = {
     sst: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature', label: copy.sst },
     anom: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', label: copy.anom },
-    chl: { name: 'OCI_PACE_Chlorophyll_a', label: copy.chl },
   };
   const layerNote = scene.querySelector<HTMLElement>('[data-layer-date]')!;
-  const chlorophyllNote = scene.querySelector<HTMLElement>('[data-chlorophyll-note]')!;
   const mapMessage = scene.querySelector<HTMLElement>('[data-map-message]')!;
   const mapMessageText = scene.querySelector<HTMLElement>('[data-map-message-text]')!;
   const retryButton = scene.querySelector<HTMLButtonElement>('[data-map-retry]')!;
@@ -343,7 +341,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       activeOverlays.set(input.value, overlay.addTo(map));
     });
     layerNote.textContent = notes.length ? notes.join(' / ') : satellite ? copy.satelliteNote : copy.outlines;
-    chlorophyllNote.hidden = !selected.some((input) => input.value === 'chl');
     rendered = { hab: habSourceRaw(), season: seasonInput.value, habOn };
   }
   // After an in-place update the HAB panel is swapped: follow whether a layer exists, restore the user's

@@ -131,6 +131,19 @@ export interface KeeperRunOptions {
   dryRun?: boolean;
   /** Skips the Jev attest gate entirely and proceeds straight to attest, for live-demo overrides. */
   force?: boolean;
+  /** Which half of the run to do (the co-op event console): 'attest' anchors the Trigger and stops before
+   *  settle; 'settle' requires the event to be attested already and only settles. Default 'all'. */
+  stage?: KeeperStage;
+}
+
+export type KeeperStage = 'all' | 'attest' | 'settle';
+
+/** Thrown by a `stage: 'settle'` run when the event hasn't been attested yet. */
+export class NotAttestedError extends Error {
+  constructor(referenceEventId: string) {
+    super(`${referenceEventId} has not been anchored (attested) yet -- run the attest stage first`);
+    this.name = 'NotAttestedError';
+  }
 }
 
 export interface PlotSettlementOutcome {
@@ -174,6 +187,7 @@ export interface KeeperRunResult {
 
 export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps = defaultKeeperRunDeps()): Promise<KeeperRunResult> {
   const dryRun = options.dryRun ?? false;
+  const stage = options.stage ?? 'all';
   const ref = getReferenceEvent(options.referenceEventId);
   const zoneId = idOf(ref.zone);
   const speciesId = idOf(ref.species);
@@ -186,6 +200,7 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
     args: [eventId],
   });
   let alreadyAttested = attestation[6] !== 0n; // [zoneId, speciesId, seasonLabel, eligibleUnits, perUnit, reservedAmount, attestedAt, claimDeadline]
+  if (stage === 'settle' && !alreadyAttested) throw new NotAttestedError(ref.id);
 
   let trigger: Trigger | undefined;
   let triggerSource: TriggerSource | 'already-attested' = alreadyAttested ? 'already-attested' : 'feed';
@@ -332,7 +347,9 @@ export async function runKeeper(options: KeeperRunOptions, deps: KeeperRunDeps =
   const settleTxHashes: Hex[] = [];
   const pushes: LinePushOutcome[] = [];
 
-  if (!dryRun && unsettledPlots.length > 0) {
+  if (stage === 'attest') {
+    console.log(`[keeper] ${ref.id}: attest stage only -- leaving ${unsettledPlots.length} plot(s) unsettled`);
+  } else if (!dryRun && unsettledPlots.length > 0) {
     const { walletClient, account } = signing!;
     for (const batch of batchPlots(unsettledPlots, deps.batchSize)) {
       const { request } = await deps.publicClient.simulateContract({
