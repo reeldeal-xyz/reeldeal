@@ -1,0 +1,44 @@
+---
+import Badge from '../../atoms/Badge.astro';
+import Amount from '../../atoms/Amount.astro';
+import DonorJourney from './react/DonorJourney';
+import { donorPreviews, type DonorSample } from '../../../fixtures/donor-preview';
+import { jpycFromBaseUnits } from '../../../lib/format-amount';
+import type { DonorFixture } from './model';
+import styles from './donor.css?inline';
+
+interface Props { sample?: DonorSample; fixture?: DonorFixture }
+const { sample = 'ready', fixture = donorPreviews[sample] } = Astro.props;
+---
+<style is:inline set:html={styles} />
+<div class="donor-preview-canvas">
+  <article class="donor-preview" aria-label="Donor preview">
+    <header class="donor-preview__heading">
+      <p class="market-kicker" lang="ja">海の支援基金</p>
+      <h1>Support coastal growers</h1>
+      <p>Give to a shared relief fund for fisheries and aquaculture.</p>
+      <Badge label="Local preview" tone="yellow" />
+    </header>
+    <p class="notice">Synthetic preview · all balances, events and receipts are samples. No real wallet, approval, donation or API request.</p>
+    <DonorJourney fixture={fixture} client:load>
+      <section class="donor-preview__panel" aria-label="Sample pool ledger">
+        <h2>Sample pool ledger</h2>
+        <p>Illustrative pool events, separate from your local demo activity. These records do not identify which farmer a donor funded.</p>
+        {fixture.ledgerState === 'loading' ? <p role="status">Loading sample ledger… No totals are available.</p>
+          : fixture.ledgerState === 'unavailable' ? <p role="status">The ledger is unavailable. This does not mean there are no donations or payouts.</p>
+          : fixture.ledger.length === 0 ? <p>No events in this sample ledger.</p>
+          : <ul class="donor-preview__ledger">
+            {fixture.ledger.map(entry => <li>
+              <div class="donor-preview__section-heading">
+                <Badge label={entry.event} tone={entry.event === 'Held' ? 'yellow' : entry.event === 'Paid' || entry.event === 'Claimed' ? 'lime' : 'ink'} />
+                {entry.amountBaseUnits !== null ? <Amount value={jpycFromBaseUnits(entry.amountBaseUnits) ?? ''} /> : <span>Amount not supplied</span>}
+              </div>
+              <p>{entry.description}</p>
+              <small>{entry.recorded} · {entry.id}</small>
+            </li>)}
+          </ul>}
+        <p class="donor-preview__note">Live ledger and pool totals are not connected. Held keeps funds reserved; Swept releases a reserve without sending tokens.</p>
+      </section>
+    </DonorJourney>
+  </article>
+</div>

@@ -36,9 +36,10 @@ const { title, description = 'ReelDeal supports coastal communities through loca
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label="Main navigation">
+        <nav class="site-nav" style="grid-template-columns:repeat(3,minmax(0,1fr))" aria-label="Main navigation">
           <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Fish market</a>
           <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>Coastal map</a>
+          <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>Journeys</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
@@ -46,3 +47,9 @@ const { title, description = 'ReelDeal supports coastal communities through loca
     </div>
   </body>
 </html>
+<style>
+  @media (max-width: 380px) {
+    .site-header__inner { flex-wrap: wrap; justify-content: center; gap: 8px; padding-block: 8px; }
+    .site-nav { flex-basis: 100%; }
+  }
+</style>
