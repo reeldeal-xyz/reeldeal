@@ -1,0 +1,33 @@
+{
+  "pdfs": [
+    {
+      "file": "miyagi-kaidoku-kanshi-kaiiku-hotate-hoya.pdf",
+      "url": "https://www.pref.miyagi.jp/documents/24934/807855.pdf",
+      "sha256": "1e0d8f283e8258732a676dfd72cc0e50903ffc94299efce4bc4321697734bd04",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "title": "宮城県の貝毒監視海域の区分 8海域（ホタテガイ・ホヤ）",
+      "note": "Official prefecture map + written boundary definitions for the 8 shellfish-toxin monitoring sea areas used for scallop/hoya (from https://www.pref.miyagi.jp/soshiki/suikisei/kaidoku.html). Defines '唐桑半島東部' as the coast from the Iwate-pref (Rikuzentakata) border to 気仙沼市唐桑町御崎 (Cape Osaki), and '気仙沼湾' as Cape Osaki to the 波路上/本吉町 border. These are the same zone names/boundaries used for karakuwa-east and kesennuma-bay; used to sanity-check the traced GeoJSON extent, not as the primary aquaculture-plot map."
+    },
+    {
+      "file": "NOT PINNED - too large for the repo (10.1MB); cited by URL + sha256 only",
+      "url": "https://www.pref.miyagi.jp/documents/37871/kukakun.pdf",
+      "sha256": "7c42494e0106776a34ad5e27e3dbb4ebc61415452efc3da88c5d28df2c58f5fe",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "title": "宮城海区漁場計画 令和5年一斉更新 区画漁業 北部 (Miyagi Sea District fishing-ground plan, FY2023 mass renewal, aquaculture zone fishery, Northern region)",
+      "note": "PRIMARY SOURCE for the hand-traced GeoJSON. Linked from https://www.pref.miyagi.jp/soshiki/suishin/gyogyoumenkyo2.html section '4 漁場連絡図(海面)' > '令和5年一斉更新' > '区画漁業' > '北部'. PDF metadata CreationDate is 2023-11-16 (令和5年度), confirming this is the '2023 fishery map' the issue refers to. 8 pages, each a 1:30,000 (pages 1-3,7) or 1:35,000 (pages 4-5) scanned map. Page 1 '区画 No.1 唐桑北部' (大沢..石浜..馬場..宿浦) is the Pacific-facing coast used for karakuwa-east. Pages 2-3 '区画 No.2 唐桑西部' and '区画 No.3 気仙沼' (大浦..松崎..大島..外浜..中沢..横沼..波路上) are the inner-bay coasts used for kesennuma-bay. Pages 4-8 cover Koizumi/Shizugawa bays further south and were not used. No machine-readable coordinates are printed on the map (place names + a 1:30,000/1:35,000 scale bar only), so vertices were built by geocoding the printed place names (OpenStreetMap Nominatim) and connecting them in the shape shown on the map, then offsetting seaward by roughly the aquaculture-plot depth shown on the scale bar. Traced polygons are marked 'approximate, traced from <source>' in their GeoJSON properties per issue #22."
+    }
+  ],
+  "geocoding": {
+    "tool": "https://nominatim.openstreetmap.org (OpenStreetMap Nominatim, ODbL)",
+    "places_used": [
+      { "name": "大沢漁港 (Osawa fishing port)", "lat": 38.9650394, "lon": 141.6331901 },
+      { "name": "只越川 (Tadagoshi river mouth)", "lat": 38.9302448, "lon": 141.6317104 },
+      { "name": "巨釜 (Kyogama)", "lat": 38.8961352, "lon": 141.6648285 },
+      { "name": "御崎観光港公園 / 御崎神社 (Cape Osaki)", "lat": 38.8611, "lon": 141.6715 },
+      { "name": "唐桑町鮪立 (Karakuwa Shibitachi, bay-facing side of the peninsula)", "lat": 38.893407, "lon": 141.642803 },
+      { "name": "東舞根川 (Higashi-Maune river, inner bay)", "lat": 38.9046041, "lon": 141.6232003 },
+      { "name": "気仙沼港 (Kesennuma port, innermost point)", "lat": 38.90083, "lon": 141.57944, "source": "ja.wikipedia.org/wiki/気仙沼港 infobox coordinates" },
+      { "name": "岩井埼灯台 (Iwaisaki lighthouse, bay mouth / Motoyoshi border)", "lat": 38.8283852, "lon": 141.6033692 }
+    ]
+  }
+}

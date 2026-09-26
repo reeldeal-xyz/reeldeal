@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "zone": "karakuwa-east",
+        "name": "唐桑半島東部 (Karakuwa Peninsula East)",
+        "accuracy": "approximate, traced from https://www.pref.miyagi.jp/documents/37871/kukakun.pdf (宮城海区漁場計画 令和5年一斉更新 区画漁業 北部, page 1 '区画 No.1 唐桑北部', CreationDate 2023-11-16)",
+        "sourceUrls": [
+          "https://www.pref.miyagi.jp/documents/37871/kukakun.pdf",
+          "https://www.pref.miyagi.jp/soshiki/suishin/gyogyoumenkyo2.html",
+          "https://www.pref.miyagi.jp/documents/24934/807855.pdf"
+        ],
+        "sourceSha256": "7c42494e0106776a34ad5e27e3dbb4ebc61415452efc3da88c5d28df2c58f5fe",
+        "boundaryDefinition": "唐桑半島東部（岩手県陸前高田市と気仙沼市との境～気仙沼市唐桑町御崎）[from 807855.pdf]",
+        "method": "Coastal vertices geocoded from place names printed on the source map (OpenStreetMap Nominatim; see pipeline/data/zones/sources.json) from the Iwate-prefecture border near Osawa fishing port south to Cape Osaki, then offset seaward by roughly the aquaculture-plot depth shown on the map's 1:30,000 scale bar (order of 2-4km). Not surveyed; do not use for navigation or legal boundary purposes."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [141.6332, 38.9650],
+            [141.6317, 38.9302],
+            [141.655, 38.9100],
+            [141.6648, 38.8961],
+            [141.6715, 38.8611],
+            [141.705, 38.8580],
+            [141.700, 38.9050],
+            [141.672, 38.9320],
+            [141.665, 38.9680],
+            [141.6332, 38.9650]
+          ]
+        ]
+      }
+    }
+  ]
+}

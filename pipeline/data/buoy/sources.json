@@ -1,0 +1,36 @@
+{
+  "buoy": [
+    {
+      "file": "futatsune-2026-08.csv",
+      "url": "http://hydro.browse.jp/hydrolift/54-miyagi/miyagi_data/data0_last.csv",
+      "sha256": "61f395b5596d4300ee9d9cfa160b2fe21f4f6e7b67cf51027966bddb4abc4b3a",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "note": "Previous month (2026-08), full month. Linked from the 'download_last' button on http://hydro.browse.jp/hydrolift/54-miyagi/miyagi_temp.html (宮城県気仙沼水温観測情報, Miyagi Prefectural Fisheries Technology Center Kesennuma Fisheries Experimental Station). Station: Futatsune (二ツ根), inside Kesennuma Bay, depth 3m, 30-min interval. Fetched with curl -k (self-signed/misconfigured cert chain on hydro.browse.jp)."
+    },
+    {
+      "file": "futatsune-2026-09.csv",
+      "url": "http://hydro.browse.jp/hydrolift/54-miyagi/miyagi_data/data0_now.csv",
+      "sha256": "c9c771a3f30c9411dfeae4cc3c4c15b3bace499a9bdb238cb0708d3a6882bf75",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "note": "Current month (2026-09), partial: 2026-09-01 00:12 through 2026-09-26 11:22 JST at fetch time. Linked from the 'download_new' button on the same page. Will read differently on re-fetch since the month is still in progress."
+    }
+  ],
+  "mur": [
+    {
+      "file": "mur-reference-2026-08.csv",
+      "url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41.csv?analysed_sst%5B(2026-08-01T09:00:00Z):1:(2026-08-31T09:00:00Z)%5D%5B(38.85):1:(38.85)%5D%5B(141.66):1:(141.66)%5D",
+      "sha256": "c341989707b6ab59685c0b4be356f8faaf3fd4e729dd6eb4dddde1fa0f45196d",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "point": { "lat": 38.85, "lon": 141.66 },
+      "note": "NASA JPL MUR SST (jplMURSST41) daily analysed_sst at the same offshore reference point used elsewhere in the pipeline for karakuwa-east (38.85N 141.66E; the Futatsune buoy's own bay pixel is land-masked at 1km resolution). Used only to compute the buoy-vs-satellite offset for #22, not as the SeriesFile for #3/#6."
+    },
+    {
+      "file": "mur-reference-2026-09.csv",
+      "url": "https://coastwatch.pfeg.noaa.gov/erddap/griddap/jplMURSST41.csv?analysed_sst%5B(2026-09-01T09:00:00Z):1:(2026-09-24T09:00:00Z)%5D%5B(38.85):1:(38.85)%5D%5B(141.66):1:(141.66)%5D",
+      "sha256": "cdbaa84c56c80a03e369d2c30e4fd4456795a18258bd36835c452b3c915b2e47",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "point": { "lat": 38.85, "lon": 141.66 },
+      "note": "ERDDAP's time axis maximum was 2026-09-24T09:00:00Z at fetch time (L4 product latency), so the September offset only covers 2026-09-01..24 even though the buoy CSV runs through 09-26."
+    }
+  ]
+}

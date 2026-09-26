@@ -1,0 +1,36 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "zone": "kesennuma-bay",
+        "name": "気仙沼湾 (Kesennuma Bay)",
+        "accuracy": "approximate, traced from https://www.pref.miyagi.jp/documents/37871/kukakun.pdf (宮城海区漁場計画 令和5年一斉更新 区画漁業 北部, pages 2-3 '区画 No.2 唐桑西部' and '区画 No.3 気仙沼', CreationDate 2023-11-16)",
+        "sourceUrls": [
+          "https://www.pref.miyagi.jp/documents/37871/kukakun.pdf",
+          "https://www.pref.miyagi.jp/soshiki/suishin/gyogyoumenkyo2.html",
+          "https://www.pref.miyagi.jp/documents/24934/807855.pdf"
+        ],
+        "sourceSha256": "7c42494e0106776a34ad5e27e3dbb4ebc61415452efc3da88c5d28df2c58f5fe",
+        "boundaryDefinition": "気仙沼湾（気仙沼市唐桑町御崎～気仙沼市波路上と気仙沼市本吉町との境)[from 807855.pdf]",
+        "method": "Vertices geocoded from place names printed on the source map (OpenStreetMap Nominatim; see pipeline/data/zones/sources.json), tracing the inner bay from Cape Osaki along the peninsula's bay-facing coast (Shibitachi, Maune) to Kesennuma port, then along the opposite shore to Iwaisaki at the Motoyoshi border, closed across the bay mouth. Simplified to a single ring that does not carve out Oshima island (the bay's real shape is split into two lobes by Oshima). Not surveyed; do not use for navigation or legal boundary purposes."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [141.660, 38.861],
+            [141.6428, 38.8934],
+            [141.6232, 38.9046],
+            [141.5794, 38.9008],
+            [141.590, 38.855],
+            [141.6034, 38.8284],
+            [141.645, 38.838],
+            [141.660, 38.861]
+          ]
+        ]
+      }
+    }
+  ]
+}
