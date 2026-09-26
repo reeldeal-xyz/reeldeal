@@ -35,9 +35,10 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # Deploys are serialized; PR test runs are not held up by them.
+    # Deploys are serialized with each other and with deploy-db.yml (same checkout on the instance);
+    # PR test runs are not held up by them.
     concurrency:
-      group: deploy-pipeline
+      group: deploy-ec2
       cancel-in-progress: false
     permissions:
       contents: read
