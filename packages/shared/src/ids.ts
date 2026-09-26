@@ -8,6 +8,7 @@ import type { Trigger } from './trigger';
 export const ZONES = ['karakuwa-east', 'kesennuma-bay'] as const;
 export type Zone = (typeof ZONES)[number];
 
+// Must match the ids in pipeline/data/ref/species.json (canonical; test/species-drift.test.ts), which serves their profiles.
 export const SPECIES = [
   'nori', 'wakame', 'kombu',                                  // seaweed
   'scallop', 'oyster', 'hoya',                                // shellfish

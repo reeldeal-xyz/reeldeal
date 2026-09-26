@@ -1,9 +1,9 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { PIPELINE_API_URL } from 'astro:env/server';
-import { RULES } from '@repo/shared';
-import { heatCoverage } from '@repo/shared';
+import { heatCoverage, heatDays } from '@repo/shared';
 import { readHeatRisk } from '../lib/heat-risk.server';
+import { readSpecies } from '../lib/species.server';
 import { geoPath, geoPoint, readHmiData } from '../lib/hmi.server';
 
 const hmi = await readHmiData(PIPELINE_API_URL);
@@ -13,7 +13,11 @@ const plot = hmi.status === 'available' ? hmi.plots.find((item) => item.plotCode
 const selectedSpecies = Astro.url.searchParams.get('species') ?? plot?.species[0] ?? '';
 const supportedSpecies = plot?.species ?? [];
 const species = supportedSpecies.includes(selectedSpecies) ? selectedSpecies : supportedSpecies[0] ?? '';
-const risk = plot ? await readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null;
+const [risk, speciesInfo] = await Promise.all([
+  plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,
+  species ? readSpecies({ origin: PIPELINE_API_URL, species }) : null,
+]);
+const speciesData = speciesInfo?.data ?? null;
 const data = risk?.data ?? null;
 const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
   : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
@@ -34,12 +38,15 @@ series.forEach((item, index) => {
 if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
 const coverage = data ? heatCoverage(data) : null;
 const provenance = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()].slice(0, 4);
-const heatRules = RULES.filter((rule) => rule.species === species && rule.peril === 'HEAT');
-const sst = data?.indices.filter((item) => item.index === 'SST') ?? [];
-const counts = heatRules.map((rule) => ({ rule, count: sst.filter((item) => item.value !== null
-  && item.asOf.slice(5) >= (rule.window?.start ?? '07-01')
-  && item.asOf.slice(5) <= (rule.window?.end ?? '09-30')
-  && item.value >= (rule.tempC ?? Infinity)).length }));
+const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
+const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
+const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
+  ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
+const speciesText = !species || speciesInfo?.status === 'available' ? ''
+  : speciesInfo?.status === 'not-configured' ? 'Species reference data is not configured for this deployment.'
+  : speciesInfo?.status === 'not-found' ? `No species reference for ${species}.`
+  : speciesInfo?.status === 'invalid-payload' ? 'Species reference failed validation.'
+  : 'Species reference data is unavailable.';
 const statusText = hmi.status === 'not-configured' ? 'Pipeline is not configured for this deployment.'
   : hmi.status === 'unavailable' ? 'Live plot and zone data are unavailable.'
   : hmi.status === 'invalid-payload' ? 'Pipeline map data failed validation.' : '';
@@ -126,8 +133,11 @@ const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
           {!!provenance.length && <p class="coverage">Products: {provenance.map((source) => `${source.product} · ${source.sha256.slice(0, 12)}`).join(' / ')}</p>}
         </section>
         <section class="detail-card">
-          <p class="eyebrow">SPECIES RESPONSE REFERENCES</p><h2>{species ? species.replaceAll('_', ' ') : 'Select a species'}</h2>
-          {counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>Tier {rule.tier}</strong><span>{rule.tempC}°C · {rule.window?.start} to {rule.window?.end}</span></div><b>{count}/{rule.threshold} days</b></div>) : <p>No heat threshold is defined for this species.</p>}
+          <p class="eyebrow">SPECIES RESPONSE REFERENCES</p><h2>{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : species ? species.replaceAll('_', ' ') : 'Select a species'}</h2>
+          {speciesData && <p class="source-note">{speciesData.taxon}</p>}
+          {speciesText ? <p>{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>Tier {rule.tier}</strong><span>{rule.tempC}°C · {rule.window?.start} to {rule.window?.end}</span></div><b>{count}/{rule.threshold} days</b></div>) : <p>No heat threshold is defined for this species.</p>}
+          {speciesData && <p class="coverage">Rules {speciesData.rules_version} · profiles {speciesData.profile_version}</p>}
+          {speciesData && !!speciesData.evidence.length && <div class="evidence"><p class="eyebrow">RESPONSE EVIDENCE</p>{speciesData.evidence.map((study) => <p class="coverage"><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.factors.join(', ').replaceAll('_', ' ')} · {study.lifeStage ?? 'life stage unrecorded'} · {study.endpoint ?? 'endpoint unrecorded'} · {study.status === 'measured' ? `${study.points.length} measured points` : 'no supported response data'}{study.note && <><br />{study.note}</>}</p>)}</div>}
           <p class="layer-note">Observed count only. This screen does not determine eligibility or relief payment.</p>
         </section>
         <section class="detail-card forecast-card"><p class="eyebrow">FORECAST & EVENT REPLAY</p><h2>Unavailable</h2><p>Storm #25/#26 replay and forecast require validated event tracks and impact data. No forecast is inferred from current observations.</p></section>

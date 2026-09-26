@@ -1,4 +1,4 @@
-"""FastAPI app: shared core routes + the three module routers (README §11)."""
+"""FastAPI app: shared core routes, species reference routes and the three module routers (README §11)."""
 
 import os
 from collections.abc import Iterable
@@ -36,6 +36,7 @@ from pipeline.hazards.heat.api import router as heat_router
 from pipeline.hazards.heat.schemas import HeatRiskResponse
 from pipeline.hazards.storm.api import router as storm_router
 from pipeline.hazards.storm.schemas import StormRiskResponse
+from pipeline.species.api import router as species_router
 
 MODULES: dict[ModuleName, tuple[APIRouter, str]] = {
     "heat": (heat_router, heat.MODULE_VERSION),
@@ -163,11 +164,11 @@ def create_app(modules: Iterable[ModuleName] = MODULES) -> FastAPI:
         title="Aquaculture risk pipeline",
         version=__version__,
         description="Risk index values for aquaculture plots and sea areas in coastal Japan. "
-        "Index values only: no thresholds, statuses or payout decisions.",
+        "Index values and species reference data: no statuses or payout decisions; rules are served, never evaluated.",
     )
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     # Kept on app.state because FastAPI doesn't expose included routes as APIRoutes in app.routes (/health counts them).
-    app.state.routers = [core_router(modules), *(MODULES[m][0] for m in modules)]
+    app.state.routers = [core_router(modules), species_router, *(MODULES[m][0] for m in modules)]
     for router in app.state.routers:
         app.include_router(router)
     return app

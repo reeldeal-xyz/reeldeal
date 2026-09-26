@@ -14,7 +14,7 @@ from pydantic.alias_generators import to_camel
 ModuleName = Literal["heat", "hab", "storm"]
 Day = date  # for fields named `date`, which would otherwise shadow the type
 
-# Q4: species / operation list is still open.
+# Labels as in packages/shared/src/ids.ts (hashed on chain); profiles in data/ref/species.json. Q4: operations still open.
 Species = Literal[
     "nori",
     "wakame",
@@ -23,9 +23,9 @@ Species = Literal[
     "oyster",
     "hoya",
     "yellowtail",
-    "sea_bream",
-    "coho_salmon",
-    "bluefin_tuna",
+    "sea-bream",
+    "salmon",
+    "bluefin-tuna",
 ]
 Operation = Literal["longline", "raft", "cage"]
 

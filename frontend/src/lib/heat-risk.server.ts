@@ -9,7 +9,7 @@ export type HeatRiskResult =
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
-async function readJson(response: Response, signal: AbortSignal): Promise<unknown> {
+export async function readJson(response: Response, signal: AbortSignal): Promise<unknown> {
   if (!/^application\/(?:json|[\w.+-]+\+json)(?:\s*;|$)/i.test(response.headers.get('content-type') ?? ''))
     throw new Error('Expected JSON');
   if (Number(response.headers.get('content-length')) > MAX_BYTES || !response.body)

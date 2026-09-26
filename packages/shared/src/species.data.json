@@ -1,0 +1,63 @@
+{
+  "profile_version": "species-profiles-0.1.0",
+  "rules_version": "rules-0.1.0",
+  "species": [
+    "nori",
+    "wakame",
+    "kombu",
+    "scallop",
+    "oyster",
+    "hoya",
+    "yellowtail",
+    "sea-bream",
+    "salmon",
+    "bluefin-tuna"
+  ],
+  "rules": [
+    {
+      "species": "scallop",
+      "tier": 1,
+      "peril": "HEAT",
+      "tempC": 25,
+      "threshold": 14,
+      "window": {
+        "start": "07-01",
+        "end": "09-30"
+      }
+    },
+    {
+      "species": "scallop",
+      "tier": 2,
+      "peril": "HEAT",
+      "tempC": 26,
+      "threshold": 12,
+      "window": {
+        "start": "07-01",
+        "end": "09-30"
+      }
+    },
+    {
+      "species": "hoya",
+      "tier": 1,
+      "peril": "HEAT",
+      "tempC": 24,
+      "threshold": 30,
+      "window": {
+        "start": "07-01",
+        "end": "09-30"
+      }
+    },
+    {
+      "species": "oyster",
+      "tier": 1,
+      "peril": "BANWEEKS",
+      "threshold": 4
+    },
+    {
+      "species": "scallop",
+      "tier": 1,
+      "peril": "BANWEEKS",
+      "threshold": 4
+    }
+  ]
+}
