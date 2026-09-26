@@ -53,8 +53,9 @@ export default function CheckoutForm(props: Props) {
           <div class="checkout-panel__success" role="status">
             <strong>購入が完了しました / Checkout complete</strong>
             <p>買い手 / Buyer: {shortAddress(r().address)}</p>
+            <p>Block {r().checkoutBlockNumber} · {r().confirmations}+ confirmations</p>
             <p><a href={sepoliaTxUrl(r().checkoutTxHash)} target="_blank" rel="noreferrer">チェックアウトのトランザクションを表示 / View checkout transaction</a></p>
-            <Show when={r().approveTxHash}><p><a href={sepoliaTxUrl(r().approveTxHash!)} target="_blank" rel="noreferrer">承認トランザクションを表示 / View approve transaction</a></p></Show>
+            <Show when={r().approveTxHash}><p><a href={sepoliaTxUrl(r().approveTxHash!)} target="_blank" rel="noreferrer">承認トランザクションを表示 / View approval{r().approveBlockNumber ? ` (block ${r().approveBlockNumber})` : ''}</a></p></Show>
             <p class="checkout-panel__note">
               救済プールの寄付ログで <code>sale:{r().quote.orderId}</code> というメモの Donated イベントを確認できます。<br />
               Look for a <code>Donated</code> event on ReliefPool with memo <code>sale:{r().quote.orderId}</code> to correlate this sale's relief contribution.

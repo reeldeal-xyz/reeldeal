@@ -26,3 +26,4 @@
 .donate-panel__success p { margin: var(--space-2) 0 0; font-size: .88rem; line-height: 1.4; overflow-wrap: anywhere; }
 .donate-panel__success a { color: var(--color-ink); text-decoration-thickness: 2px; }
 @media (prefers-reduced-motion: reduce) { .donate-panel__submit { transition: none; } .donate-panel__submit:is(:hover, :active) { transform: none; } }
+.donate-panel__refresh { min-height: var(--tap-size); margin-top: var(--space-2); border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-surface); color: var(--color-ink); font: 900 .75rem/1 var(--font-impact); text-transform: uppercase; cursor: pointer; }

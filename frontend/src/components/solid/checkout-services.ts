@@ -4,7 +4,7 @@
 import { createPublicClient, erc20Abi, http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { DEPLOYED, JPYC, SaleRouterAbi } from '@repo/shared';
-import { connectWallet } from '../../lib/chain/wallet.client';
+import { confirmTransaction, connectWallet } from '../../lib/chain/wallet.client';
 
 /** JSON-safe mirror of fixtures/market-checkout-demo's DemoListing (bigint doesn't cross the Astro island
  *  hydration boundary) -- the page converts `totalWei` to a string when it renders the CheckoutForm island. */
@@ -30,7 +30,10 @@ export interface CheckoutResult {
   address: string;
   quote: QuoteResponseBody['quote'];
   approveTxHash?: string;
+  approveBlockNumber?: string;
   checkoutTxHash: string;
+  checkoutBlockNumber: string;
+  confirmations: number;
 }
 
 async function fetchQuote(input: { listingId: string; buyer: string; seller: string; total: string; reliefBps: number }): Promise<QuoteResponseBody> {
@@ -79,6 +82,7 @@ export async function checkoutDemoListing(listing: DemoListingInput, onStep?: (s
     address: JPYC, abi: erc20Abi, functionName: 'allowance', args: [address, DEPLOYED.SaleRouter],
   });
   let approveTxHash: string | undefined;
+  let approveBlockNumber: string | undefined;
   if (allowance < total) {
     onStep?.('approving');
     approveTxHash = await client.writeContract({
@@ -90,8 +94,8 @@ export async function checkoutDemoListing(listing: DemoListingInput, onStep?: (s
       args: [DEPLOYED.SaleRouter, total],
     });
     onStep?.('waiting-approval');
-    const approval = await reader.waitForTransactionReceipt({ hash: approveTxHash as `0x${string}`, timeout: 180_000 });
-    if (approval.status !== 'success') throw new Error('JPYC approval failed on Sepolia. Checkout was not submitted.');
+    const approval = await confirmTransaction(reader, approveTxHash as `0x${string}`, 'JPYC approval failed on Sepolia. Checkout was not submitted.');
+    approveBlockNumber = approval.blockNumber;
   }
 
   onStep?.('checking-out');
@@ -117,8 +121,7 @@ export async function checkoutDemoListing(listing: DemoListingInput, onStep?: (s
   });
 
   onStep?.('waiting-checkout');
-  const receipt = await reader.waitForTransactionReceipt({ hash: checkoutTxHash, timeout: 180_000 });
-  if (receipt.status !== 'success') throw new Error('Checkout failed on Sepolia. No purchase was confirmed.');
+  const receipt = await confirmTransaction(reader, checkoutTxHash, 'Checkout failed on Sepolia. No purchase was confirmed.');
 
-  return { address, quote, approveTxHash, checkoutTxHash };
+  return { address, quote, approveTxHash, approveBlockNumber, checkoutTxHash, checkoutBlockNumber: receipt.blockNumber, confirmations: receipt.confirmations };
 }

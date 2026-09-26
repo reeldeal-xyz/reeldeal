@@ -1,0 +1,14 @@
+.relief-claim { display: grid; gap: var(--space-2); }
+.relief-claim > button,
+.relief-claim__confirmed button {
+  min-height: var(--tap-size); padding: var(--space-2) var(--space-4); border: 2px solid var(--color-ink);
+  border-radius: 999px; background: var(--color-listed); color: var(--color-ink);
+  font: 900 .8rem/1 var(--font-impact); text-transform: uppercase; cursor: pointer;
+}
+.relief-claim button:disabled { opacity: .5; cursor: wait; }
+.relief-claim__status { min-height: 1.2em; margin: 0; color: var(--color-ink-soft); font-size: .78rem; }
+.relief-claim__error { margin: 0; padding: var(--space-2) var(--space-3); border-left: 4px solid var(--color-earth); background: var(--color-cream); font-size: .8rem; }
+.relief-claim__confirmed { display: grid; gap: var(--space-2); padding: var(--space-3); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-listed); }
+.relief-claim__confirmed strong { font: 900 1rem/1 var(--font-impact); text-transform: uppercase; }
+.relief-claim__confirmed p { margin: 0; font-size: .78rem; overflow-wrap: anywhere; }
+.relief-claim__confirmed a { font-size: .78rem; font-weight: 800; }

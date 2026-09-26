@@ -210,4 +210,26 @@ describe('getPlotReliefStory', () => {
     expect(story.eventsAvailable).toBe(false);
     expect(story.settlement).toBeNull();
   });
+
+
+  test('uses an explicit deployed event hint to read settlement directly when logs are unavailable', async () => {
+    const reason = stringToHex('UNVERIFIED', { size: 32 });
+    const client = mockClient({
+      readContract: ({ functionName }) => {
+        if (functionName === 'plots') return [ZONE, SPECIES, true];
+        if (functionName === 'payoutTarget') return [WALLET, POOL, 1_806_537_599n];
+        if (functionName === 'levelOf') return 0;
+        if (functionName === 'plotSettlements') return [2, reason];
+        if (functionName === 'attestations') return attestation;
+        throw new Error(`unexpected ${functionName}`);
+      },
+      logsError: new Error('rpc log limit'),
+    });
+    const story = await getPlotReliefStory(client, 'p1213-002', '2026', {
+      poolAddress: POOL, fromBlock: 0n, eventIdHint: EVENT,
+    });
+    expect(story.eventsAvailable).toBe(false);
+    expect(story.settlement).toMatchObject({ eventId: EVENT, state: 'held', holdReason: 'UNVERIFIED', amountWei: '10000' });
+    expect(story.settlement?.txHash).toBeNull();
+  });
 });

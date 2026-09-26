@@ -36,13 +36,18 @@ const { title, description = 'ReelDeal supports coastal communities through loca
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label="Main navigation">
+        <nav class="site-nav" style="grid-template-columns:repeat(3,minmax(0,1fr))" aria-label="Main navigation">
           <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>Fish market</a>
           <a href="/hmi" aria-current={section === 'hmi' ? 'page' : undefined}>Coastal map</a>
+          <a href="/relief" aria-current={section === 'relief' ? 'page' : undefined}>Relief</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{section === 'hmi' ? 'Aquaculture HMI · live pipeline data only · incomplete layers are labeled' : 'Component preview · synthetic data · no payments or messages'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{section === 'hmi'
+        ? 'Aquaculture HMI · live pipeline data only · incomplete layers are labeled'
+        : section === 'relief'
+          ? 'ReliefPool + ENS + HumanRegistry · Sepolia test funds · live contract state'
+          : 'Component preview · synthetic data · no payments or messages'}</p></div></footer>
     </div>
   </body>
 </html>
