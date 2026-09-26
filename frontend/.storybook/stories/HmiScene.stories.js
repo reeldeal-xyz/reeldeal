@@ -85,7 +85,7 @@ export const MobileMarket = {
     await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
     await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
     await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
-    await expect(canvas.getByRole('heading', { name: 'Karakuwa scallops' })).toBeVisible();
+    await expect(canvas.getByRole('heading', { name: 'Skipjack tuna (katsuo)' })).toBeVisible();
     await expect(canvas.queryByRole('button', { name: /buy|checkout/i })).toBeNull();
   },
 };

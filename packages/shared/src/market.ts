@@ -15,78 +15,26 @@ export const MARKET_RELIEF_BPS = 500;
 export const MAX_LOTS = 40;
 
 export interface Listing {
+  /** Matches the Astro storefront's lot id (frontend/src/fixtures/preview-lots.ts), lowercased. */
   slug: string;
   name: string;
   nameJa: string;
   origin: string;
   unit: string;
-  /** Whole yen. */
+  /** Whole yen. Must match the storefront's priceJpy -- the quote route signs this price. */
   priceYen: number;
-  species: 'scallop' | 'hoya' | 'oyster' | 'katsuo' | 'sanma' | 'wakame';
+  species: 'katsuo' | 'sanma' | 'saba' | 'hotate' | 'mebachi' | 'awabi';
   blurb: string;
 }
 
+// Eric's storefront catalogue (frontend/src/fixtures/preview-lots.ts), made purchasable.
 export const LISTINGS: readonly Listing[] = [
-  {
-    slug: 'karakuwa-scallops',
-    name: 'Karakuwa scallops',
-    nameJa: '唐桑産ホタテ',
-    origin: 'Karakuwa, Kesennuma',
-    unit: '1 kg, in shell',
-    priceYen: 3200,
-    species: 'scallop',
-    blurb: 'Hanging-culture scallops from the plots this fund protects.',
-  },
-  {
-    slug: 'kesennuma-hoya',
-    name: 'Sea pineapple (hoya)',
-    nameJa: '気仙沼産ホヤ',
-    origin: 'Kesennuma Bay',
-    unit: '5 pieces',
-    priceYen: 1800,
-    species: 'hoya',
-    blurb: 'Sweet, briny and in season through summer.',
-  },
-  {
-    slug: 'karakuwa-oysters',
-    name: 'Karakuwa oysters',
-    nameJa: '唐桑産カキ',
-    origin: 'Karakuwa, Kesennuma',
-    unit: '12 pieces',
-    priceYen: 4200,
-    species: 'oyster',
-    blurb: 'Raised in the same waters as the scallops, shucked to order.',
-  },
-  {
-    slug: 'kesennuma-katsuo',
-    name: 'Whole bonito (katsuo)',
-    nameJa: '気仙沼産カツオ',
-    origin: 'Kesennuma port',
-    unit: '1 fish, ~2.5 kg',
-    priceYen: 12000,
-    species: 'katsuo',
-    blurb: "Landed at Japan's top bonito port.",
-  },
-  {
-    slug: 'kesennuma-sanma',
-    name: 'Pacific saury (sanma)',
-    nameJa: '気仙沼産サンマ',
-    origin: 'Kesennuma port',
-    unit: '10 fish',
-    priceYen: 2500,
-    species: 'sanma',
-    blurb: 'Autumn saury, best salted and grilled.',
-  },
-  {
-    slug: 'karakuwa-wakame',
-    name: 'Wakame seaweed',
-    nameJa: '唐桑産ワカメ',
-    origin: 'Karakuwa, Kesennuma',
-    unit: '500 g, salted',
-    priceYen: 900,
-    species: 'wakame',
-    blurb: 'Farmed alongside the shellfish lines in winter.',
-  },
+  { slug: 'rd-lot-001', name: 'Skipjack tuna (katsuo)', nameJa: 'カツオ', origin: 'Kesennuma port', unit: '1,480 g · 412 mm', priceYen: 2800, species: 'katsuo', blurb: "Landed at Japan's top bonito port." },
+  { slug: 'rd-lot-002', name: 'Pacific saury (sanma)', nameJa: 'サンマ', origin: 'Kesennuma port', unit: '265 g · 318 mm', priceYen: 760, species: 'sanma', blurb: 'Autumn saury, best salted and grilled.' },
+  { slug: 'rd-lot-003', name: 'Chub mackerel (saba)', nameJa: 'サバ', origin: 'Kesennuma port', unit: '690 g · 365 mm', priceYen: 1240, species: 'saba', blurb: 'Rich winter mackerel.' },
+  { slug: 'rd-lot-004', name: 'Scallop (hotate)', nameJa: 'ホタテ', origin: 'Karakuwa, Kesennuma', unit: '220 g · 110 mm', priceYen: 3800, species: 'hotate', blurb: 'Hanging-culture scallops from the plots this fund protects.' },
+  { slug: 'rd-lot-005', name: 'Bigeye tuna (mebachi)', nameJa: 'メバチマグロ', origin: 'Kesennuma port', unit: '18,000 g · 1,100 mm', priceYen: 4500, species: 'mebachi', blurb: 'Longline-caught bigeye.' },
+  { slug: 'rd-lot-006', name: 'Abalone (awabi)', nameJa: 'アワビ', origin: 'Karakuwa, Kesennuma', unit: '180 g · 95 mm', priceYen: 12000, species: 'awabi', blurb: 'Wild abalone from the Sanriku coast.' },
 ];
 
 export function getListing(slug: string): Listing | undefined {

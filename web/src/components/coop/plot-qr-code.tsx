@@ -10,7 +10,7 @@ export function PlotQrCode({ url, size = 88 }: { url: string; size?: number }) {
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(url, { width: size, margin: 1, color: { dark: '#0a1620', light: '#ffffff' } })
+    QRCode.toDataURL(url, { width: size, margin: 1, color: { dark: '#15110f', light: '#ffffff' } })
       .then((dataUrl) => {
         if (!cancelled) setSrc(dataUrl);
       })

@@ -2,7 +2,8 @@
 import MarketplaceBrowser from '../../react/MarketplaceBrowser';
 import MarketCard from '../../molecules/MarketCard.astro';
 import Amount from '../../atoms/Amount.astro';
-import { marketplaceCopy, marketplacePreviewItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
+import CheckoutForm from '../../solid/CheckoutForm.tsx';
+import { marketplaceCopy, marketplaceLiveCopy, marketplacePreviewItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
 import { filterPreviewItems } from './filter';
 
 interface Props {
@@ -11,26 +12,31 @@ interface Props {
   initialSpecies?: PreviewSpecies | 'all';
   initialAvailability?: PreviewAvailability | 'all';
   initialState?: 'ready' | 'loading' | 'unavailable';
+  /** Live storefront: every lot is open and its detail panel is a real SaleRouter checkout. */
+  live?: boolean;
 }
-const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready' } = Astro.props;
-const visible = new Set(filterPreviewItems(marketplacePreviewItems, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
-const t = marketplaceCopy[initialLocale];
+const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready', live = false } = Astro.props;
+const copy = live ? marketplaceLiveCopy : marketplaceCopy;
+const items = live ? marketplacePreviewItems.map(item => ({ ...item, availability: 'open' as const })) : marketplacePreviewItems;
+const visible = new Set(filterPreviewItems(items, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
+const t = copy[initialLocale];
 ---
 
 <div class="marketplace-canvas">
-<MarketplaceBrowser items={marketplacePreviewItems} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
+<MarketplaceBrowser items={items} copy={copy} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
   <div class="market-grid marketplace-preview__grid">
-    {marketplacePreviewItems.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
-      <p class="marketplace-preview__availability" data-preview-en={marketplaceCopy.en[item.availability]} data-preview-ja={marketplaceCopy.ja[item.availability]}>{t[item.availability]}</p>
+    {items.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
+      <p class="marketplace-preview__availability" data-preview-en={copy.en[item.availability]} data-preview-ja={copy.ja[item.availability]}>{t[item.availability]}</p>
       <MarketCard lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: item.nameJa === item.lot.species ? item.lot.species : `${item.nameJa} / ${item.lot.species}`, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
       <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
-        <summary data-preview-en={marketplaceCopy.en.details} data-preview-ja={marketplaceCopy.ja.details}>{t.details}</summary>
+        <summary data-preview-en={copy.en.details} data-preview-ja={copy.ja.details}>{t.details}</summary>
         <dl>
-          <div><dt data-preview-en={marketplaceCopy.en.weight} data-preview-ja={marketplaceCopy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG.toLocaleString('ja-JP')} g</dd></div>
-          <div><dt data-preview-en={marketplaceCopy.en.length} data-preview-ja={marketplaceCopy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
+          <div><dt data-preview-en={copy.en.weight} data-preview-ja={copy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG.toLocaleString('ja-JP')} g</dd></div>
+          <div><dt data-preview-en={copy.en.length} data-preview-ja={copy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
           <div><dt>JPY</dt><dd><Amount value={String(item.lot.priceJpy)} currency="JPY" /></dd></div>
         </dl>
-        <p data-preview-en={marketplaceCopy.en.noReceipt} data-preview-ja={marketplaceCopy.ja.noReceipt}>{t.noReceipt}</p>
+        <p data-preview-en={copy.en.noReceipt} data-preview-ja={copy.ja.noReceipt}>{t.noReceipt}</p>
+        {live && <CheckoutForm listing={{ slug: item.lot.id.toLowerCase(), priceJpy: item.lot.priceJpy }} client:visible />}
       </details>
     </div>)}
   </div>

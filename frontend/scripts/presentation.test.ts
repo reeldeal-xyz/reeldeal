@@ -36,7 +36,7 @@ describe('display and route boundaries', () => {
     expect(parseOffer('2400')).toBe(2400);
   });
   test('only inventoried page routes can redirect to the legacy origin', () => {
-    for (const route of ['/map', '/donate/', '/verify/event-1', '/liff', '/coop', '/holder', '/market']) expect(isLegacyPage(route)).toBe(true);
+    for (const route of ['/map', '/donate/', '/verify/event-1', '/liff', '/coop', '/holder']) expect(isLegacyPage(route)).toBe(true);
     for (const route of ['/api/world', '//evil.example', '/verify/', '/map/extra', '/health']) expect(isLegacyPage(route)).toBe(false);
   });
 });

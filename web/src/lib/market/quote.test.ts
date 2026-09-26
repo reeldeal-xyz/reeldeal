@@ -23,10 +23,10 @@ function deps(sold: Set<Hex> = new Set()): QuoteDeps {
 
 describe('buildQuote', () => {
   test('signs a quote for lot 1 that recovers to the co-op signer', async () => {
-    const r = await buildQuote({ listing: 'karakuwa-scallops', buyer: BUYER }, deps());
+    const r = await buildQuote({ listing: 'rd-lot-004', buyer: BUYER }, deps());
     if (!r.ok) throw new Error(r.error);
     expect(r.lot).toBe(1);
-    expect(r.quote).toMatchObject({ listingId: listingIdFor('karakuwa-scallops', 1), buyer: BUYER, seller: MARKET_SELLER, total: 3200n * 10n ** 18n, reliefBps: 500 });
+    expect(r.quote).toMatchObject({ listingId: listingIdFor('rd-lot-004', 1), buyer: BUYER, seller: MARKET_SELLER, total: 3800n * 10n ** 18n, reliefBps: 500 });
     expect(r.quote.expiry).toBe(BigInt(Date.parse('2026-09-27T00:10:00Z') / 1000));
     const recovered = await recoverTypedDataAddress({
       domain: saleRouterEip712Domain(ROUTER),
@@ -39,21 +39,21 @@ describe('buildQuote', () => {
   });
 
   test('skips sold lots and reports sold out when every lot is gone', async () => {
-    const sold = new Set<Hex>([listingIdFor('kesennuma-hoya', 1), listingIdFor('kesennuma-hoya', 2)]);
-    const r = await buildQuote({ listing: 'kesennuma-hoya', buyer: BUYER }, deps(sold));
+    const sold = new Set<Hex>([listingIdFor('rd-lot-002', 1), listingIdFor('rd-lot-002', 2)]);
+    const r = await buildQuote({ listing: 'rd-lot-002', buyer: BUYER }, deps(sold));
     expect(r.ok && r.lot).toBe(3);
 
-    const all = new Set<Hex>(Array.from({ length: 40 }, (_, i) => listingIdFor('kesennuma-hoya', i + 1)));
-    expect(await buildQuote({ listing: 'kesennuma-hoya', buyer: BUYER }, deps(all))).toEqual({ ok: false, status: 409, error: 'sold_out' });
+    const all = new Set<Hex>(Array.from({ length: 40 }, (_, i) => listingIdFor('rd-lot-002', i + 1)));
+    expect(await buildQuote({ listing: 'rd-lot-002', buyer: BUYER }, deps(all))).toEqual({ ok: false, status: 409, error: 'sold_out' });
   });
 
   test('rejects unknown listings and bad buyers', async () => {
     expect(await buildQuote({ listing: 'tuna', buyer: BUYER }, deps())).toMatchObject({ ok: false, error: 'unknown_listing' });
-    expect(await buildQuote({ listing: 'karakuwa-scallops', buyer: '0x123' }, deps())).toMatchObject({ ok: false, error: 'invalid_buyer' });
+    expect(await buildQuote({ listing: 'rd-lot-004', buyer: '0x123' }, deps())).toMatchObject({ ok: false, error: 'invalid_buyer' });
   });
 
   test('splitSale rounds the relief share down like SaleRouter', () => {
-    expect(splitSale(3200n * 10n ** 18n)).toEqual({ seller: 3040n * 10n ** 18n, relief: 160n * 10n ** 18n });
+    expect(splitSale(3800n * 10n ** 18n)).toEqual({ seller: 3610n * 10n ** 18n, relief: 190n * 10n ** 18n });
     expect(splitSale(19n)).toEqual({ seller: 19n, relief: 0n });
   });
 });
