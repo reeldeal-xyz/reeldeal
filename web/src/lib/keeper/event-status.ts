@@ -72,20 +72,24 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
     const key = `${ref.zone}:${ref.species}`;
     let found = plotsBySpecies.get(key);
     if (!found) {
-      found = listEnrolledPlots({
+      found = withRetry(() => listEnrolledPlots({
         publicClient: deps.publicClient,
         poolAddress: deps.poolAddress,
         zoneId: idOf(ref.zone),
         speciesId: idOf(ref.species),
         fromBlock: deps.fromBlock,
-      });
+      }));
       plotsBySpecies.set(key, found);
     }
     return found;
   };
 
-  return Promise.all(
-    events.map(async (ref): Promise<EventStatus> => {
+  // Sequential on purpose: public Sepolia RPCs reject bursts of parallel eth_getLogs ("exceeds defined limit").
+  const out: EventStatus[] = [];
+  for (const ref of events) out.push(await statusFor(ref));
+  return out;
+
+  async function statusFor(ref: ReferenceEvent): Promise<EventStatus> {
       const eventId = eventIdOf(ref.zone, ref.species, ref.peril, ref.tier, ref.payoutSeasonLabel);
       const base = {
         id: ref.id,
@@ -116,19 +120,24 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
         };
       }
 
-      const [labels, logs] = await Promise.all([
-        plotsFor(ref),
-        Promise.all(
-          [ATTESTED, PAID, HELD, CLAIMED].map((event) =>
-            deps.publicClient.getLogs({
-              address: deps.poolAddress,
-              event,
-              args: { eventId },
-              fromBlock: deps.fromBlock,
-              toBlock: 'latest',
-            } as Parameters<KeeperPublicClient['getLogs']>[0]),
-          ),
-        ).then((sets) => sets.flat() as unknown as AnyLog[]),
+      const labels = await plotsFor(ref);
+      const [logs] = await Promise.all([
+        (async () => {
+          const found: AnyLog[] = [];
+          for (const event of [ATTESTED, PAID, HELD, CLAIMED]) {
+            const logs = await withRetry(() =>
+              deps.publicClient.getLogs({
+                address: deps.poolAddress,
+                event,
+                args: { eventId },
+                fromBlock: deps.fromBlock,
+                toBlock: 'latest',
+              } as Parameters<KeeperPublicClient['getLogs']>[0]),
+            );
+            found.push(...(logs as unknown as AnyLog[]));
+          }
+          return found;
+        })(),
       ]);
 
       const attestedLog = logs.find((l) => l.eventName === 'Attested');
@@ -139,8 +148,9 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
         if (typeof label === 'string') byPlot.set(label, [...(byPlot.get(label) ?? []), log]);
       }
 
-      const plots = await Promise.all(
-        labels.map(async (plotLabel): Promise<EventPlotRow> => {
+      const plots: EventPlotRow[] = [];
+      for (const plotLabel of labels) {
+        plots.push(await (async (): Promise<EventPlotRow> => {
           const [status, holdReason] = await deps.publicClient.readContract({
             address: deps.poolAddress,
             abi: ReliefPoolAbi,
@@ -159,8 +169,8 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
             if (typeof source.args.farmer === 'string') row.farmer = source.args.farmer as Address;
           }
           return row;
-        }),
-      );
+        })());
+      }
 
       return {
         ...base,
@@ -176,6 +186,17 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
         },
         plots,
       };
-    }),
-  );
+  }
+}
+
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i >= attempts) throw err;
+      await new Promise((r) => setTimeout(r, 400 * i));
+    }
+  }
 }
