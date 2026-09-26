@@ -57,11 +57,31 @@ export default function MarketplaceBrowser({
       }
       const image = card.querySelector<HTMLImageElement>('.market-card__media img');
       if (image) image.alt = c.imageAlt;
+      card.querySelector('[data-market-close]')?.setAttribute('aria-label', locale === 'ja' ? '閉じる' : 'Close purchase');
     }
   }, [visible, locale, copy]);
 
+  useEffect(() => {
+    const openPurchase = () => {
+      const dialog = document.getElementById(location.hash.slice(1));
+      if (dialog instanceof HTMLDialogElement && cards.current?.contains(dialog) && !dialog.open) dialog.showModal();
+    };
+    openPurchase();
+    window.addEventListener('hashchange', openPurchase);
+    return () => window.removeEventListener('hashchange', openPurchase);
+  }, []);
+
   function revealDetail(event: MouseEvent<HTMLDivElement>) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-market-review]');
+    if (button && cards.current?.contains(button)) {
+      const dialog = document.getElementById(button.dataset.marketReview!);
+      if (dialog instanceof HTMLDialogElement && !dialog.open) {
+        button.focus({ preventScroll: true });
+        dialog.showModal();
+      }
+      return;
+    }
     const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#market-preview-detail-"]');
     if (!link || !cards.current?.contains(link)) return;
     const detail = cards.current.querySelector<HTMLDetailsElement>(link.hash);
