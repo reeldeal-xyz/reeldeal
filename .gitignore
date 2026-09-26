@@ -14,6 +14,6 @@ contracts/broadcast/*/31337/
 .claude/skills/
 .claude/handoff/
 *.tsbuildinfo
-.claude/worktrees/
-# Keeper (issue #17): JSON-file-backed payout directory (web/src/lib/payout-directory.ts), local runtime state.
-.data/
+
+# private keys
+*.pem
