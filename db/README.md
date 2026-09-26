@@ -43,6 +43,7 @@ db/
     20260926100200_risk_reference_data.sql
     20260926170000_plots_app_compat.sql      # plot_code fully unique; origin 'synthetic'
     20260926170100_demo_plots.sql            # demo sea areas and p1213-001..015
+    20260926210000_plots_fishery_right_origin.sql  # origin 'fishery_right'
   backup/                   # Dockerfile, backup.sh (pg_dump -> S3), schedule.sh
   scripts/
     up.sh  test.sh  psql.sh  reset.sh  restore.sh  gen-env.sh
@@ -67,7 +68,7 @@ Migrations use **dbmate** (table `dbmate.schema_migrations`): plain SQL that wor
 |---|---|
 | `prefectures` | `code` (JIS 01–47) PK, `name_ja`, `name_en`, `geom` MultiPolygon |
 | `sea_areas` | `id` text PK (e.g. `miyagi-kesennuma`), `prefecture_code`, `name_ja`, `name_en`, `kind` (`toxin_monitoring`, `red_tide`, …), `geom` MultiPolygon, `accuracy` (`official`, `approximate, traced from <source>`), `source_url`, `source_sha256`, `valid_from`, `valid_to` |
-| `plots` | `id` uuid PK, `plot_code` text UNIQUE across all rows, never reused (the ENS label for deployed plots such as `p1213-001`, a fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`, `synthetic` for demo plots without a surveyed polygon), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated, `ST_PointOnSurface`, so it's always inside the plot), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
+| `plots` | `id` uuid PK, `plot_code` text UNIQUE across all rows, never reused (the ENS label for deployed plots such as `p1213-001`, a fishery-right code, or `upload:<uuid>`), `origin` (`msil`, `upload`, `synthetic` for demo plots without a surveyed polygon, `fishery_right` for a 区画漁業権 polygon built from the licence's vertex list, code `<pref>-ku-<licence no.>` such as `04-ku-1101`), `geom` MultiPolygon, `area_m2` (generated from geography), `centroid` Point (generated, `ST_PointOnSurface`, so it's always inside the plot), `species` text[], `operation` (`longline`, `raft`, `cage`, …), `sea_area_id` FK, `source_url`, `source_sha256`, `valid_from`, `valid_to`, `retired_at` |
 | `stations` | `id` text PK, `name`, `source`, `type` (`buoy`, `tide`, `shore`, `research`), `geom` Point, `prefecture_code`, `sea_area_id`, `variables` text[], `cadence`, `url`, `first_obs`, `last_obs` |
 | `coast_segments` | `id` PK, `geom` MultiLineString, `prefecture_code`. Storm surge uses these to match plots to tide stations. |
 | `coastal_mask` | `id`, `version`, `offshore_km` (`Q8`), `geom` MultiPolygon: the coastal strip that the pipeline's grid is masked to |
