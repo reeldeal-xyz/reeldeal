@@ -33,16 +33,15 @@ REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
 GRANT CONNECT, TEMPORARY ON DATABASE :"db" TO db_migrator, pipeline, app_migrator, app, readonly, db_backup;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
--- Schemas. db_migrator (dbmate) owns geo/risk and the migrations table; app_migrator (Drizzle) owns app
--- and Drizzle's own bookkeeping schema.
+-- Schemas. db_migrator (dbmate) owns geo/risk and the migrations table. app_migrator (Drizzle) creates
+-- its own: web/drizzle's first migration runs `CREATE SCHEMA "app"`, and Drizzle keeps its bookkeeping
+-- in `drizzle`. So app_migrator may create schemas, and everything it creates is owned by it.
 CREATE SCHEMA IF NOT EXISTS geo     AUTHORIZATION db_migrator;
 CREATE SCHEMA IF NOT EXISTS risk    AUTHORIZATION db_migrator;
 CREATE SCHEMA IF NOT EXISTS dbmate  AUTHORIZATION db_migrator;
-CREATE SCHEMA IF NOT EXISTS app     AUTHORIZATION app_migrator;
-CREATE SCHEMA IF NOT EXISTS drizzle AUTHORIZATION app_migrator;
+GRANT CREATE ON DATABASE :"db" TO app_migrator;
 
 GRANT USAGE ON SCHEMA geo, risk, dbmate TO pipeline, app_migrator, app, readonly;
-GRANT USAGE ON SCHEMA app TO app, readonly;
 
 -- geo/risk: pipeline reads and writes (no DELETE: retire rows instead); everyone else reads.
 ALTER DEFAULT PRIVILEGES FOR ROLE db_migrator IN SCHEMA geo, risk
@@ -60,14 +59,18 @@ ALTER DEFAULT PRIVILEGES FOR ROLE db_migrator IN SCHEMA dbmate
   GRANT SELECT ON TABLES TO pipeline, app_migrator, app, readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA dbmate TO pipeline, app_migrator, app, readonly;
 
--- app: the app role gets DML on tables Drizzle creates. readonly gets nothing by default; app_migrator
+-- app: the app role gets DML on whatever Drizzle creates (the app schema doesn't exist until its first
+-- migration, so these defaults aren't tied to a schema). readonly gets nothing by default; app_migrator
 -- grants it non-PII views explicitly (README §4.3).
-ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA app
+ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator GRANT USAGE ON SCHEMAS TO app;
+ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app;
-ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator IN SCHEMA app
+ALTER DEFAULT PRIVILEGES FOR ROLE app_migrator
   GRANT USAGE, SELECT ON SEQUENCES TO app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA app TO app;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA app TO app;
+SELECT format('GRANT USAGE ON SCHEMA %1$I TO app; '
+              'GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %1$I TO app; '
+              'GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %1$I TO app', nspname)
+FROM pg_namespace WHERE nspname IN ('app', 'drizzle') \gexec
 SQL
 
 echo "bootstrap: roles, schemas and grants applied"

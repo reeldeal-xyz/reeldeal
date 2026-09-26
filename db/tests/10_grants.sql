@@ -9,15 +9,23 @@ BEGIN
   -- Only the owners can create objects in their schemas.
   ASSERT NOT has_schema_privilege('pipeline', 'geo', 'CREATE'), 'pipeline must not have DDL on geo';
   ASSERT NOT has_schema_privilege('pipeline', 'risk', 'CREATE'), 'pipeline must not have DDL on risk';
-  ASSERT NOT has_schema_privilege('app', 'app', 'CREATE'), 'app must not have DDL on app';
   ASSERT NOT has_schema_privilege('app_migrator', 'geo', 'CREATE'), 'app_migrator must not have DDL on geo';
-  ASSERT has_schema_privilege('app_migrator', 'app', 'CREATE'), 'app_migrator owns app';
+  ASSERT NOT has_schema_privilege('app_migrator', 'risk', 'CREATE'), 'app_migrator must not have DDL on risk';
+  ASSERT has_database_privilege('app_migrator', current_database(), 'CREATE'), 'app_migrator creates its schemas';
+  ASSERT NOT has_database_privilege('pipeline', current_database(), 'CREATE'), 'pipeline creates no schemas';
+  ASSERT NOT has_database_privilege('app', current_database(), 'CREATE'), 'app creates no schemas';
   ASSERT NOT has_schema_privilege('readonly', 'geo', 'CREATE'), 'readonly must not have DDL';
   ASSERT NOT has_schema_privilege('pipeline', 'public', 'CREATE'), 'nobody creates in public';
 
-  -- The pipeline can't see the app schema at all; the app never writes geo/risk.
-  ASSERT NOT has_schema_privilege('pipeline', 'app', 'USAGE'), 'pipeline must not use app';
-  ASSERT NOT has_schema_privilege('pipeline', 'drizzle', 'USAGE'), 'pipeline must not use drizzle';
+  -- Schemas app_migrator creates (app, drizzle; they appear with Drizzle's first migration): owned by
+  -- it, usable by app, invisible to the pipeline. The app never writes geo/risk (below).
+  FOR t IN SELECT nspname AS name FROM pg_namespace WHERE nspowner = 'app_migrator'::regrole LOOP
+    ASSERT has_schema_privilege('app', t.name, 'USAGE'), 'app uses ' || t.name;
+    ASSERT NOT has_schema_privilege('app', t.name, 'CREATE'), 'app must not have DDL on ' || t.name;
+    ASSERT NOT has_schema_privilege('pipeline', t.name, 'USAGE'), 'pipeline must not use ' || t.name;
+  END LOOP;
+  ASSERT NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname IN ('app', 'drizzle')
+                     AND nspowner <> 'app_migrator'::regrole), 'app/drizzle belong to app_migrator';
 
   FOR t IN
     SELECT format('%I.%I', schemaname, tablename) AS name
@@ -34,10 +42,10 @@ BEGIN
     ASSERT NOT has_table_privilege('db_backup', t.name, 'INSERT,UPDATE,DELETE'), 'db_backup writes ' || t.name;
   END LOOP;
 
-  -- app tables (created later by Drizzle): app has DML, pipeline and readonly have nothing by default.
+  -- Tables Drizzle creates: app has DML, the pipeline has nothing.
   FOR t IN
     SELECT format('%I.%I', schemaname, tablename) AS name
-    FROM pg_tables WHERE schemaname = 'app'
+    FROM pg_tables WHERE tableowner = 'app_migrator'
   LOOP
     ASSERT has_table_privilege('app', t.name, 'SELECT,INSERT,UPDATE,DELETE'), 'app writes ' || t.name;
     ASSERT NOT has_table_privilege('pipeline', t.name, 'SELECT'), 'pipeline must not read ' || t.name;
