@@ -173,6 +173,8 @@
 .market-detail__media { position: relative; min-width: 0; }
 .market-detail__media picture, .market-detail__media img { display: block; width: 100%; height: auto; }
 .market-detail__media img { aspect-ratio: 1.05; object-fit: cover; border: 3px solid var(--color-ink); border-radius: var(--radius-card); }
+.market-card__media img[data-generated-illustration],
+.market-detail__media img[data-generated-illustration] { object-fit: contain; background: var(--color-surface); }
 .market-detail__photo-badge { position: absolute; top: var(--space-3); left: var(--space-3); }
 .market-detail__media p { margin: 4px 0 0; color: var(--color-ink-soft); font-size: .68rem; font-weight: 700; }
 .market-detail__copy { display: grid; gap: var(--space-2); margin-top: var(--space-2); }

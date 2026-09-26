@@ -83,8 +83,11 @@ The framework's native React/Solid CSF preview entries are disabled because all
 stories use Astro wrappers. Astro supplies both hydration renderers. This also
 avoids the obsolete `storybook-solidjs-vite/renderer/entry-preview` import.
 
-Static placeholder images live under `public/images`; both Astro and Storybook
-serve the same visible image. No CSS hides `<picture>` or substitutes a background.
+The six generated seafood illustrations under `public/images/fish` are reused
+unchanged from the local storefront; their README records provenance. Astro and
+Storybook share species-matched images for preview cards and detail fallbacks.
+Submitted landing photos take precedence; unknown species retain the silhouette.
+Illustrations do not count as landing evidence.
 Viewport presets are 320×720, 390×844 and 1440×900. Full-page stories own their
 gutters; isolated components receive one 16px inset. Lot Detail uses the same
 isolated canvas as the other organism stories, without an extra page frame.

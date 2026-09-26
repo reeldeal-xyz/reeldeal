@@ -52,6 +52,9 @@ await withServer(undefined, async (request) => {
   assert(!html.includes(secret), 'Server-only env leaked into HTML');
   assert.match(html, /component-url="[^\"]*BidWorkshop\./);
   assert.match(html, /component-url="[^\"]*WalletPreview\./);
+  for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
+    assert(html.includes(`/images/fish/${species}-ice.webp`), `Missing species illustration: ${species}`);
+  }
   const assets = [...new Set([...html.matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
   assert(assets.length >= 6, 'Expected CSS, both islands, renderers, and a visible image');
   for (const asset of assets) {

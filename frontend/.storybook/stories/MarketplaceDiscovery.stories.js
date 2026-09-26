@@ -1,4 +1,5 @@
 import MarketplaceDiscovery from '../../src/components/organisms/marketplace/MarketplaceDiscovery.astro';
+import { marketplacePreviewItems } from '../../src/fixtures/marketplace-preview';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
 
 async function hydratedCanvas(canvasElement) {
@@ -9,7 +10,7 @@ async function hydratedCanvas(canvasElement) {
 async function recoverSamples({ canvasElement }) {
   const canvas = await hydratedCanvas(canvasElement);
   await userEvent.click(canvas.getByRole('button', { name: 'Load sample inventory' }));
-  await expect(canvas.getByRole('status')).toHaveTextContent('3 sample lots shown');
+  await expect(canvas.getByRole('status')).toHaveTextContent(`${marketplacePreviewItems.length} sample lots shown`);
   await expect(canvas.getByRole('searchbox', { name: 'Search fish' })).toBeEnabled();
 }
 
@@ -37,7 +38,7 @@ export const InteractiveFilters = { play: async ({ canvasElement }) => {
   await userEvent.selectOptions(canvas.getByRole('combobox', { name: '販売状況' }), 'open');
   await expect(canvas.getByRole('status')).toHaveTextContent('0 件のサンプルを表示');
   await userEvent.click(canvas.getByRole('button', { name: '絞り込みを解除' }));
-  await expect(canvas.getByRole('status')).toHaveTextContent('3 件のサンプルを表示');
+  await expect(canvas.getByRole('status')).toHaveTextContent(`${marketplacePreviewItems.length} 件のサンプルを表示`);
   await userEvent.selectOptions(canvas.getByRole('combobox', { name: '魚種' }), 'sanma');
   await userEvent.selectOptions(canvas.getByRole('combobox', { name: '販売状況' }), 'reserved');
   await expect(canvas.getByRole('status')).toHaveTextContent('1 件のサンプルを表示');

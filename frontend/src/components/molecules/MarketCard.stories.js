@@ -4,4 +4,7 @@ export default { title: 'ReelDeal/02 Molecules/Market Card', component: MarketCa
 export const Katsuo = {};
 export const Sanma = { args: { lot: previewLots[1], index: 1 } };
 export const Saba = { args: { lot: previewLots[2], index: 2 } };
+export const Hotate = { args: { lot: previewLots[3], index: 3 } };
+export const Mebachi = { args: { lot: previewLots[4], index: 4 } };
+export const Awabi = { args: { lot: previewLots[5], index: 5 } };
 export const LongLabel = { args: { lot: { ...previewLots[0], species: 'Karakuwa Pacific oyster / 唐桑の真牡蠣', priceJpy: 1234567 } } };

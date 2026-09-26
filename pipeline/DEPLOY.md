@@ -1,6 +1,6 @@
 # Deploying the pipeline API to AWS
 
-Hackathon setup: **one EC2 instance in Tokyo running Docker Compose**, with Caddy in front for automatic HTTPS. The daily build job runs on the same box via cron. No load balancer, ECS or Lambda.
+Hackathon setup: **one EC2 instance in Tokyo running Docker Compose**, with Caddy in front for automatic HTTPS. The planned daily build job will run on the same box via cron once its CLI exists (§6). No load balancer, ECS or Lambda.
 
 ```
 browser / app ──https──▶ Caddy :443 ──▶ api (uvicorn, pipeline.api:app) :8787

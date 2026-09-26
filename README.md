@@ -30,7 +30,7 @@ We can understand / forecast / hindcast the occurrence of threshold triggering e
 
 - `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
 - `web/` Next.js: donor, co-op, holder screens, `/liff` farmer app, `/verify/[eventId]`, API routes
-- `pipeline/` Python (uv, FastAPI): satellite risk indices for heat, HAB and storm; index values only, no Triggers (owner: Jay). Spec: `pipeline/README.md`
+- `pipeline/` Python (uv, FastAPI): risk API scaffold for heat, HAB and storm; domain routes remain stubs (501), with index values planned and no Triggers (owner: Jay). Spec: `pipeline/README.md`
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
 - [`docs/adrs/`](docs/adrs/README.md) Architecture decisions, implementation status, and issue/code evidence.

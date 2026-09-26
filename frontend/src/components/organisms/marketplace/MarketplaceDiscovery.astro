@@ -22,7 +22,7 @@ const t = marketplaceCopy[initialLocale];
   <div class="market-grid marketplace-preview__grid">
     {marketplacePreviewItems.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
       <p class="marketplace-preview__availability" data-preview-en={marketplaceCopy.en[item.availability]} data-preview-ja={marketplaceCopy.ja[item.availability]}>{t[item.availability]}</p>
-      <MarketCard lot={{ ...item.lot, species: `${item.nameJa} / ${item.lot.species}` }} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
+      <MarketCard lot={item.lot} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ species: item.nameJa === item.lot.species ? item.lot.species : `${item.nameJa} / ${item.lot.species}`, preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
       <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
         <summary data-preview-en={marketplaceCopy.en.details} data-preview-ja={marketplaceCopy.ja.details}>{t.details}</summary>
         <dl>

@@ -3,9 +3,19 @@ import { describe, expect, test } from 'bun:test';
 import { formatAmount } from '../src/lib/format-amount';
 import { isLegacyPage } from '../src/lib/legacy-routes';
 import { parseOffer } from '../src/components/solid/bid-services';
+import { fishIllustration } from '../src/lib/fish-illustration';
 import { measurementState } from '../src/components/molecules/relief/measurement-state';
 
 describe('display and route boundaries', () => {
+  test('uses only known species illustrations and keeps the missing-photo fallback', () => {
+    for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
+      expect(fishIllustration(species).src).toBe(`/images/fish/${species}-ice.webp`);
+    }
+    expect(fishIllustration(' Mebachi ').src).toBe('/images/fish/maguro-ice.webp');
+    for (const species of [undefined, '', 'unknown', '__proto__', '../saba']) {
+      expect(fishIllustration(species).src).toBe('/images/landing-placeholder.png');
+    }
+  });
   test('keeps full token precision when formatting', () => {
     expect(formatAmount('9007199254740993.000000000000000001')).toBe('9,007,199,254,740,993.000000000000000001');
     expect(formatAmount('0')).toBe('0');

@@ -4,8 +4,9 @@ Status: Proposed. Interface and signer responsibilities remain gated by #55.
 
 ## Context
 
-Main's TypeScript pipeline computes and signs triggers; the keeper consumes signed
-feeds. The planned Python/FastAPI service publishes observed index values instead.
+PR #84 replaced the TypeScript pipeline with a Python/FastAPI scaffold. Domain
+routes remain stubs; the existing keeper still expects legacy signed feeds.
+The new risk-index handoff remains gated by #55/#64/#79.
 
 ## Decision
 
@@ -23,7 +24,7 @@ or advisory data cannot satisfy the proposed operational signing gate.
 
 ## Evidence
 
-[Current pipeline signer](../../pipeline/src/sign.ts),
+[Current pipeline scaffold](../../pipeline/src/pipeline/api.py),
 [current keeper feed consumer](../../web/src/lib/keeper/feed-client.ts),
 [#55](https://github.com/reeldeal-xyz/reeldeal/issues/55),
 [#60](https://github.com/reeldeal-xyz/reeldeal/issues/60),
