@@ -81,8 +81,11 @@ export function WorldVerify({ wallet, level, onComplete, onStatusChange, label, 
 
       setStatusAndNotify('connecting');
       const request =
-        level === 'level1'
+        // The World ID Simulator (staging) has no Selfie Check credential, so level 1 asks for its Human (Orb) one.
+        level === 'level1' && context.environment === 'production'
           ? await IDKit.request({ ...context, allow_legacy_proofs: false }).preset(selfieCheck({ signal: wallet }))
+          : level === 'level1'
+          ? await IDKit.request({ ...context, allow_legacy_proofs: false }).constraints(any(CredentialRequest('proof_of_human', { signal: wallet })))
           : await IDKit.request({ ...context, allow_legacy_proofs: false }).constraints(
               any(CredentialRequest('proof_of_human', { signal: wallet })),
             );

@@ -24,6 +24,8 @@ const SPECIES_TINT: Record<Listing['species'], string> = {
   hotate: '#18b8ee',
   mebachi: '#b8ff36',
   awabi: '#ff72b8',
+  hoya: '#ffcf3f',
+  oyster: '#18b8ee',
 };
 
 type Step = 'quote' | 'approve' | 'checkout' | 'done' | 'error';
