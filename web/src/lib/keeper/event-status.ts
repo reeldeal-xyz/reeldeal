@@ -84,9 +84,19 @@ export async function listEventStatuses(deps: EventStatusDeps, events: readonly 
     return found;
   };
 
+  // Replays of the same (zone, species, peril, tier) in different data years all pay the "2026" slots,
+  // so they share one on-chain eventId: firing one fires them all. Show each eventId once, keyed by its
+  // most recent data season.
+  const unique = new Map<Hex, ReferenceEvent>();
+  for (const ref of events) {
+    const id = eventIdOf(ref.zone, ref.species, ref.peril, ref.tier, ref.payoutSeasonLabel);
+    const seen = unique.get(id);
+    if (!seen || ref.dataSeason > seen.dataSeason) unique.set(id, ref);
+  }
+
   // Sequential on purpose: public Sepolia RPCs reject bursts of parallel eth_getLogs ("exceeds defined limit").
   const out: EventStatus[] = [];
-  for (const ref of events) out.push(await statusFor(ref));
+  for (const ref of unique.values()) out.push(await statusFor(ref));
   return out;
 
   async function statusFor(ref: ReferenceEvent): Promise<EventStatus> {
