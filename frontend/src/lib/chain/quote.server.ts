@@ -5,6 +5,7 @@ import { createWalletClient, http, isAddress, isHex, type Address, type Hex } fr
 import { privateKeyToAccount } from 'viem/accounts';
 import { sepolia } from 'viem/chains';
 import { signSaleQuote, type Quote } from '@repo/shared';
+import { DEMO_LISTING } from '../../fixtures/market-checkout-demo';
 
 /** Router's configured ceiling (packages/shared/src/addresses.ts DEPLOYED comment: maxReliefBps 1000). */
 export const MAX_RELIEF_BPS = 1000;
@@ -28,6 +29,14 @@ export interface QuoteRequestFields {
 export type QuoteRequestResult =
   | { ok: true; value: QuoteRequestFields }
   | { ok: false; error: string };
+
+/** Until inventory exists, the quote signer must only sign the one published demo item. */
+export function matchesDemoListing(fields: QuoteRequestFields): boolean {
+  return fields.listingId.toLowerCase() === DEMO_LISTING.listingId.toLowerCase()
+    && fields.seller.toLowerCase() === DEMO_LISTING.sellerAddress.toLowerCase()
+    && fields.total === DEMO_LISTING.totalWei
+    && fields.reliefBps === DEMO_LISTING.reliefBps;
+}
 
 /** Validates a POST /api/market/quote body: {listingId, buyer, seller, total, reliefBps <= MAX_RELIEF_BPS}. */
 export function parseQuoteRequest(body: unknown): QuoteRequestResult {

@@ -1,14 +1,19 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HmiScene from '../components/HmiScene.astro';
-import { PIPELINE_API_URL } from 'astro:env/server';
+import { NEXT_PUBLIC_REOWN_PROJECT_ID, PIPELINE_API_URL, QUOTE_SIGNER_PRIVATE_KEY } from 'astro:env/server';
 import { readHmiData } from '../lib/hmi.server';
 import { readHeatRisk } from '../lib/heat-risk.server';
 import { readSpecies } from '../lib/species.server';
+import { habMonth } from '../lib/hab-layers';
+import { readHabLayer } from '../lib/hab-layers.server';
 
 const hmi = await readHmiData(PIPELINE_API_URL);
+const lang = Astro.url.searchParams.get('lang') === 'ja' ? 'ja' : 'en';
 const plotCode = Astro.url.searchParams.get('plot') ?? '';
-const season = /^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season')! : '2025';
+// The season stepper covers 2022-2025; clamp anything else so the page and the stepper agree.
+const requestedSeason = Number(/^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season') : 2025);
+const season = String(Math.min(2025, Math.max(2022, requestedSeason)));
 const requestedSpecies = Astro.url.searchParams.get('species') ?? '';
 const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
   : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
@@ -16,11 +21,24 @@ const plots = hmi.status === 'available' ? hmi.plots : [];
 const requestedPlot = plots.find((item) => item.plotCode === plotCode) ?? plots[0];
 const species = plots.flatMap((item) => item.species).includes(requestedSpecies) ? requestedSpecies : requestedPlot?.species[0] ?? '';
 const plot = requestedPlot?.species.includes(species) ? requestedPlot : plots.find((item) => item.species.includes(species));
-const [risk, speciesInfo] = await Promise.all([
+const month = habMonth(Astro.url.searchParams.get('habMonth'));
+const [risk, speciesInfo, hab] = await Promise.all([
   plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,
   species ? readSpecies({ origin: PIPELINE_API_URL, species }) : null,
+  readHabLayer(PIPELINE_API_URL, season, month),
 ]);
 ---
-<BaseLayout title="Coastal map" description="Explore the Miyagi coast and observed ocean conditions." section="hmi">
-  <HmiScene hmi={hmi} risk={risk} speciesInfo={speciesInfo} plotCode={plotCode} season={season} requestedSpecies={requestedSpecies} metric={metric} endpoint="/hmi" />
+<BaseLayout
+  title={lang === 'ja' ? '沿岸マップ' : 'Coastal map'}
+  description={lang === 'ja' ? '宮城県沿岸の養殖区画と観測された海況を確認できます。' : 'Explore the Miyagi coast and observed ocean conditions.'}
+  section="hmi"
+  lang={lang}
+>
+  <HmiScene
+    hmi={hmi} risk={risk} speciesInfo={speciesInfo} plotCode={plotCode} season={season} requestedSpecies={requestedSpecies}
+    metric={metric} endpoint="/hmi" lang={lang} hab={hab} habMonth={month}
+    walletProjectId={NEXT_PUBLIC_REOWN_PROJECT_ID}
+    checkoutEnabled={Boolean(QUOTE_SIGNER_PRIVATE_KEY)}
+    checkoutUnavailableMessage={QUOTE_SIGNER_PRIVATE_KEY ? undefined : lang === 'ja' ? 'Sepoliaの見積署名者が未設定のため、購入はまだ利用できません。' : 'Checkout is awaiting Sepolia quote signer configuration.'}
+  />
 </BaseLayout>

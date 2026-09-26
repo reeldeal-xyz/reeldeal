@@ -9,6 +9,15 @@ const initMap = async (canvasElement) => {
   const { initHmiMap } = await import('../../src/lib/hmi-map.client');
   initHmiMap(canvasElement);
 };
+const selectLayers = async (canvas) => {
+  await userEvent.click(canvas.getByRole('button', { name: 'Layers' }));
+  await waitFor(() => expect(canvas.getByRole('heading', { name: 'Layers' })).toBeVisible());
+  await userEvent.click(canvas.getByRole('checkbox', { name: 'Sea temperature' }));
+  await userEvent.click(canvas.getByRole('checkbox', { name: 'Temp anomaly' }));
+  await expect(canvas.getByRole('checkbox', { name: 'Satellite' })).toBeChecked();
+  await expect(canvas.getByRole('checkbox', { name: 'Sea temperature' })).toBeChecked();
+  await expect(canvas.getByRole('checkbox', { name: 'Temp anomaly' })).toBeChecked();
+};
 
 export default {
   title: 'ReelDeal/04 Pages/Coastal map',
@@ -30,12 +39,79 @@ export const Mobile390 = {
   play: async ({ canvasElement }) => {
     await initMap(canvasElement);
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Layers' }));
-    await waitFor(() => expect(canvas.getByText('Map layers')).toBeVisible());
+    await selectLayers(canvas);
     await userEvent.click(canvas.getByRole('button', { name: 'Close layers' }));
     await userEvent.click(canvas.getByRole('button', { name: 'Thresholds' }));
     await waitFor(() => expect(canvas.getByText('Species thresholds')).toBeVisible());
+    await expect(canvas.getByRole('radio', { name: 'Nori' })).toBeDisabled();
+  },
+};
+export const MobileLayers = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    await selectLayers(within(canvasElement));
   },
 };
 export const Mobile320 = { globals: { viewport: { value: 'mobile320', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };
+export const Mobile320Layers = {
+  globals: { viewport: { value: 'mobile320', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    await userEvent.click(within(canvasElement).getByRole('button', { name: 'Layers' }));
+  },
+};
+export const MobileCatalogue = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    canvasElement.querySelector('.species-picker')?.scrollTo({ left: 205 });
+  },
+};
+export const MobileForecast = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Forecast' }));
+    await waitFor(() => expect(canvas.getByText('Forecast data is unavailable. The map and chart show observed conditions.')).toBeVisible());
+  },
+};
+export const MobileMarket = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Fish market' }));
+    await waitFor(() => expect(canvas.getByRole('heading', { name: 'Fish market' })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Connect wallet' })).toBeVisible());
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Open the app to buy' })).toBeDisabled());
+  },
+};
 export const Desktop1440 = { globals: { viewport: { value: 'desktop1440', isRotated: false } }, play: ({ canvasElement }) => initMap(canvasElement) };
+
+// Japanese copy, the JAXA chl-a HAB layer and area analysis (#131). Tiles don't load in Storybook; the controls,
+// legend chip and caveat do.
+const HAB_LAYER = {
+  module: 'hab', layer: 'chla_sgli_monthly', cadence: 'monthly', date: '2025-08-01', region: 'miyagi',
+  product: 'GCOM-C_SGLI_L3-CHLA.daytime.v3.monthly', variable: 'CHL', unit: 'mg/m3', bbox: [140.8, 37.7, 142.0, 39.1],
+  validFraction: 0.586, tileUrl: '/hab/tiles/miyagi/monthly/2025-08/chla_sgli_monthly/{z}/{x}/{y}.png',
+  tileScale: { kind: 'log', min: 0.1, max: 30, unit: 'mg/m3', colors: ['#2c1c7a', '#2a4fb8', '#2294c9', '#2fc0b0', '#7ad86b', '#d7e24a', '#f6a93b', '#d8412f'] },
+  zarrUrl: null, sha256: '1e7778b1ea5b45ebc3ac6389def4e2be104775021f61ba20234c258f09bee895',
+};
+export const MobileJapaneseHab = {
+  globals: { viewport: { value: 'mobile390', isRotated: false } },
+  args: { lang: 'ja', hab: { status: 'available', layer: HAB_LAYER }, habMonth: '08' },
+  play: async ({ canvasElement }) => {
+    await initMap(canvasElement);
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'レイヤー' }));
+    await userEvent.click(canvas.getByRole('checkbox', { name: 'HAB指標（JAXA）' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'レイヤーを閉じる' }));
+    await waitFor(() => expect(canvasElement.querySelector('[data-hab-chip]')).toBeVisible());
+    await expect(canvas.getByText('藻類量の指標。貝毒・出荷規制を示すものではありません。')).toBeVisible();
+    await userEvent.click(canvas.getByRole('button', { name: '範囲' }));
+    await userEvent.click(canvas.getByRole('button', { name: '範囲を描く' }));
+    await expect(canvas.getByRole('button', { name: '描画を終了' })).toHaveAttribute('aria-pressed', 'true');
+  },
+};

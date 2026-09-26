@@ -196,6 +196,7 @@ GET  /heat/plots/{plot}/risk?season=    same, for an inventoried plot
 GET  /heat/indices/{zone}/{season}      per-day heat indices for a sea area
 GET  /heat/forecast/{plot}              heat-forecast values (advisory)
 GET  /heat/layers/{date}                SST layer metadata / tile URL
+GET  /heat/tiles/{region}/{cadence}/{period}/{layer}/{z}/{x}/{y}.png   SST map tiles (display only)
 GET  /heat/climatology/{zone}           trend and MHW statistics
 ```
 
@@ -215,7 +216,7 @@ Harmful algal blooms: shellfish toxin (PSP/DSP) shipment bans for shellfish, red
 | `MLD` | m | Mixed-layer depth from Copernicus physics (stratification) |
 
 **Built so far:**
-- Daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`).
+- Daily and monthly SGLI chl-a layers (`GET /hab/layers/{date}`) and their map tiles (`GET /hab/tiles/…`).
 - `BANWEEKS` / `BAN_ACTIVE` for Miyagi (#80). `REDTIDE_DAYS`, `CHL`, `CHL_Z` and `MLD` are not computed yet.
 
 **Ban index conventions** (#80, `hazards/hab/indices.py`):
@@ -256,7 +257,10 @@ GET  /hab/bans?pref=&season=            normalized toxin restrictions in force d
 GET  /hab/redtides?pref=&season=        normalized red-tide events
 GET  /hab/forecast/{zone}               hab-onset probabilities (advisory)
 GET  /hab/layers/{date}                 chl-a layer metadata / tile URL
+GET  /hab/tiles/{region}/{cadence}/{period}/{layer}/{z}/{x}/{y}.png    chl-a map tiles (display only)
 ```
+
+**Map tiles** (`core/tiles.py`, both heat and HAB): `tileUrl` in `/layers/{date}` is a root-relative XYZ template naming one layer file. Each 256×256 Web Mercator PNG is filled by nearest-neighbour lookup into the layer grid (one coloured pixel = one grid cell's value, no smoothing), on a fixed per-variable scale returned as `tileScale`: chl-a log10 0.1–30 mg/m³, SST linear 0–30 °C. Missing cells are transparent; tiles outside the region are empty PNGs. `Cache-Control: public, max-age=3600`, `ETag` from the layer's sha256. Tiles are display only and carry no index values; chl-a is a bloom proxy, not toxin status.
 
 ## 8. Storm module (storm surge)
 

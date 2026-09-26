@@ -1,5 +1,5 @@
-"""HAB router (README §7). Shellfish toxin restrictions (BANWEEKS, BAN_ACTIVE) and chlorophyll-a layers are served;
-red tides and the hab-onset forecast are not implemented yet.
+"""HAB router (README §7). Shellfish toxin restrictions (BANWEEKS, BAN_ACTIVE), chlorophyll-a layers and their map
+tiles are served; red tides and the hab-onset forecast are not implemented yet.
 
 Ban indices are computed per request from the reviewed restrictions in PostGIS (`bans.py`, `indices.py`); a sea
 area's values apply to every plot in it. Routes that read the database answer 503 while it is unavailable.
@@ -16,6 +16,7 @@ from pipeline.core.layers import layers_on
 from pipeline.core.plots import store
 from pipeline.core.regions import sea_area, sea_area_of
 from pipeline.core.schemas import IndexPoint, IndexSeries, IndicesResponse, LayerInfo, Window
+from pipeline.core.tiles import add_tile_route
 
 from . import MODULE, MODULE_VERSION, bans
 from .indices import BAN_ACTIVE_UNIT, BANWEEKS_UNIT, ban_days, by_series
@@ -143,3 +144,6 @@ def forecast(zone: str) -> HabForecast:
 def layers(day: date) -> list[LayerInfo]:
     """Chlorophyll-a layers covering a date: the daily SGLI layer and the monthly composite containing it."""
     return layers_on(MODULE, day)
+
+
+add_tile_route(router, MODULE)

@@ -136,9 +136,13 @@ GET  /hab/bans?pref=&season=   GET /hab/redtides?pref=&season=   GET /hab/foreca
 
 POST /storm/risk    GET /storm/plots/:plot/risk?season=    GET /storm/indices/:zone/:season
 GET  /storm/events?season=   GET /storm/events/:event/impact   GET /storm/forecast/:plot   GET /storm/layers/:date
+
+GET  /heat/tiles/:region/:cadence/:period/:layer/:z/:x/:y.png    GET /hab/tiles/…   (XYZ PNG map tiles)
 ```
 
 Same JSON as the files. CORS open. The web app may also import the files directly for the static demo.
+
+`GET /<module>/layers/:date` returns `PipelineLayerInfo[]` (`packages/shared/src/pipeline-map.ts`). `tileUrl` is a root-relative XYZ template such as `/hab/tiles/miyagi/monthly/2025-08/chla_sgli_monthly/{z}/{x}/{y}.png`; prefix the pipeline origin (or a same-origin proxy) to use it. `tileScale` gives the colour stops and the linear/log range for a legend. Tiles are display only: pixel colours are never index values, and missing cells are transparent.
 
 ## Index values → Trigger → chain
 

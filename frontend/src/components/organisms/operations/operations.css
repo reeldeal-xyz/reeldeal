@@ -1,0 +1,15 @@
+.ops-preview { display: grid; gap: var(--space-5); min-width: 0; color: var(--color-ink); container-type: inline-size; }
+.ops-preview__heading { display: grid; gap: var(--space-2); }
+.ops-preview__heading h1 { margin: 0; font: 900 1.65rem/1.15 var(--font-impact); text-transform: uppercase; overflow-wrap: anywhere; }
+.ops-preview__heading p, .ops-preview__note { margin: 0; color: var(--color-ink-soft); font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ops-preview__grid, .ops-preview__plot { display: grid; gap: var(--space-4); min-width: 0; align-content: start; }
+.ops-preview__facts { margin-top: var(--space-4); }
+.ops-preview__record { align-self: start; }
+.ops-preview__action { display: grid; gap: var(--space-3); margin-top: var(--space-5); }
+.ops-preview__action p { margin: 0; font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ops-preview__action h3 { margin: 0; font-size: 1rem; }
+.ops-preview__confirm { display: grid; gap: var(--space-3); border-top: 2px solid var(--color-ink); padding-top: var(--space-4); }
+.ops-preview__buttons { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.ops-preview__action button { white-space: normal; overflow-wrap: anywhere; min-height: var(--tap-size); }
+.ops-preview__record > .ops-preview__note { margin-top: var(--space-4); }
+@container (min-width: 700px) { .ops-preview__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

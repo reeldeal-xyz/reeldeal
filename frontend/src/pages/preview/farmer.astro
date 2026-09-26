@@ -1,0 +1,6 @@
+---
+import PreviewLayout from '../../layouts/PreviewLayout.astro';
+import FarmerReliefView from '../../components/organisms/farmer-relief/FarmerReliefView.astro';
+import { farmerReliefPreviews } from '../../fixtures/farmer-relief-preview';
+---
+<PreviewLayout title="Farmer relief status" current="/preview/farmer"><FarmerReliefView {...farmerReliefPreviews.verifiedHeld} /></PreviewLayout>
