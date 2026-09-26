@@ -6,6 +6,7 @@ This branch adds a frontend-only slice of [#66](https://github.com/ss251/reeldea
 
 - A hydrated React controller around the existing Astro `MarketCard` components. Search accepts Japanese, English and full-width Latin text; species and availability filters combine. EN/日本語 preserves the current filters and updates controls, sample state labels, details, card actions and image descriptions.
 - Native local lot details, an empty result state, and explicit loading/unavailable states with a button to restore sample inventory. No request is made by that recovery button.
+- The eggshell canvas fills the viewport, including short states and desktop margins. Opening lot details expands that item across the grid so mobile copy has the full available width.
 - Six saved checkout states: before approval, wallet rejection, submitted, confirmed, failed and unavailable. They compose `Amount`, `ContributionSplit`, `Status` and `Button`. Actions are disabled; every state is labelled synthetic.
 - A backwards-compatible optional `labels` prop on `MarketCard`. Existing consumers retain their English defaults.
 - Fourteen organism stories: eight discovery stories including two interaction checks, and six checkout stories.
@@ -28,7 +29,9 @@ The source PR's six seafood portraits and dockside hero are not ported. Cards co
 - `bun run --cwd frontend build`: passed.
 - `bun run --cwd frontend build-storybook`: passed. It still logs the existing Astro renderer `transport was disconnected` message and a large-chunk warning.
 - Inspected generated `astro-prerendered-stories.json`: inline marketplace styles are present; discovery includes the React hydration island and placeholder image; Japanese initial markup includes translated preview/action/alt text.
-- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. These checks were authored and bundled here; browser execution and visual acceptance remain for root review.
+- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. `InteractiveFilters` passed during browser review; remaining browser checks and the final spacing changes still require visual acceptance.
+
+Combined integration review with the #67/#68 previews also passed 17 tests / 94 assertions, a 63-file frontend check, Astro build, built-server smoke checks and Storybook build. These combined counts include the other preview slices.
 
 ## Review in Storybook
 
