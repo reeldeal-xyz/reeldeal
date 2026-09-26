@@ -29,7 +29,7 @@ The source PR's six seafood portraits and dockside hero are not ported. Cards co
 - `bun run --cwd frontend build`: passed.
 - `bun run --cwd frontend build-storybook`: passed. It still logs the existing Astro renderer `transport was disconnected` message and a large-chunk warning.
 - Inspected generated `astro-prerendered-stories.json`: inline marketplace styles are present; discovery includes the React hydration island and placeholder image; Japanese initial markup includes translated preview/action/alt text.
-- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. `InteractiveFilters` passed during browser review; remaining browser checks and the final spacing changes still require visual acceptance.
+- Storybook interaction checks wait for hydration, then exercise search, locale preservation, empty results, filter reset, species plus availability, local detail disclosure and unavailable-state recovery. At 390px, `InteractiveFilters` passed with readable expanded Japanese details and visible keyboard focus; `RecoverSamples` passed. At 320px, `BeforeApproval` and `WalletRejected` passed their `Proposed split` assertions. Final desktop background inspection remains pending.
 
 Combined integration review with the #67/#68 previews also passed 17 tests / 94 assertions, a 63-file frontend check, Astro build, built-server smoke checks and Storybook build. These combined counts include the other preview slices.
 
@@ -39,6 +39,8 @@ At 320/390/1440px inspect `Marketplace Discovery / English`, `Japanese`, `Empty 
 
 ## Remaining gates
 
-#59/#61 reviewed domain fixtures and the backend prerequisites #62/#65 remain external. This preview adds no API endpoint, authentication, reservation, quote signing, wallet access, approval, transaction submission, reconciliation or persistent pending-order recovery.
+The #61 molecule foundation is on main through #89. Reviewed domain fixtures still depend on #59, and backend prerequisites #62/#65 remain external. This preview adds no API endpoint, authentication, reservation, quote signing, wallet access, approval, transaction submission, reconciliation or persistent pending-order recovery.
+
+This branch merged main at `2be5a1295a6430ef5d0d196444b198542288615d`, including #89 and #91's JPYC base-unit display helper. Preview amounts remain human-readable decimal strings; a later chain adapter must use the helper when converting raw 18-decimal token amounts. The draft PR targets main.
 
 Real checkout still needs server-owned exact quotes and inventory reservations, matching receipt/router/pool-event confirmation, duplicate/reload recovery, rejected/expired/tampered quote handling and competing-buyer verification. Japanese checkout copy, source portraits, production discovery/detail routes and live data integration remain outside this slice. Keep #66 open.
