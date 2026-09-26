@@ -22,7 +22,7 @@ const ENGLISH: Record<string, string> = {
   panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly',
   habLog: '(log)', plotSelect: 'Click to select this plot', plotHeatLoading: 'Sampling sea temperature…',
-  plotHeat: '{season} avg {mean}°C · peak {max}°C', plotHeatNone: 'No sea temperature data for {season}',
+  plotHeat: 'Sea temp {season} · avg {mean}°C · peak {max}°C', plotHeatNone: 'No sea temperature data for {season}',
   plotHeatUnavailable: 'Observation service unavailable for {season}.', plotHeatInvalid: 'Plot observation response failed validation.',
 };
 

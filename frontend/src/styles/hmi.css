@@ -94,7 +94,7 @@
 .plot-tip small { font-size: 10px; color: #b6ccca; }
 .plot-tip-heat { white-space: pre-line; }
 .leaflet-tooltip.plot-tooltip::before { border-top-color: rgb(12 38 42 / 0.92); }
-.plot-tip { display: grid; gap: 2px; min-width: 180px; font-size: 12px; line-height: 1.35; white-space: nowrap; }
+.plot-tip { display: grid; gap: 2px; min-width: 180px; font-size: 12px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
 .plot-tip strong { font-size: 13px; }
 .plot-tip-heat { margin-top: 3px; color: #ffd07a; font-weight: 700; }
 .plot-tip em { color: #a9c7c0; font-size: 11px; }
