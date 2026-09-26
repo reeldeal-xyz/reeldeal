@@ -2,9 +2,10 @@
 
 Plots carry code, geometry, species, operation and sea area only. No owner names or personal data.
 
-Two sources: `geo.plots` in PostGIS (`uploads.py`: uploads, the loaded fishery rights and the demo plots with their
-real zone polygons), and the reviewed seed in `data/ref/plots.geojson` (the Kesennuma demo plots as synthetic
-rectangles). `lookup` and `query_all` read the database; when it is unset or down they fall back to the seed.
+Two sources: the reviewed seed in `data/ref/plots.geojson` (served without a database) and the live PostGIS
+inventory in `geo.plots`. When the database is reachable, its rows are authoritative for matching plot codes;
+this is how the HMI receives the fishery-right polygons that replaced the old p1213-* seed discs. When the
+database is unset or down, lookups and listings fall back to the reviewed seed.
 """
 
 import json
@@ -100,13 +101,13 @@ def query(bbox: tuple[float, float, float, float] | None = None, species: str | 
 
 
 def lookup(plot_code: str) -> PlotRecord | None:
-    """The plot from the database, or from the seed when the database is unavailable or lacks the code."""
+    """Current DB plot when reachable; reviewed seed only as a fallback."""
     from pipeline.core import db
 
-    from . import uploads
+    from . import inventory
 
     try:
-        if (p := uploads.get(plot_code)) is not None:
+        if p := inventory.get(plot_code):
             return p
     except db.NoDatabase:
         pass
@@ -114,12 +115,12 @@ def lookup(plot_code: str) -> PlotRecord | None:
 
 
 def query_all(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    """Every live plot in the database; the seed alone while the database is unavailable."""
+    """Current DB inventory when reachable; reviewed seed only when the database is unavailable."""
     from pipeline.core import db
 
-    from . import uploads
+    from . import inventory
 
     try:
-        return uploads.query(bbox, species)
+        return inventory.query(bbox, species)
     except db.NoDatabase:
         return query(bbox, species)

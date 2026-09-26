@@ -38,14 +38,17 @@ const ja = lang === 'ja';
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(3,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
+        <nav class="site-nav" style="grid-template-columns:repeat(4,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
           <a href="/market" aria-current={section === 'market' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
           <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>
+          <a href="/relief" aria-current={section === 'relief' ? 'page' : undefined}>{ja ? '救済' : 'Relief'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
-      <footer class="site-footer"><div class="shell"><p>{ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
+      <footer class="site-footer"><div class="shell"><p>{section === 'relief'
+        ? 'ReliefPool + ENS + HumanRegistry · Sepolia test funds · live contract state'
+        : ja ? 'ReelDeal · 宮城県沿岸' : 'ReelDeal · Miyagi coast'}</p></div></footer>
     </div>
   </body>
 </html>

@@ -1,6 +1,6 @@
-"""Plots in PostGIS `geo.plots` (db/README.md): uploads (`POST /plots`, origin 'upload') and the loaded registries
-(`fishery_right` 区画漁業権 polygons from scripts/load_fishery_rights.py, `synthetic`, `msil`). Reads return every live
-row whatever its origin; `source` is the origin.
+"""Uploaded plots (`POST /plots`), stored in PostGIS `geo.plots` with origin 'upload' (db/README.md).
+
+Write side only: reads of every origin, uploads included, go through `inventory.py`.
 
 The database requires uploaded codes to start with `upload:`, so a submitted code gets that prefix; it can never
 collide with a surveyed or seeded plot. Geometry is stored as a MultiPolygon in EPSG:4326; area and centroid are
@@ -10,12 +10,12 @@ computed by the database, but responses use the same local equirectangular area 
 import json
 
 import psycopg
-from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
 from pipeline.core import db
 from pipeline.core.regions import sea_area_of
 
+from .inventory import _record
 from .store import PlotRecord
 
 PREFIX = "upload:"
@@ -27,27 +27,6 @@ class DuplicatePlot(ValueError):
 
 def code_of(plot_code: str) -> str:
     return plot_code if plot_code.startswith(PREFIX) else PREFIX + plot_code
-
-
-def _record(row: dict) -> PlotRecord:
-    geojson = row["geojson"] if isinstance(row["geojson"], dict) else json.loads(row["geojson"])
-    return PlotRecord(
-        plot_code=row["plot_code"],
-        geometry=shape(geojson),
-        geojson=geojson,
-        species=tuple(row["species"] or ()),
-        operation=row["operation"],
-        sea_area=row["sea_area_id"],
-        prefecture=None,
-        source=row["origin"],
-    )
-
-
-_SELECT = """
-    SELECT plot_code, origin, ST_AsGeoJSON(geom, 7)::json AS geojson, species, operation, sea_area_id
-    FROM geo.plots
-    WHERE retired_at IS NULL
-"""
 
 
 def insert(plot_code: str, geom: BaseGeometry, geojson: dict, species: list[str], operation: str) -> PlotRecord:
@@ -67,22 +46,3 @@ def insert(plot_code: str, geom: BaseGeometry, geojson: dict, species: list[str]
     except psycopg.errors.UniqueViolation:
         raise DuplicatePlot(f"plot {code!r} already exists") from None
     return _record(row)
-
-
-def get(plot_code: str) -> PlotRecord | None:
-    with db.connect() as conn:
-        row = conn.execute(_SELECT + " AND plot_code = %s", (plot_code,)).fetchone()
-    return _record(row) if row else None
-
-
-def query(bbox: tuple[float, float, float, float] | None = None, species: str | None = None) -> list[PlotRecord]:
-    sql, params = _SELECT, []
-    if bbox:
-        sql += " AND ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326))"
-        params += list(bbox)
-    if species:
-        sql += " AND %s = ANY(species)"
-        params.append(species)
-    with db.connect() as conn:
-        rows = conn.execute(sql + " ORDER BY plot_code", params).fetchall()
-    return [_record(r) for r in rows]

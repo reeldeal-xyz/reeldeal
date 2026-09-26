@@ -22,7 +22,7 @@ export const pipelinePlotRecord = z.object({
   prefecture: z.string().nullable(),
   areaM2: z.number().finite().nonnegative(),
   centroid: coordinate,
-  source: z.enum(['msil', 'upload', 'demo', 'synthetic', 'fishery_right']),
+  source: z.enum(['msil', 'upload', 'demo', 'fishery_right']),
 }).strict();
 
 export const pipelineZoneRecord = z.object({

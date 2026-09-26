@@ -67,10 +67,7 @@ class Plot(Model):
     prefecture: str | None = None
     area_m2: float
     centroid: tuple[float, float]
-    source: Literal["msil", "upload", "demo", "synthetic", "fishery_right"] = Field(
-        description="The geo.plots origin (fishery_right: a 区画漁業権 zone polygon); demo: the seed file's synthetic "
-        "Kesennuma plot, served only while the database is unavailable"
-    )
+    source: Literal["msil", "upload", "demo", "fishery_right"] = Field(description="demo: synthetic fallback; fishery_right: licensed 区画漁業権 polygon")
 
 
 class PlotCreate(Model):

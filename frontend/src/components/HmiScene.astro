@@ -111,7 +111,9 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温�
   : risk?.status === 'invalid-payload' ? (ja ? '水温データを検証できませんでした。' : 'Heat response failed validation.')
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
 const plotSource = plot?.source === 'demo' ? (ja ? 'デモ用形状 · 実測区画ではありません' : 'Synthetic demo geometry · not a surveyed farm')
-  : plot?.source === 'msil' ? (ja ? 'MSIL区画形状' : 'MSIL plot geometry') : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
+  : plot?.source === 'msil' ? (ja ? 'MSIL区画形状' : 'MSIL plot geometry')
+  : plot?.source === 'fishery_right' ? (ja ? '区画漁業権の許可区画' : 'Licensed fishery-right polygon')
+  : plot ? (ja ? '登録区画形状' : 'Uploaded plot geometry') : '';
 const operationNames: Record<string, string> = ja
   ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀' }
   : { longline: 'longline', raft: 'raft', cage: 'cage' };

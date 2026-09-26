@@ -1,120 +1,303 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import Address from '../components/atoms/Address.astro';
 import Amount from '../components/atoms/Amount.astro';
-import Status from '../components/atoms/Status.astro';
 import Badge from '../components/atoms/Badge.astro';
+import WalletConnect from '../components/react/WalletConnect';
 import DonateForm from '../components/solid/DonateForm.tsx';
-import { SEPOLIA_RPC_URL } from 'astro:env/server';
+import ReliefClaimAction from '../components/solid/ReliefClaimAction.tsx';
+import { NEXT_PUBLIC_REOWN_PROJECT_ID, SEPOLIA_RPC_URL } from 'astro:env/server';
 import { jpycFromBaseUnits } from '../lib/format-amount';
-import { createSepoliaClient, getFundSummary, type ReliefPoolEvent } from '../lib/chain/client.server';
+import { createSepoliaClient, getFundSummary, getPlotReliefStory, type ReliefPoolEvent } from '../lib/chain/client.server';
+import { DEPLOYED_RELIEF_PLOTS, deployedEventHint, evidenceForEvent, evidenceForTrigger } from '../lib/relief-evidence';
+
+const requestedPlot = Astro.url.searchParams.get('plot') ?? 'p1213-001';
+const selectedPlot = DEPLOYED_RELIEF_PLOTS.find((item) => item.plotLabel === requestedPlot) ?? DEPLOYED_RELIEF_PLOTS[0]!;
+const season = '2026';
+const client = createSepoliaClient(SEPOLIA_RPC_URL);
 
 let summary: Awaited<ReturnType<typeof getFundSummary>> | null = null;
+let story: Awaited<ReturnType<typeof getPlotReliefStory>> | null = null;
 let loadError = false;
+
 try {
-  const client = createSepoliaClient(SEPOLIA_RPC_URL);
   summary = await getFundSummary(client);
+  story = await getPlotReliefStory(client, selectedPlot.plotLabel, season, {
+    events: summary.events,
+    eventsAvailable: summary.eventsAvailable,
+    eventIdHint: deployedEventHint(selectedPlot.plotLabel, season),
+  });
 } catch {
   loadError = true;
 }
 
-const toAmount = (wei: string | null | undefined) => jpycFromBaseUnits(wei ?? undefined) ?? '0';
-const sepoliaTx = (hash: string) => `https://sepolia.etherscan.io/tx/${hash}`;
+const toAmount = (wei: string | null | undefined) => wei ? jpycFromBaseUnits(wei) : null;
+const shortHash = (value: string) => `${value.slice(0, 10)}…${value.slice(-8)}`;
+const txUrl = (hash: string) => `https://sepolia.etherscan.io/tx/${hash}`;
+const formatUnix = (seconds: string | undefined) => seconds && Number(seconds) > 0
+  ? new Intl.DateTimeFormat('en-CA', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Tokyo' })
+      .format(new Date(Number(seconds) * 1000))
+  : 'Unavailable';
+
+const settlement = story?.settlement ?? null;
+const sourceEvidence = settlement ? evidenceForEvent(settlement.eventId) : null;
+const evidenceHashMatch = settlement?.trigger
+  ? Boolean(evidenceForTrigger(settlement.eventId, settlement.trigger.dataHash))
+  : null;
+const attestedEvent = settlement && summary
+  ? summary.events.find((event) => event.type === 'Attested' && event.eventId === settlement.eventId)
+  : undefined;
+
+async function txProof(hash: string | null | undefined) {
+  if (!hash || hash === '0x') return null;
+  try {
+    const receipt = await client.getTransactionReceipt({ hash: hash as `0x${string}` });
+    const head = await client.getBlockNumber();
+    return {
+      status: receipt.status,
+      blockNumber: receipt.blockNumber.toString(),
+      confirmations: Math.max(1, Number(head - receipt.blockNumber + 1n)),
+    };
+  } catch {
+    return null;
+  }
+}
+const settlementProof = await txProof(settlement?.txHash);
+const attestationProof = await txProof(attestedEvent?.txHash);
+
+const now = Math.floor(Date.now() / 1000);
+const slotActive = Boolean(story?.payoutTarget && Number(story.payoutTarget.slotExpiry) > now);
+const claimWindowActive = Boolean(settlement && Number(settlement.claimDeadline) > now);
+const identityVerified = story?.identity?.status === 'available' && story.identity.level > 0;
+const claimReady = Boolean(
+  settlement?.state === 'held'
+  && settlement.holdReason === 'UNVERIFIED'
+  && identityVerified
+  && slotActive
+  && claimWindowActive
+  && story?.payoutTarget,
+);
+
+const stateLabel = !story ? 'Unavailable'
+  : !story.eventsAvailable && !settlement ? 'Activity unavailable'
+  : !settlement ? 'No relief event'
+  : settlement.state === 'paid' || settlement.state === 'claimed' ? 'Payment confirmed'
+  : settlement.state === 'held' ? 'Payment on hold'
+  : settlement.state === 'swept' ? 'Claim window ended'
+  : 'Awaiting settlement';
+
+const stateTone = settlement?.state === 'paid' || settlement?.state === 'claimed' ? 'green'
+  : settlement?.state === 'held' ? 'pink'
+  : settlement?.state === 'unsettled' ? 'yellow'
+  : 'ink';
+
+const holdCopy: Record<string, string> = {
+  UNVERIFIED: 'The registered farmer had no qualifying HumanRegistry verification when ReliefPool settled this event.',
+  NO_FARMER: 'No farmer was resolved from the 2026 ENS season slot.',
+  PLOT_EXPIRED: 'The 2026 season slot had expired when ReliefPool evaluated this plot.',
+  CAP: 'The verified human had already reached the event unit cap.',
+  ZONE_MISMATCH: 'The plot enrollment did not match this event’s zone/species.',
+};
+
 const eventLabel: Record<ReliefPoolEvent['type'], string> = {
-  Donated: '寄付 · Donated', Attested: '認定 · Attested', Paid: '支払済 · Paid',
-  Held: '保留 · Held', Claimed: '請求済 · Claimed', Swept: '回収 · Swept',
+  Donated: 'Donated', Attested: 'Attested', Paid: 'Paid',
+  Held: 'Held', Claimed: 'Claimed', Swept: 'Swept',
 };
-const eventState = (type: ReliefPoolEvent['type']): 'pending' | 'paid' | 'held' | 'loading' | 'unavailable' | 'advisory' => {
-  if (type === 'Paid' || type === 'Claimed') return 'paid';
-  if (type === 'Held') return 'held';
-  if (type === 'Attested') return 'pending';
-  return 'advisory';
-};
+const eventTone = (type: ReliefPoolEvent['type']) =>
+  type === 'Paid' || type === 'Claimed' ? 'green' : type === 'Held' ? 'pink' : type === 'Attested' ? 'yellow' : 'blue';
 ---
 
-<BaseLayout title="Relief fund" description="Live JPYC relief fund dashboard for ReelDeal's coastal aquaculture co-op.">
+<BaseLayout title="My relief status" description="Live 2026 ReelDeal relief status from ReliefPool, ENS slots, HumanRegistry and pinned Miyagi evidence." section="relief">
   <div class="relief-page shell">
     <header class="relief-heading">
       <div>
-        <p class="eyebrow">REELDEAL · RELIEF FUND</p>
-        <h1>救済基金 / Relief fund</h1>
-        <p>ReliefPool contract <code>{summary?.poolAddress ?? '—'}</code> on Sepolia. Live on-chain data, refreshed on every page load.</p>
+        <p class="eyebrow">REELDEAL · 2026 SEPOLIA RELIEF</p>
+        <h1>My relief status</h1>
+        <p>One plot → accepted evidence → on-chain allocation → payment or next action.</p>
       </div>
-      <span class:list={['live-badge', loadError && 'offline']}><i></i>{loadError ? 'Chain data unavailable' : 'Live on Sepolia'}</span>
+      <div class="relief-heading__actions">
+        <WalletConnect projectId={NEXT_PUBLIC_REOWN_PROJECT_ID} client:only="react" />
+        <span class:list={['live-badge', (loadError || !summary) && 'offline']}><i></i>{loadError || !summary ? 'Chain read unavailable' : 'Live on Sepolia'}</span>
+      </div>
     </header>
 
-    {loadError && <p class="notice" role="status">Live fund data is unavailable right now (RPC unreachable). Try again shortly.</p>}
+    <p class="demo-banner">Sepolia test funds · live 2026 BANWEEKS demo event · no production yen.</p>
 
-    <section class="relief-totals" aria-label="Fund totals">
-      <div class="relief-stat">
-        <p class="eyebrow">利用可能残高 / Available</p>
-        <p class="relief-stat__value"><Amount value={toAmount(summary?.availableWei)} /></p>
+    <form class="plot-picker" method="get">
+      <label for="plot">Registered 2026 plot</label>
+      <div>
+        <select id="plot" name="plot">
+          {DEPLOYED_RELIEF_PLOTS.map((plot) => <option value={plot.plotLabel} selected={plot.plotLabel === selectedPlot.plotLabel}>
+            {plot.plotLabel} · {plot.species}
+          </option>)}
+        </select>
+        <button type="submit">Show</button>
       </div>
-      <div class="relief-stat">
-        <p class="eyebrow">確保済み / Reserved</p>
-        <p class="relief-stat__value"><Amount value={toAmount(summary?.reservedWei)} /></p>
+      <p>{selectedPlot.ensName}</p>
+    </form>
+
+    {loadError && <p class="notice" role="status">ReliefPool could not be read. No eligibility or payment state is inferred while chain data is unavailable.</p>}
+
+    <section class="relief-card relief-status" aria-labelledby="relief-outcome">
+      <div class="card-head">
+        <div><p class="eyebrow">RELIEF OUTCOME</p><h2 id="relief-outcome">{selectedPlot.plotLabel}</h2></div>
+        <Badge label={stateLabel} tone={stateTone} />
       </div>
-      <div class="relief-stat">
-        <p class="eyebrow">累計寄付 / Donated (scanned range)</p>
-        <p class="relief-stat__value"><Amount value={toAmount(summary?.totals.donatedWei)} /></p>
-      </div>
-      <div class="relief-stat">
-        <p class="eyebrow">累計支払 / Paid (scanned range)</p>
-        <p class="relief-stat__value"><Amount value={toAmount(summary?.totals.paidWei)} /></p>
-        {!!summary?.totals.heldCount && <Badge label={`${summary.totals.heldCount} held`} tone="pink" />}
-      </div>
+
+      {story ? <>
+        <dl class="facts">
+          <div><dt>Species</dt><dd>{selectedPlot.species}</dd></div>
+          <div><dt>ReliefPool enrolled</dt><dd>{story.enrolled ? 'Yes' : 'No'}</dd></div>
+          <div><dt>2026 ENS slot</dt><dd>{story.payoutTarget ? (slotActive ? 'Issued · active' : 'Issued · expired') : 'No farmer resolved'}</dd></div>
+          <div><dt>HumanRegistry</dt><dd>{story.identity?.status === 'available' ? `Level ${story.identity.level}` : story.identity ? 'Unavailable' : 'No farmer'}</dd></div>
+        </dl>
+
+        {story.payoutTarget && <p class="address-row">Registered farmer <Address value={story.payoutTarget.farmer} compact /></p>}
+
+        {!settlement && story.eventsAvailable && <p class="notice">No settlement is recorded for this plot in the deployed relief events. This is not a statement about future eligibility.</p>}
+        {!settlement && !story.eventsAvailable && <p class="notice">Event indexing is unavailable, so “no payment” is not asserted. Plot and slot reads above remain direct contract reads.</p>}
+
+        {settlement && <>
+          <div class="payout">
+            <span>{settlement.state === 'paid' || settlement.state === 'claimed' ? 'Confirmed relief payment' : 'Allocated per plot'}</span>
+            <strong>{toAmount(settlement.amountWei) ? <Amount value={toAmount(settlement.amountWei)!} /> : 'Unavailable'}</strong>
+          </div>
+
+          {settlement.state === 'held' && <div class="hold-box">
+            <strong>{settlement.holdReason ?? 'Held'}</strong>
+            <p>{holdCopy[settlement.holdReason ?? ''] ?? 'ReliefPool currently holds this allocation.'}</p>
+            {settlement.holdReason === 'UNVERIFIED' && !identityVerified && <a class="button-link" href={`/liff?plot=${encodeURIComponent(selectedPlot.plotLabel)}`}>Verify identity in LINE / World ID</a>}
+            {claimReady && story.payoutTarget && <ReliefClaimAction
+              eventId={settlement.eventId}
+              plotLabel={selectedPlot.plotLabel}
+              season={season}
+              farmer={story.payoutTarget.farmer}
+              amount={toAmount(settlement.amountWei) ?? 'relief'}
+              client:load
+            />}
+            {settlement.holdReason === 'UNVERIFIED' && identityVerified && !claimReady && <p>Identity is now verified, but the current slot or claim window does not permit a claim.</p>}
+          </div>}
+
+          <dl class="facts">
+            <div><dt>Event ID</dt><dd><code title={settlement.eventId}>{shortHash(settlement.eventId)}</code></dd></div>
+            <div><dt>Attested</dt><dd>{formatUnix(settlement.attestedAt)} JST</dd></div>
+            <div><dt>Claim deadline</dt><dd>{formatUnix(settlement.claimDeadline)} JST</dd></div>
+            <div><dt>Eligible units</dt><dd>{settlement.eligibleUnits}</dd></div>
+          </dl>
+
+          {settlement.txHash && <div class="tx-proof">
+            <strong>Settlement transaction</strong>
+            <a href={txUrl(settlement.txHash)} target="_blank" rel="noreferrer">{shortHash(settlement.txHash)}</a>
+            {settlementProof
+              ? <span>Block {settlementProof.blockNumber} · {settlementProof.confirmations} confirmations · {settlementProof.status}</span>
+              : <span>Receipt confirmation unavailable from the current RPC.</span>}
+          </div>}
+        </>}
+      </> : <p class="notice">Live plot relief state is unavailable.</p>}
     </section>
 
-    <div class="relief-body">
-      <section class="relief-events" aria-label="Recent fund activity">
-        <h2>最近の取引 / Recent activity</h2>
-        {summary && summary.events.length ? (
-          <ul class="relief-events__list">
-            {summary.events.map((event) => (
-              <li class="relief-event">
-                <div class="relief-event__head">
-                  <Status state={eventState(event.type)} />
-                  <span class="relief-event__label">{eventLabel[event.type]}</span>
-                  {event.isMarketplaceSale && <Badge label="Marketplace sale" tone="blue" />}
-                </div>
-                {event.amountWei && <p class="relief-event__amount"><Amount value={jpycFromBaseUnits(event.amountWei) ?? '0'} /></p>}
-                {event.plotLabel && <p class="relief-event__detail">Plot {event.plotLabel}</p>}
-                {event.memo && <p class="relief-event__detail">Memo: {event.memo}</p>}
-                <p class="relief-event__detail"><a href={sepoliaTx(event.txHash)} target="_blank" rel="noreferrer">Tx {event.txHash.slice(0, 10)}…{event.txHash.slice(-6)}</a> · block {event.blockNumber}</p>
-              </li>
-            ))}
-          </ul>
-        ) : <p class="notice">No fund events found in the scanned range yet.</p>}
+    {settlement && <section class="relief-card evidence-card" aria-labelledby="evidence-title">
+      <div class="card-head">
+        <div><p class="eyebrow">ACCEPTED EVIDENCE</p><h2 id="evidence-title">Why this event fired</h2></div>
+        {sourceEvidence ? <Badge label="Pinned source" tone="lime" /> : <Badge label="Source mapping unavailable" tone="ink" />}
+      </div>
+
+      {sourceEvidence ? <>
+        <p><strong>{sourceEvidence.peril}</strong> · {sourceEvidence.zone} · {sourceEvidence.species}</p>
+        <dl class="timeline">
+          <div><dt>Restriction began</dt><dd>{sourceEvidence.banStart}</dd></div>
+          <div><dt>Trigger fired</dt><dd>{sourceEvidence.firedOn} · week {sourceEvidence.indexAtFire}/{sourceEvidence.threshold}</dd></div>
+          <div><dt>Restriction lifted</dt><dd>{sourceEvidence.banLift}</dd></div>
+        </dl>
+        <p><a href={sourceEvidence.sourceUrl} target="_blank" rel="noreferrer">{sourceEvidence.sourceTitle}</a> · as of {sourceEvidence.sourceAsOf}</p>
+        <p class="hash"><strong>SHA-256 / Trigger dataHash</strong><code>{sourceEvidence.dataHash}</code></p>
+        <p class="proof-note">{evidenceHashMatch === true
+          ? 'The Attested event dataHash exactly matches this pinned official source.'
+          : evidenceHashMatch === false
+            ? 'The current trigger hash does not match this source; this screen will not call it verified.'
+            : 'The direct settlement is readable, but the Attested log is unavailable, so the source hash is not reverified on this render.'}</p>
+      </> : <p class="notice">No pinned evidence mapping is registered for this event ID.</p>}
+
+      {attestedEvent?.txHash && <div class="tx-proof">
+        <strong>Attestation transaction</strong>
+        <a href={txUrl(attestedEvent.txHash)} target="_blank" rel="noreferrer">{shortHash(attestedEvent.txHash)}</a>
+        {attestationProof
+          ? <span>Block {attestationProof.blockNumber} · {attestationProof.confirmations} confirmations · {attestationProof.status}</span>
+          : <span>Receipt confirmation unavailable from the current RPC.</span>}
+      </div>}
+
+      <div class="jev-box">
+        <strong>JEV data-quality gate</strong>
+        <p>{sourceEvidence?.jev.explanation ?? 'JEV is off-chain and is not stored in ReliefPool. No JEV decision is inferred from chain state.'}</p>
+        <p>JEV can stop a keeper run for co-op review before attestation. It cannot mark a plot paid or move JPYC.</p>
+      </div>
+    </section>}
+
+    <section class="relief-card fund-card" aria-labelledby="fund-title">
+      <div class="card-head"><div><p class="eyebrow">RELIEF FUND</p><h2 id="fund-title">Pool state</h2></div><Badge label="JPYC · Sepolia" tone="blue" /></div>
+      <div class="fund-grid">
+        <div><span>Spendable</span><strong>{toAmount(summary?.availableWei) ? <Amount value={toAmount(summary?.availableWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Reserved</span><strong>{toAmount(summary?.reservedWei) ? <Amount value={toAmount(summary?.reservedWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Pool balance</span><strong>{toAmount(summary?.balanceWei) ? <Amount value={toAmount(summary?.balanceWei)!} /> : 'Unavailable'}</strong></div>
+        <div><span>Paid / claimed</span><strong>{toAmount(summary?.totals.paidWei) ? <Amount value={toAmount(summary?.totals.paidWei)!} /> : 'Unavailable'}</strong></div>
+      </div>
+      <p class="proof-note">Spendable = current JPYC balance − ReliefPool.reserved(). Held allocations remain reserved until claimed or swept.</p>
+    </section>
+
+    <div class="relief-lower">
+      <section class="relief-card activity-card" aria-labelledby="activity-title">
+        <div class="card-head"><div><p class="eyebrow">CHAIN ACTIVITY</p><h2 id="activity-title">Recent fund events</h2></div></div>
+        {summary?.eventsAvailable && summary.events.length ? <ul class="events">
+          {summary.events.slice(0, 12).map((event) => <li>
+            <Badge label={eventLabel[event.type]} tone={eventTone(event.type)} />
+            <div>
+              <strong>{event.plotLabel ?? event.memo ?? 'ReliefPool'}</strong>
+              <span>block {event.blockNumber} · <a href={txUrl(event.txHash)} target="_blank" rel="noreferrer">{shortHash(event.txHash)}</a></span>
+            </div>
+            {event.amountWei && <b>{toAmount(event.amountWei)} JPYC</b>}
+          </li>)}
+        </ul> : <p class="notice">{summary?.eventsAvailable ? 'No events found in the scanned deployment range.' : 'Event indexing is unavailable; this is not presented as zero activity.'}</p>}
       </section>
 
-      <aside class="relief-donate">
-        <DonateForm client:load />
-      </aside>
+      <aside class="donate-wrap"><DonateForm client:load /></aside>
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .relief-page { display: grid; gap: var(--space-6); padding-block: var(--space-6); }
-  .relief-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: var(--space-4); }
-  .relief-heading h1 { margin: var(--space-2) 0 var(--space-2); font: 900 clamp(1.6rem, 5vw, 2.4rem)/1.05 var(--font-impact); letter-spacing: -.03em; text-transform: uppercase; }
-  .relief-heading p { margin: 0; color: var(--color-ink-soft); font-size: .88rem; max-width: 60ch; overflow-wrap: anywhere; }
-  .relief-heading code { font-size: .82rem; }
-  .eyebrow { margin: 0; font-family: var(--font-impact); font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--color-ink-soft); }
-  .live-badge { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-listed); font-family: var(--font-impact); font-size: .72rem; font-weight: 900; text-transform: uppercase; white-space: nowrap; }
-  .live-badge i { width: 8px; height: 8px; border-radius: 50%; background: var(--color-ink); }
-  .live-badge.offline { background: var(--color-cream); }
-  .notice { margin: 0; padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-cream); font-size: .85rem; }
-  .relief-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
-  .relief-stat { display: grid; gap: var(--space-2); padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); }
-  .relief-stat__value { margin: 0; font-family: var(--font-impact); font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-  .relief-body { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-5); align-items: start; }
-  .relief-events h2 { margin: 0 0 var(--space-3); font: 900 1.15rem/1.1 var(--font-impact); text-transform: uppercase; }
-  .relief-events__list { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
-  .relief-event { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-card); background: var(--color-surface); }
-  .relief-event__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
-  .relief-event__label { font-family: var(--font-impact); font-size: .8rem; font-weight: 900; text-transform: uppercase; }
-  .relief-event__amount { margin: 0; font-size: 1.05rem; font-weight: 800; }
-  .relief-event__detail { margin: 0; font-size: .78rem; color: var(--color-ink-soft); overflow-wrap: anywhere; }
-  .relief-event__detail a { color: var(--color-ink); }
-  @media (max-width: 900px) { .relief-body { grid-template-columns: 1fr; } }
+.relief-page { display:grid; gap:var(--space-5); padding-block:var(--space-5); }
+.relief-heading,.card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap; }
+.relief-heading h1,.relief-card h2 { margin:0; font:900 clamp(1.5rem,5vw,2.2rem)/1.05 var(--font-impact); letter-spacing:-.03em; text-transform:uppercase; }
+.relief-heading p { margin:var(--space-2) 0 0; color:var(--color-ink-soft); }
+.relief-heading__actions { display:flex; align-items:flex-start; gap:var(--space-2); flex-wrap:wrap; }
+.eyebrow { margin:0 0 var(--space-1); color:var(--color-ink-soft); font:900 .68rem/1.2 var(--font-impact); letter-spacing:.08em; text-transform:uppercase; }
+.live-badge { display:inline-flex; align-items:center; gap:7px; min-height:var(--tap-size); padding:6px 12px; border:2px solid var(--color-ink); border-radius:999px; background:var(--color-listed); font:900 .7rem/1 var(--font-impact); text-transform:uppercase; white-space:nowrap; }
+.live-badge i { width:8px; height:8px; border-radius:50%; background:var(--color-ink); }.live-badge.offline{background:var(--color-cream);}
+.demo-banner,.notice { margin:0; padding:var(--space-3); border:2px solid var(--color-ink); border-radius:var(--radius-card); background:var(--color-cream); font-size:.82rem; }
+.demo-banner { background:var(--color-listed); font-weight:800; }
+.plot-picker,.relief-card { display:grid; gap:var(--space-3); padding:var(--space-4); border:2px solid var(--color-ink); border-radius:var(--radius-card); background:var(--color-surface); min-width:0; }
+.plot-picker label { font:900 .75rem/1 var(--font-impact); text-transform:uppercase; }.plot-picker>div { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-2); }
+.plot-picker select,.plot-picker button { min-height:var(--tap-size); border:2px solid var(--color-ink); border-radius:8px; background:white; color:var(--color-ink); padding-inline:var(--space-3); font:800 .88rem/1 var(--font-body); }
+.plot-picker button { background:var(--color-listed); cursor:pointer; }.plot-picker p{margin:0;color:var(--color-ink-soft);font-size:.78rem;overflow-wrap:anywhere;}
+.facts,.timeline { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px; margin:0; border:1px solid var(--color-line); background:var(--color-line); }
+.facts>div,.timeline>div { min-width:0; padding:var(--space-3); background:var(--color-surface); }.facts dt,.timeline dt { color:var(--color-ink-soft); font-size:.7rem; font-weight:800; text-transform:uppercase; }.facts dd,.timeline dd { margin:3px 0 0; font-weight:800; overflow-wrap:anywhere; }
+.address-row { margin:0; font-size:.82rem; }.payout { display:flex; align-items:end; justify-content:space-between; gap:var(--space-3); padding:var(--space-4); border:2px solid var(--color-ink); background:var(--color-listed); }.payout span{font-size:.75rem;font-weight:800;text-transform:uppercase;}.payout strong{font-size:1.25rem;}
+.hold-box,.jev-box { display:grid; gap:var(--space-2); padding:var(--space-3); border-left:5px solid var(--color-earth); background:var(--color-cream); }.hold-box p,.jev-box p{margin:0;font-size:.82rem;line-height:1.5;}
+.tx-proof { display:grid; gap:3px; padding:var(--space-3); border-top:1px solid var(--color-line); border-bottom:1px solid var(--color-line); font-size:.78rem; overflow-wrap:anywhere; }.tx-proof strong{font-family:var(--font-impact);text-transform:uppercase;}.tx-proof span{color:var(--color-ink-soft);}
+.evidence-card>p,.proof-note { margin:0; color:var(--color-ink-soft); font-size:.8rem; line-height:1.5; overflow-wrap:anywhere; }.hash{display:grid;gap:4px;}.hash code{font-size:.7rem;overflow-wrap:anywhere;}
+.fund-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-2); }.fund-grid>div{display:grid;gap:3px;padding:var(--space-3);background:var(--color-cream);}.fund-grid span{font-size:.7rem;font-weight:800;text-transform:uppercase;color:var(--color-ink-soft);}.fund-grid strong{font-size:1rem;}
+.relief-lower { display:grid; gap:var(--space-4); }.events{display:grid;gap:0;margin:0;padding:0;list-style:none;}.events li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:var(--space-2);padding:var(--space-3) 0;border-top:1px solid var(--color-line);}.events li:first-child{border-top:0;}.events div{display:grid;min-width:0;}.events strong,.events span{font-size:.75rem;overflow-wrap:anywhere;}.events span{color:var(--color-ink-soft);}.events b{font-size:.75rem;white-space:nowrap;}
+.donate-wrap { min-width:0; }.donate-wrap :global(.donate-panel){max-width:none;}
+@media(min-width:900px){.relief-lower{grid-template-columns:minmax(0,1.5fr) minmax(300px,.8fr);align-items:start;}.relief-page{padding-block:var(--space-6);}}
+@media(max-width:420px){.facts,.timeline,.fund-grid{grid-template-columns:1fr;}.events li{grid-template-columns:auto minmax(0,1fr);}.events b{grid-column:2;}.relief-heading__actions{width:100%;}.relief-heading__actions>*{flex:1 1 auto;}}
+</style>
+<style is:global>
+@media (min-width: 900px) {
+  .app-frame:has(.relief-page) {
+    width: min(calc(100% - 24px), 1120px);
+    height: calc(100dvh - 24px);
+    min-height: 720px;
+  }
+  .app-frame:has(.relief-page) .site-header__inner { width: calc(100% - 20px); }
+}
 </style>
