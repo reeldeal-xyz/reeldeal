@@ -1,0 +1,28 @@
+---
+import Badge from '../../atoms/Badge.astro';
+import Status from '../../atoms/Status.astro';
+import type { FarmCardProps } from './resource-props';
+import './relief.css';
+
+interface Props extends FarmCardProps {}
+const { name, nameJa, state, locationLabel, speciesLabels, equipmentLabels, mappingLabel, explanation } = Astro.props;
+---
+
+<section class="relief-card" aria-label={name} aria-busy={state === 'loading'}>
+  <div class="relief-card__head">
+    <div>
+      {nameJa && <p class="relief-card__label" lang="ja">{nameJa}</p>}
+      <h2 class="relief-card__title">{name}</h2>
+    </div>
+    {state === 'ready' && <Badge label="Farm" tone="blue" />}
+    {state === 'empty' && <Badge label="No farms" tone="ink" />}
+    {(state === 'loading' || state === 'unavailable') && <Status state={state} />}
+  </div>
+  {state === 'ready' && <dl class="relief-card__facts">
+    <div class="relief-card__fact"><dt>Location</dt><dd>{locationLabel}</dd></div>
+    <div class="relief-card__fact"><dt>Species</dt><dd>{speciesLabels.length ? speciesLabels.join(' · ') : 'No species listed'}</dd></div>
+    <div class="relief-card__fact"><dt>Equipment</dt><dd>{equipmentLabels.length ? equipmentLabels.join(' · ') : 'No equipment listed'}</dd></div>
+    <div class="relief-card__fact"><dt>Plot mapping</dt><dd>{mappingLabel}</dd></div>
+  </dl>}
+  <p class="relief-card__note">{explanation}</p>
+</section>

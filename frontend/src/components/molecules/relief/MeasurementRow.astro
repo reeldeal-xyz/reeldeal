@@ -2,26 +2,31 @@
 import Badge from '../../atoms/Badge.astro';
 import Status from '../../atoms/Status.astro';
 import type { MeasurementRowProps } from './props';
+import { measurementState } from './measurement-state';
 import './relief.css';
 
 interface Props extends MeasurementRowProps {}
 const { label, tempC, sourceName, observedAtLabel, freshnessLabel, state, explanation } = Astro.props;
-const hasValue = typeof tempC === 'number' && Number.isFinite(tempC) && !['loading', 'missing', 'unavailable'].includes(state);
+const displayState = measurementState(state, tempC);
+const hasValue = ['available', 'stale', 'advisory'].includes(displayState);
+const displayExplanation = displayState === state ? explanation : displayState === 'missing'
+  ? 'The source did not supply a temperature reading.'
+  : 'The temperature reading is invalid and cannot be displayed.';
 ---
 
-<section class="relief-card" aria-label={label} aria-busy={state === 'loading'}>
+<section class="relief-card" aria-label={label} aria-busy={displayState === 'loading'}>
   <div class="relief-card__head">
     <h2 class="relief-card__title">{label}</h2>
-    {state === 'available' && <Badge label="Observed" tone="lime" />}
-    {state === 'stale' && <Badge label="Stale" tone="yellow" />}
-    {state === 'missing' && <Badge label="Missing reading" tone="ink" />}
-    {['loading', 'unavailable', 'advisory'].includes(state) && <Status state={state as 'loading' | 'unavailable' | 'advisory'} />}
+    {displayState === 'available' && <Badge label="Observed" tone="lime" />}
+    {displayState === 'stale' && <Badge label="Stale" tone="yellow" />}
+    {displayState === 'missing' && <Badge label="Missing reading" tone="ink" />}
+    {['loading', 'unavailable', 'advisory'].includes(displayState) && <Status state={displayState as 'loading' | 'unavailable' | 'advisory'} />}
   </div>
-  <p class="relief-card__value">{hasValue ? <>{tempC} <span>°C</span></> : state === 'loading' ? 'Loading reading…' : 'No reading available'}</p>
+  <p class="relief-card__value">{hasValue ? <>{tempC} <span>°C</span></> : displayState === 'loading' ? 'Loading reading…' : 'No reading available'}</p>
   <dl class="relief-card__facts">
     <div class="relief-card__fact"><dt>Source</dt><dd>{sourceName}</dd></div>
-    <div class="relief-card__fact"><dt>{state === 'advisory' ? 'Forecast for' : state === 'missing' ? 'Reading time' : 'Observed'}</dt><dd>{observedAtLabel}</dd></div>
+    <div class="relief-card__fact"><dt>{displayState === 'advisory' ? 'Forecast for' : displayState === 'available' || displayState === 'stale' ? 'Observed' : 'Reading time'}</dt><dd>{observedAtLabel}</dd></div>
     <div class="relief-card__fact"><dt>Freshness</dt><dd>{freshnessLabel}</dd></div>
   </dl>
-  {explanation && <p class="relief-card__note">{explanation}</p>}
+  {displayExplanation && <p class="relief-card__note">{displayExplanation}</p>}
 </section>

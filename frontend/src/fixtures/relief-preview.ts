@@ -46,6 +46,9 @@ const measurement: MeasurementRowProps = {
 
 export const measurementPreviews = {
   observed: measurement,
+  zero: { ...measurement, tempC: 0 },
+  malformed: { ...measurement, tempC: Number.NaN },
+  missingValue: { ...measurement, tempC: null },
   stale: {
     ...measurement,
     state: 'stale',

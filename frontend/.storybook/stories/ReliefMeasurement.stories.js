@@ -7,6 +7,9 @@ export default {
 };
 
 export const Observed = { args: { sample: 'observed' } };
+export const ZeroCelsius = { args: { sample: 'zero' } };
+export const MalformedReading = { args: { sample: 'malformed' } };
+export const MissingValue = { args: { sample: 'missingValue' } };
 export const Stale = { args: { sample: 'stale' } };
 export const AdvisoryOnly = { args: { sample: 'advisory' } };
 export const Loading = { args: { sample: 'loading' } };
