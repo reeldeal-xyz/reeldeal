@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { hmiLayerDate } from './hmi-layer-date';
 
 type Plot = { plotCode: string; centroid: [number, number]; geometry: GeoJSON.Geometry; species: string[]; source: string };
 type Zone = { geometry: GeoJSON.Geometry | null; name: string; nameJa?: string | null };
@@ -13,13 +14,13 @@ const ENGLISH: Record<string, string> = {
   noData: 'No valid temperature data.', areaFailed: 'Area analysis unavailable.',
   tilesFailed: 'Map tiles failed to load. Plot and observation data remain available.',
   loading: 'Loading observations…', loaded: 'loaded', updateFailed: 'Could not update observations. Try again.',
-  panelFailed: 'Observations could not be updated.', outlines: 'Outlines only', satelliteNote: 'Satellite · Esri',
+  panelFailed: 'Observations could not be updated.', outlines: 'Map · OpenStreetMap', satelliteNote: 'Satellite · Esri',
   overlayUnavailable: '{layer} imagery is unavailable for {time}.', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
   habLog: '(log)',
 };
 
 const SEASON_MIN = 2022;
-const SEASON_MAX = 2025;
+const SEASON_MAX = 2026;
 
 export function initHmiMap(root: ParentNode = document) {
 const scene = root.querySelector<HTMLElement>('.hmi-page');
@@ -39,10 +40,19 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   // Localised name of the checked species (the label text), for status announcements.
   const selectedSpeciesName = () => dock.querySelector<HTMLInputElement>('input[name="species"]:checked')
     ?.closest('label')?.querySelector(':scope > span > span')?.textContent?.trim() ?? selectedSpecies();
-  const map = L.map(mapElement, { minZoom: 5, maxZoom: 16, zoomControl: false, scrollWheelZoom: false, attributionControl: false }).setView([38.84, 141.61], 10);
+  // Pinch, drag and wheel/trackpad zoom across Japan (#148); Miyagi stays the initial data focus.
+  const map = L.map(mapElement, {
+    minZoom: 4, maxZoom: 16, zoomControl: false, attributionControl: false,
+    scrollWheelZoom: true, touchZoom: true, dragging: true, bounceAtZoomLimits: false,
+  }).setView([38.84, 141.61], 10);
   // Bottom-left and lifted above the dock (hmi.css), so attribution is never covered by the dock or the observations toggle.
   L.control.attribution({ position: 'bottomleft' }).addTo(map);
-  map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
+  map.setMaxBounds([[20.0, 122.0], [46.5, 154.0]]);
+  // OpenStreetMap under the imagery, so turning Satellite off never leaves a blank canvas.
+  const basemap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors',
+  }).addTo(map);
   const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 18,
     attribution: '&copy; Esri, Maxar, Earthstar Geographics, GIS User Community',
@@ -89,9 +99,11 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       failures.set(layer, count);
       if (count >= 2) showMessage(failure(), layer, true);
     });
+  watchTiles(basemap, () => copy.tilesFailed);
   watchTiles(imagery, () => copy.tilesFailed);
   retryButton.addEventListener('click', () => {
     hideMessage();
+    basemap.redraw();
     if (map.hasLayer(imagery)) imagery.redraw();
     activeOverlays.forEach((overlay) => overlay.redraw());
   });
@@ -190,7 +202,8 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     activeOverlays.forEach((overlay) => { map.removeLayer(overlay); hideMessage(overlay); });
     activeOverlays.clear();
     const selected = layerInputs.filter((input) => input.checked && input.value !== 'satellite');
-    const time = `${seasonInput.value}-10-31`;
+    // Current season: a date safely inside NASA's near-real-time lag; past seasons: the season's end (#148).
+    const time = hmiLayerDate(seasonInput.value);
     const notes: string[] = [];
     const habSource = habOverlay();
     const habLegend = scene!.querySelector<HTMLElement>('[data-hab-legend]');
@@ -213,7 +226,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       if (!layer) return;
       const overlay = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
         layers: layer.name, format: 'image/png', transparent: true,
-        opacity: selected.length > 1 ? 0.28 : 0.65, version: '1.1.1', time,
+        opacity: selected.length > 1 ? 0.34 : 0.72, version: '1.1.1', time,
         attribution: '&copy; NASA GIBS',
       } as L.WMSOptions);
       watchTiles(overlay, () => copy.overlayUnavailable.replace('{layer}', layer.label).replace('{time}', time));
