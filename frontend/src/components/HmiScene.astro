@@ -106,8 +106,8 @@ const riskText = !plot ? '' : risk?.status === 'not-configured' ? (ja ? '水温�
   : risk?.status === 'invalid-payload' ? (ja ? '水温データを検証できませんでした。' : 'Heat response failed validation.')
   : risk?.status === 'timeout' || risk?.status === 'unavailable' ? (ja ? '水温データに接続できません。' : 'Heat service is unavailable.') : '';
 const operationNames: Record<string, string> = ja
-  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', other: 'その他・複合' }
-  : { longline: 'longline', raft: 'raft', cage: 'cage', other: 'other / mixed' };
+  ? { longline: 'はえ縄式', raft: 'いかだ式', cage: '生け簀', bottom: '底置き', other: 'その他・複合' }
+  : { longline: 'longline', raft: 'raft', cage: 'cage', bottom: 'bottom', other: 'other / mixed' };
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
 const mapFeatures = JSON.stringify({ plots });

@@ -34,7 +34,7 @@ states: [observed]
 
 ### Entity: Pipeline
 
-Python (uv) FastAPI risk API, Docker/Caddy deployment files, pytest suite and pinned buoy/toxin/geographic inputs. Merged #112 adds pinned JAXA ingestion, heat indices, heat/HAB layers, CLI builds and synthetic demo plot geometry. Q10 defines daily SST fallback with product/pixel provenance. Restriction indices, storm and advisory routes remain incomplete (501); /health reports partial implementation. The TypeScript feed server and signer were removed; signing moves to the keeper (#64).
+Python (uv) FastAPI risk API, Docker/Caddy deployment files, pytest suite and pinned buoy/toxin/geographic inputs. Provides JAXA heat/chlorophyll layers, heat and restriction indices, plot uploads and PostGIS inventory. Database plots retain their stored area, representative point, prefecture and nullable farming method; database-free development uses reviewed seeds. Q10 defines daily SST fallback with product/pixel provenance. Storm routes remain incomplete (501); /health reports partial implementation. Signing belongs to the application keeper.
 
 ```yaml
 entity: Pipeline
@@ -49,7 +49,7 @@ states: [observed]
 
 ### Entity: Application
 
-Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration, plus the frontend/ Astro HMI and relief views. The HMI has species-coloured plots, compact layer controls, observed relief thresholds, and hourly forecast playback with a plot-anchored readout. Forecasts remain advisory; recorded temperature is independent of payout rules. The Astro storefront uses the shared catalogue and existing quote-signing service, verifies purchase and relief receipts, and retains pending transactions for recovery. Relief and market views show verified seller/fund splits. Storybook covers panel focus, responsive layouts, filters and language switching. Remaining route and service migration stays under #54.
+The frontend/ Astro app owns the HMI, marketplace and relief views. The web/ service retains its quote signer, keeper, wallet/identity flows, event handling, LINE integration and remaining page routes. The HMI has species-coloured plots, compact layer controls, observed relief thresholds, and hourly forecast playback with a plot-anchored readout. Forecasts remain advisory; recorded temperature is independent of payout rules. The Astro storefront uses compact purchase dialogs, the shared catalogue and existing quote signer, verifies purchase and relief receipts, and retains pending transactions for recovery. Relief and market views show verified seller/fund splits. Storybook covers panel focus, responsive layouts, filters and language switching. Remaining route and service migration stays under #54.
 
 ```yaml
 entity: Application

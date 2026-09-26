@@ -21,6 +21,21 @@ what's still in progress — see **[docs/SUBMISSION.md](docs/SUBMISSION.md)**.
 
 ---
 
+## Current app
+
+The Astro app contains the coastal map (`/hmi`), fish market (`/market`) and relief
+dashboard (`/relief`). Scallop, hoya and oyster lead the market. Purchases allocate
+**5% to the relief fund and 95% to the seller**, through SaleRouter on Sepolia.
+The map includes registered plots, satellite/ocean layers, species-specific
+relief thresholds, polygon analysis and advisory forecast playback.
+
+See [frontend/README.md](frontend/README.md) for local setup, routes, Storybook
+and integration boundaries. The quote signer and remaining LINE/co-op/holder
+flows still run in `web/`; Astro is the main UI. Preview journeys and generated
+seafood illustrations are separate from confirmed transactions and observations.
+
+## Background and proposed data model
+
 Reel Deal is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
 
 Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event.
@@ -242,6 +257,11 @@ Relationships inferred beyond the lists above:
 
 ## Deployment & team plan
 
+The following is the initial team plan, retained as design context. Current
+deployment instructions live in [frontend/DEPLOY.md](frontend/DEPLOY.md),
+[pipeline/DEPLOY.md](pipeline/DEPLOY.md) and [db/README.md](db/README.md).
+Planned items below are not a record of completed migrations.
+
 Target stack: **FastAPI** (`pipeline/`) for satellite analysis, an **Astro** frontend (replaces the Next.js app in `web/`), and **Postgres + PostGIS** as the system of record for the entities above. Everything runs on the existing single EC2 instance in Tokyo (`pipeline/DEPLOY.md`), extended from one service to four.
 
 ```
@@ -311,12 +331,14 @@ Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml u
 Justin's [HMI contribution handoff](docs/HMI-HANDOFF.md) links #40, #46 → #68,
 and #47, with the relief demo scope, research evidence and product copy.
 
-- `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
-- `web/` Next.js: donor, co-op, holder screens, `/liff` farmer app, `/verify/[eventId]`, API routes
-- `pipeline/` Python (uv, FastAPI): JAXA ingestion, heat indices and heat/HAB layers; restriction indices, storm and advisory routes remain incomplete (501). No Triggers (owner: Jay). Spec: `pipeline/README.md`
+- `contracts/` Foundry: `ReliefPool`, `SaleRouter`, `HumanRegistry`
+- `frontend/` Astro: coastal map, marketplace, relief dashboard and Storybook components
+- `web/` Next.js: quote signer, keeper, LINE/co-op/holder flows and remaining API routes
+- `pipeline/` Python (uv, FastAPI): PostGIS plot inventory, satellite heat/chlorophyll layers and heat/HAB indices. The app owns Triggers. Spec: `pipeline/README.md`
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
-- *Planned* (see Deployment & team plan): `frontend/` Astro app replacing `web/`; `packages/app-core/` server logic moved from `web/src/lib`; `deploy/` root Compose, Caddyfile, Postgres/PostGIS init.
+- `db/` Postgres/PostGIS migrations, roles and deployment scripts
+- *Planned* (see Deployment & team plan): `packages/app-core/` shared server logic; root `deploy/` orchestration; migration of remaining `web/` routes.
 
 ## Setup
 
@@ -324,13 +346,16 @@ and #47, with the relief demo scope, research evidence and product copy.
 git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
 cd reeldeal
 cp .env.example .env
+cp frontend/.env.example frontend/.env
 bun install
 (cd pipeline && uv sync)
 bun run contracts:build && bun run contracts:test
 bun run typecheck
 bun run pipeline   # pipeline API on :8787 (uv run pipeline-serve)
 bun run pipeline:test
-bun run dev        # web on :3000
+bun run frontend:dev  # main Astro app on :4321
+bun run dev           # legacy backend/pages on :3000, separate terminal
+bun run storybook     # component catalogue on :6008, separate terminal
 ```
 
 Built at ETHGlobal Tokyo 2026 (Classic track), from 21:00 JST Friday 25 Sep.

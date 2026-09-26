@@ -177,6 +177,31 @@ def test_upload_rejects_an_invalid_polygon():
     assert r.status_code == 422
 
 
+@pytest.mark.parametrize("operation", [None, "bottom"])
+def test_inventory_returns_stored_area_position_and_prefecture(operation):
+    code = f"metadata-{uuid.uuid4().hex[:8]}"
+    with db.connect() as conn:
+        expected = conn.execute(
+            """INSERT INTO geo.plots (plot_code, origin, geom, species, operation, sea_area_id)
+               SELECT %s, 'msil', geom, species, %s, sea_area_id
+               FROM geo.plots WHERE plot_code = 'p1213-001' AND retired_at IS NULL
+               RETURNING area_m2, ST_X(centroid) AS lon, ST_Y(centroid) AS lat, sea_area_id""",
+            (code, operation),
+        ).fetchone()
+        prefecture = conn.execute(
+            """SELECT pref.name_en FROM geo.sea_areas sa
+               JOIN geo.prefectures pref ON pref.code = sa.prefecture_code WHERE sa.id = %s""",
+            (expected["sea_area_id"],),
+        ).fetchone()["name_en"]
+    response = client.get("/plots")
+    assert response.status_code == 200
+    plot = next(p for p in response.json() if p["plotCode"] == code)
+    assert plot["areaM2"] == expected["area_m2"]
+    assert plot["centroid"] == [expected["lon"], expected["lat"]]
+    assert plot["prefecture"] == prefecture
+    assert plot["operation"] == operation
+
+
 # --- stations ------------------------------------------------------------------------
 
 

@@ -6,7 +6,7 @@ import { speciesColor, plotAreaName, plotFacts, type PlotLabels } from './plot-l
 
 type Plot = {
   plotCode: string; centroid: [number, number]; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon; species: string[]; source: string;
-  operation: string; areaM2: number; seaArea: string | null;
+  operation: string | null; areaM2: number; seaArea: string | null;
 };
 type HabSource = {
   url: string; bounds: L.LatLngBoundsLiteral; note: string; period: string;

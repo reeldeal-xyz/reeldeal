@@ -27,7 +27,7 @@ Species = Literal[
     "salmon",
     "bluefin-tuna",
 ]
-Operation = Literal["longline", "raft", "cage", "other"]
+Operation = Literal["longline", "raft", "cage", "bottom", "other"]
 
 # §3 pixel extraction order; `tide_station` is storm surge only.
 ExtractionStrategy = Literal["inside", "buffer_500m", "buffer_2km", "nearest_pixel", "tide_station"]
@@ -62,7 +62,7 @@ class Plot(Model):
     plot_code: str
     geometry: PlotGeometry
     species: list[Species]
-    operation: Operation
+    operation: Operation | None
     sea_area: str | None = None
     prefecture: str | None = None
     area_m2: float
