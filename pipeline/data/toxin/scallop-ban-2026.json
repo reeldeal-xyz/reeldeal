@@ -1,0 +1,64 @@
+{
+  "species": "scallop",
+  "speciesLabel": "ホタテガイ",
+  "toxinType": "paralytic shellfish toxin (まひ性貝毒)",
+  "unit": "MU/g",
+  "thresholdMUg": 4,
+  "fiscalSeason": "2026",
+  "source": {
+    "file": "pipeline/data/toxin/miyagi-mahi-kaidoku-2026-09-15.pdf",
+    "url": "https://www.pref.miyagi.jp/documents/24934/080915_mahikeika.pdf",
+    "sha256": "39851aa6b573d9a4491f48fb2595609ffb07f84ac4a42000ab81fb1c4563d708",
+    "title": "令和8年度 宮城県の貝毒による規制・解除状況【まひ性貝毒】",
+    "asOf": "2026-09-15",
+    "corroboratingFile": "pipeline/data/toxin/miyagi-mahi-kensa-kekka-2026-09-25.pdf",
+    "regulationRule": "Voluntary shipment restriction (出荷自主規制) starts when a weekly test exceeds 4 MU/g for the monitored sea area's species. It lifts once 3 consecutive weekly tests at every sampling point in that sea area are back at or below 4 MU/g (this is why a test date below threshold is still printed as '出荷自主規制' until the 3rd consecutive clear — only the 3rd clear's date is printed as '出荷自主規制解除'). Weekly testing per the same source page (https://www.pref.miyagi.jp/soshiki/suishin/kaidoku.html)."
+  },
+  "zones": {
+    "karakuwa-east": {
+      "officialZoneName": "唐桑半島東部",
+      "samplingSite": "大沢",
+      "printedObservations": [
+        { "date": "2026-05-12", "muPerG": 4.7, "status": "出荷自主規制", "note": "first over-threshold test printed in the FY2026 table; treated as the ban start" },
+        { "date": "2026-06-23", "muPerG": 9.3, "status": "出荷自主規制" },
+        { "date": "2026-06-30", "muPerG": 10, "status": "出荷自主規制" },
+        { "date": "2026-07-07", "muPerG": 17, "status": "出荷自主規制" },
+        { "date": "2026-09-01", "muPerG": 2.5, "status": "出荷自主規制", "note": "1st consecutive clear (below 4 MU/g), restriction still nominally in force" },
+        { "date": "2026-09-08", "muPerG": 1.9, "muPerGRaw": "<1.9", "status": "出荷自主規制", "note": "2nd consecutive clear" },
+        { "date": "2026-09-15", "muPerG": 2.7, "status": "出荷自主規制解除", "note": "3rd consecutive clear -> lifted this date" }
+      ],
+      "unprintedWeeksMethod": "The source table omits weeks between printed dates when the status is unchanged (visually shown as a connecting line between columns in the PDF). Between 2026-05-12 and 2026-09-08 the status never changes from '出荷自主規制' at any printed column, so every weekly test in between is inferred to have remained restricted. This is the source's own convention, not an invented gap-fill.",
+      "banStart": "2026-05-12",
+      "banLift": "2026-09-15",
+      "restrictedWeeks": [
+        "2026-05-12", "2026-05-19", "2026-05-26", "2026-06-02", "2026-06-09", "2026-06-16",
+        "2026-06-23", "2026-06-30", "2026-07-07", "2026-07-14", "2026-07-21", "2026-07-28",
+        "2026-08-04", "2026-08-11", "2026-08-18", "2026-08-25", "2026-09-01", "2026-09-08"
+      ]
+    },
+    "kesennuma-bay": {
+      "officialZoneName": "気仙沼湾",
+      "samplingSite": "唐桑・大島 (varies by week, see printedObservations)",
+      "priorEpisode": {
+        "note": "A restriction was already in force entering FY2026 (visible as a still-'出荷自主規制' test on 2026-04-14 at 4.2 MU/g, site 唐桑). Its start date is not in the pinned FY2026 (令和8年度) table and was not looked up in the FY2025 archive, so it is NOT used for a BANWEEKS trigger per the 'do not invent dates' instruction.",
+        "lastRestrictedObservation": { "date": "2026-04-14", "muPerG": 4.2, "status": "出荷自主規制" },
+        "liftedOn": "2026-05-05",
+        "liftObservation": { "date": "2026-05-05", "muPerG": 1.9, "muPerGRaw": "<1.9", "status": "出荷自主規制解除", "note": "3rd consecutive clear for the prior episode" }
+      },
+      "printedObservations": [
+        { "date": "2026-05-26", "muPerG": 14, "status": "出荷自主規制", "note": "new episode start: first over-threshold test after the 2026-05-05 lift; site 大島" },
+        { "date": "2026-08-25", "muPerG": 1.9, "muPerGRaw": "<1.9", "status": "出荷自主規制", "note": "1st consecutive clear; site 唐桑・大島" },
+        { "date": "2026-09-01", "muPerG": 1.9, "muPerGRaw": "<1.9", "status": "出荷自主規制", "note": "2nd consecutive clear" },
+        { "date": "2026-09-08", "muPerG": 1.9, "muPerGRaw": "<1.9", "status": "出荷自主規制解除", "note": "3rd consecutive clear -> lifted this date" }
+      ],
+      "unprintedWeeksMethod": "Same omission convention as karakuwa-east: the status stays '出荷自主規制' at every printed column from 2026-05-26 through 2026-09-01, so the intervening weekly tests are inferred restricted throughout.",
+      "banStart": "2026-05-26",
+      "banLift": "2026-09-08",
+      "restrictedWeeks": [
+        "2026-05-26", "2026-06-02", "2026-06-09", "2026-06-16", "2026-06-23", "2026-06-30",
+        "2026-07-07", "2026-07-14", "2026-07-21", "2026-07-28", "2026-08-04", "2026-08-11",
+        "2026-08-18", "2026-08-25", "2026-09-01"
+      ]
+    }
+  }
+}

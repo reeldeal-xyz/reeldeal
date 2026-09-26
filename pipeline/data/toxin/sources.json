@@ -1,0 +1,34 @@
+{
+  "pages": [
+    {
+      "url": "https://www.pref.miyagi.jp/soshiki/suikisei/kaidoku.html",
+      "title": "貝毒対策 (Shellfish toxin countermeasures) - 宮城県公式ウェブサイト",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "note": "Index page for regulation/lift status PDFs, updated 令和8年9月25日 (2026-09-25). Links to the PDFs below."
+    },
+    {
+      "url": "https://www.pref.miyagi.jp/soshiki/kesenmuma-s/kesuishikaidoku.html",
+      "title": "貝毒プランクトン出現情報（気仙沼湾・志津川湾） - 宮城県公式ウェブサイト",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "note": "Plankton (not shipment-regulation) survey page for Kesennuma Fisheries Experimental Station, updated 令和8年9月14日. Confirms 令和8年度 (FY2026) surveys are ongoing; used only for context, not for the ban dates themselves."
+    }
+  ],
+  "pdfs": [
+    {
+      "file": "miyagi-mahi-kaidoku-2026-09-15.pdf",
+      "url": "https://www.pref.miyagi.jp/documents/24934/080915_mahikeika.pdf",
+      "sha256": "39851aa6b573d9a4491f48fb2595609ffb07f84ac4a42000ab81fb1c4563d708",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "title": "令和8年度 宮城県の貝毒による規制・解除状況【まひ性貝毒】(令和8年9月15日現在)",
+      "note": "PRIMARY SOURCE for the BANWEEKS ban/lift dates. Miyagi Prefecture Suisan-rinsei-bu / Suisangyo-kiban-seibi-ka (Fisheries Infrastructure Division) table of paralytic shellfish toxin (まひ性貝毒) voluntary shipment restrictions (出荷自主規制) and their lifts, by monitored sea area and species, as of 2026-09-15. Contains the 対象種:ホタテガイ (scallop) rows for 唐桑半島東部 and 気仙沼湾."
+    },
+    {
+      "file": "miyagi-mahi-kensa-kekka-2026-09-25.pdf",
+      "url": "https://www.pref.miyagi.jp/documents/24934/080925_mahikekka.pdf",
+      "sha256": "810f37ba3af2b6139abe3f4a8817d4946f530726ca7b0568fe97f76e8338cd9f",
+      "fetchedAt": "2026-09-26T02:47:49Z",
+      "title": "令和8年度～宮城県貝毒検査結果（まひ性）(令和8年9月25日判明分まで)",
+      "note": "Corroborating raw MU/g test-result values behind the regulation table above, current through 2026-09-25."
+    }
+  ]
+}
