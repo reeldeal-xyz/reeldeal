@@ -25,3 +25,6 @@ frontend/.astro/
 frontend/dist/
 frontend/storybook-static/
 frontend/.storybook-cache/
+
+# Foundry keeps timestamped copies of every broadcast; only the *-latest.json receipts are committed.
+contracts/broadcast/**/*-[0-9]*.json
