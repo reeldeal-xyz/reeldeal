@@ -57,6 +57,21 @@ export function usableProvenance(value: ProvenanceDetailsProps | null | undefine
     && [value.sourceName, value.datasetLabel, value.observedAtLabel, value.retrievedAtLabel, value.evidenceLabel].every(isDisplayText);
 }
 
+/** Preserve unavailable reading states and never label forecast provenance Observed. */
+export function sourceForReview(value: EventVerificationPreview | null | undefined) {
+  const reading = value?.measurement;
+  const measurement = reading && [reading.label, reading.sourceName, reading.observedAtLabel, reading.freshnessLabel].every(isDisplayText) ? {
+    ...reading,
+    state: value?.mode === 'advisory' && ['available', 'stale'].includes(reading.state) ? 'advisory' as const : reading.state,
+  } : null;
+  const source = value?.provenance;
+  // ProvenanceDetails currently has an Observed label, so it cannot represent
+  // forecast issue/valid times yet. Keep that integration gap visible.
+  const provenance = value?.mode !== 'advisory' && source && ['available', 'unavailable'].includes(source.state)
+    && [source.sourceName, source.datasetLabel, source.observedAtLabel, source.retrievedAtLabel, source.evidenceLabel].every(isDisplayText) ? source : null;
+  return { measurement, provenance };
+}
+
 /** Fail closed on incomplete display evidence. No hashing, recomputation or RPC. */
 export function reviewState(value: EventVerificationPreview | null | undefined): 'matching' | 'mismatched' | 'unavailable' | 'advisory' {
   if (value?.mode === 'advisory') return 'advisory';

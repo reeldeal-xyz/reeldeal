@@ -1,7 +1,7 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
 import { eventVerificationPreviews as previews } from '../src/fixtures/event-verification-preview';
-import { reviewState, type EventVerificationPreview } from '../src/components/organisms/event-verification/review';
+import { reviewState, sourceForReview, type EventVerificationPreview } from '../src/components/organisms/event-verification/review';
 
 describe('event evidence presentation gate', () => {
   test('shows supplied comparison results without deriving a payment outcome', () => {
@@ -36,6 +36,20 @@ describe('event evidence presentation gate', () => {
       ...previews.matching,
       comparisons: { ...previews.matching.comparisons, index: { recorded: '14 days', evidence: '14 days', result: 'unavailable' } },
     })).toBe('unavailable');
+  });
+  test('advisory context never promotes a retained unavailable reading or observed provenance', () => {
+    for (const state of ['missing', 'loading', 'unavailable'] as const) {
+      const source = sourceForReview({
+        ...previews.matching,
+        mode: 'advisory',
+        measurement: { ...previews.matching.measurement!, state, tempC: 26.4 },
+      });
+      expect(source.measurement?.state).toBe(state);
+      expect(source.provenance).toBeNull();
+    }
+    const source = sourceForReview({ ...previews.matching, mode: 'advisory' });
+    expect(source.measurement?.state).toBe('advisory');
+    expect(source.provenance).toBeNull();
   });
   test('keeps historical observed replay distinct from the payout season', () => {
     expect(reviewState(previews.observedReplay)).toBe('matching');

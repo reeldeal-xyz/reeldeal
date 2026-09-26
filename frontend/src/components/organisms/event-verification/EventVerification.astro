@@ -3,7 +3,7 @@ import Badge from '../../atoms/Badge.astro';
 import MeasurementRow from '../../molecules/relief/MeasurementRow.astro';
 import ProvenanceDetails from '../../molecules/relief/ProvenanceDetails.astro';
 import TransactionRow from '../../molecules/relief/TransactionRow.astro';
-import { comparisonResult, evidenceFields, isDisplayText, reviewState, type EventVerificationPreview } from './review';
+import { comparisonResult, evidenceFields, isDisplayText, reviewState, sourceForReview, type EventVerificationPreview } from './review';
 
 interface Props { review?: EventVerificationPreview | null }
 const review = Astro.props.review;
@@ -24,13 +24,7 @@ const explanations = {
 };
 const modeLabel = review?.mode === 'replay' ? 'Historical observed replay' : review?.mode === 'observed' ? 'Observed data preview' : advisory ? 'Forecast preview' : 'Data mode unavailable';
 const display = (value: unknown) => isDisplayText(value) ? value : 'Unavailable';
-const measurement = review?.measurement && [review.measurement.label, review.measurement.sourceName, review.measurement.observedAtLabel, review.measurement.freshnessLabel].every(isDisplayText) ? {
-  ...review.measurement,
-  // Advisory context cannot inherit an Observed badge from a reused reading.
-  state: advisory ? 'advisory' as const : review.measurement.state,
-} : null;
-const provenance = review?.provenance && ['available', 'unavailable'].includes(review.provenance.state)
-  && [review.provenance.sourceName, review.provenance.datasetLabel, review.provenance.observedAtLabel, review.provenance.retrievedAtLabel, review.provenance.evidenceLabel].every(isDisplayText) ? review.provenance : null;
+const { measurement, provenance } = sourceForReview(review);
 const transaction = review?.transaction;
 const showTransaction = !advisory && transaction && [transaction.reference, transaction.label, transaction.amount, transaction.timeLabel, transaction.explanation].every(isDisplayText)
   && ['pending', 'paid', 'held', 'unavailable'].includes(transaction.state)
@@ -58,7 +52,7 @@ const showTransaction = !advisory && transaction && [transaction.reference, tran
   <section class="event-review__section" aria-label="Reading and source">
     <h2>Reading and source</h2>
     {measurement ? <MeasurementRow {...measurement} /> : <p class="event-review__empty">No complete temperature reading is available for this review.</p>}
-    {provenance ? <ProvenanceDetails {...provenance} /> : <p class="event-review__empty">Source provenance is incomplete. No pinned input can be confirmed.</p>}
+    {provenance ? <ProvenanceDetails {...provenance} /> : <p class="event-review__empty">{advisory ? 'Forecast source details are unavailable in this preview.' : 'Source provenance is incomplete. No pinned input can be confirmed.'}</p>}
   </section>
 
   <section class="event-review__section" aria-label="Required evidence comparisons">

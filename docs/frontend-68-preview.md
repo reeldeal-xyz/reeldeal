@@ -30,6 +30,9 @@ It also rejects a supplied match when its canonical display values differ;
 equal display text alone never creates a match. Advisory mode cannot show a
 matching result. The gate is not domain validation;
 the reviewed #60/#64 verifier and adapter must supply validated records.
+Forecast previews retain missing/loading/unavailable reading states even when
+a stale numerical value is present. Observed provenance is suppressed in
+advisory mode until a reviewed forecast source component can label its times.
 
 The current legacy `resolve-event.ts` returns the first match across replay
 years, while `VerifyClient` considers its CSV hash and fire date for success.
@@ -46,7 +49,7 @@ remain open under #68. Do not close that issue on this preview alone.
 
 ```sh
 bun run frontend:check
-bun test frontend/src/components/organisms/event-verification
+bun run --cwd frontend test
 bun run frontend:build
 bun run storybook:build
 ```
