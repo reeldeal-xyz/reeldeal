@@ -141,8 +141,9 @@ def test_upload_plot_then_list_and_use_it(published_bans):
     assert plot["areaM2"] == pytest.approx(173.6 * 220.6, rel=0.05)
 
     listed = client.get("/plots", params={"bbox": "141.679,38.899,141.683,38.903"}).json()
-    assert f"upload:{code}" in {p["plotCode"] for p in listed}
-    assert "p1213-002" in {p["plotCode"] for p in listed}  # seed plots are still listed first
+    codes = {p["plotCode"] for p in listed}
+    assert f"upload:{code}" in codes
+    assert "p1213-002" not in codes  # real DB polygon is outside this bbox; old seed geometry must not leak in
 
     risk = client.get(f"/hab/plots/upload:{code}/risk", params={"season": "2026"}).json()
     assert any(i["asOf"] == "2026-06-02" and i["value"] == 4 for i in risk["indices"])
@@ -151,6 +152,17 @@ def test_upload_plot_then_list_and_use_it(published_bans):
         "/plots", json={"plotCode": code, "geometry": PLOT, "species": ["scallop"], "operation": "longline"}
     )
     assert again.status_code == 409
+
+
+def test_plot_inventory_uses_real_fishery_right_geometry_from_postgis():
+    """#147 polygons must reach /plots; old seed discs must not shadow the DB rows."""
+    rows = client.get("/plots", params={"bbox": "141.63,38.88,141.65,38.90"}).json()
+    plot = next(p for p in rows if p["plotCode"] == "p1213-001")
+    assert plot["source"] == "fishery_right"
+    assert plot["geometry"]["type"] == "MultiPolygon"
+    assert plot["areaM2"] > 100_000
+    assert 141.63 < plot["centroid"][0] < 141.65
+    assert 38.88 < plot["centroid"][1] < 38.90
 
 
 def test_upload_rejects_an_invalid_polygon():
