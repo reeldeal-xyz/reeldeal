@@ -1,0 +1,88 @@
+# PostgreSQL/PostGIS service, deployed separately from the pipeline and the app. See README.md.
+# Start with scripts/up.sh (creates the shared network, bootstraps roles, migrates, tests).
+name: reeldeal-db
+
+x-db-env: &db-env
+  PGHOST: db
+  PGDATABASE: ${POSTGRES_DB:-reeldeal}
+
+services:
+  db:
+    image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+    restart: unless-stopped
+    command: ["postgres", "-c", "config_file=/db/postgresql.conf"]
+    shm_size: 256mb
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-reeldeal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in db/.env}
+      PGDATA: /var/lib/postgresql/data/pgdata
+      # Read by bootstrap/bootstrap.sh to set role passwords.
+      DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:?}
+      PIPELINE_PASSWORD: ${PIPELINE_PASSWORD:?}
+      APP_MIGRATOR_PASSWORD: ${APP_MIGRATOR_PASSWORD:?}
+      APP_PASSWORD: ${APP_PASSWORD:?}
+      READONLY_PASSWORD: ${READONLY_PASSWORD:?}
+      DB_BACKUP_PASSWORD: ${DB_BACKUP_PASSWORD:?}
+    volumes:
+      # A named volume locally; /srv/pgdata (dedicated EBS volume) on the server.
+      - ${DB_DATA:-pgdata}:/var/lib/postgresql/data
+      # The whole db/ directory, not single files or subdirectories: git replaces files and directories
+      # on checkout, and a bind mount would keep pointing at the old ones. db/ itself is never replaced
+      # (db/.env lives there). scripts/up.sh reloads the config on every deploy.
+      - .:/db:ro
+      # Replaces the image's init scripts (which would also install tiger/topology). First boot only.
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - backups:/backups
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # One-shot: docker compose run --rm migrate up
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2.36.0@sha256:520c740c6e0ad73fde2cd1ea7e2b779aaf789d22aca8858f87a478e7094535fb
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://db_migrator:${DB_MIGRATOR_PASSWORD:?}@db:5432/${POSTGRES_DB:-reeldeal}?sslmode=disable
+      DBMATE_MIGRATIONS_DIR: /db/migrations
+      DBMATE_MIGRATIONS_TABLE: dbmate.schema_migrations
+      DBMATE_NO_DUMP_SCHEMA: "true"
+      DBMATE_WAIT: "true"
+    volumes:
+      - ./migrations:/db/migrations:ro
+
+  # Nightly pg_dump to S3 at 02:00 JST (before the pipeline's 03:00 build).
+  backup:
+    build: ./backup
+    image: reeldeal-db-backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *db-env
+      PGUSER: db_backup
+      PGPASSWORD: ${DB_BACKUP_PASSWORD:?}
+      TZ: Asia/Tokyo
+      BACKUP_AT: "02:00"
+      # Unset locally: dumps stay in the backups volume only.
+      DB_BACKUP_S3_URI: ${DB_BACKUP_S3_URI:-}
+      AWS_DEFAULT_REGION: ap-northeast-1
+    volumes:
+      - backups:/backups
+
+volumes:
+  pgdata:
+  backups:
+
+networks:
+  default:
+    name: reeldeal
+    external: true
