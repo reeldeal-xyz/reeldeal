@@ -2,6 +2,7 @@
 // hand back a signed httpOnly cookie. No DB — the cookie is the whole session record.
 import { NextResponse, type NextRequest } from 'next/server';
 import { LineIdTokenError, verifyLineIdToken } from '@/lib/line-auth';
+import { pinWalletForLineUser } from '@/lib/payout-directory';
 import { createSessionCookie, SESSION_COOKIE_NAME, SESSION_MAX_AGE_SECONDS } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
@@ -39,7 +40,14 @@ export async function POST(req: NextRequest) {
     iat: Math.floor(Date.now() / 1000),
   });
 
-  const res = NextResponse.json({ ok: true, user });
+  // One wallet per LINE user: return the pinned wallet so a new browser context doesn't mint a new identity.
+  const candidate = (body as { wallet?: unknown }).wallet;
+  const wallet = pinWalletForLineUser(
+    claims.sub,
+    typeof candidate === 'string' && /^0x[0-9a-fA-F]{40}$/.test(candidate) ? candidate : null,
+  );
+
+  const res = NextResponse.json({ ok: true, user, wallet });
   res.cookies.set(SESSION_COOKIE_NAME, cookieValue, {
     httpOnly: true,
     secure: true,
