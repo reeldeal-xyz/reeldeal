@@ -88,6 +88,8 @@ function buildFakeChain(opts: FakeChainOptions) {
           return [ZONE_ID, SPECIES_ID, '2026', 8, 20000000000000000000000n, 160000000000000000000000n, attested ? 1700000000n : 0n, 1900000000n];
         case 'signerThreshold':
           return threshold;
+        case 'plots':
+          return [ZONE_ID, SPECIES_ID, true];
         case 'isSigner':
           return registered.has((args[0] as Address).toLowerCase());
         case 'plotSettlements': {
@@ -433,12 +435,13 @@ describe('runKeeper', () => {
       const chain = buildFakeChain({
         registeredSigners: [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address],
         enrolledPlots: ['p1'],
+        settleOutcomes: { p1: { type: 'Paid', farmer: FARMER_A, amount: 1n } },
       });
       const lineUserIdForWallet = mock(async () => 'U-FARMER-A');
       const pushPaid = mock(async () => {});
       const claimNotification = mock(async () => false); // "someone already pushed this"
 
-      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { lineUserIdForWallet, pushPaid, claimNotification }));
+      const result = await runKeeper({ referenceEventId: REF_ID, force: true }, baseDeps(chain, { lineUserIdForWallet, pushPaid, claimNotification }));
 
       expect(claimNotification).toHaveBeenCalled();
       expect(pushPaid).not.toHaveBeenCalled();

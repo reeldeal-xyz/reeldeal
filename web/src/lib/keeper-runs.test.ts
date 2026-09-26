@@ -11,6 +11,7 @@ const originalEnv = process.env.KEEPER_RUNS_FILE;
 
 beforeEach(() => {
   process.env.KEEPER_RUNS_FILE = file;
+  rmSync(file, { force: true }); // each test starts from an empty store
   _resetKeeperRunsCacheForTests();
 });
 
