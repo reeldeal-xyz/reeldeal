@@ -16,6 +16,10 @@ Built at ETHGlobal Tokyo 2026, Classic track. The deployed contracts use
 [LINE farmer app](https://liff.line.me/2011749457-SgvM5ahH) ·
 [Submission](docs/SUBMISSION.md) · [Form text](docs/FORM.md)
 
+[Problem](#the-problem) · [Demo](#demo) · [How it works](#how-it-works) ·
+[Integration evidence](#integration-evidence) · [Run locally](#run-locally) ·
+[Release status](#release-status)
+
 ## The problem
 
 Heat stress and shipping restrictions disrupt aquaculture livelihoods. Farmers,
@@ -35,6 +39,22 @@ constrained sales; it does not measure an individual farm's loss.
 The map and market support English/Japanese. Mobile map controls collapse; market
 purchase reviews use a dialog. Generated seafood illustrations are documented in
 [asset provenance](frontend/public/images/fish/README.md).
+
+## Demo
+
+1. Open the [coastal map](https://app.13-196-78-137.sslip.io/hmi). Select a farm
+   plot, inspect ocean observations, and compare the species-specific relief rules.
+2. Open the [fish market](https://app.13-196-78-137.sslip.io/market). Review a
+   scallop, hoya or oyster purchase and its **95% seller / 5% relief** split.
+3. Open the [relief dashboard](https://app.13-196-78-137.sslip.io/relief). Inspect
+   contributions, plot outcomes and payment evidence.
+4. Follow the [recorded payout](docs/SUBMISSION.md#recorded-end-to-end-run-2026-09-26)
+   from donation to attestation and settlement. The [LINE app](https://liff.line.me/2011749457-SgvM5ahH)
+   provides the farmer's identity, season-slot and payment views.
+
+Browsing the map, purchase review and relief ledger requires no wallet. Wallet
+actions use Sepolia. The [three-minute demo script](docs/SUBMISSION.md#demo-script-3-minutes)
+provides the presentation sequence.
 
 ## How it works
 
@@ -142,6 +162,9 @@ flowchart LR
   (`trigger.ts`, `quote.ts`, `addresses.ts`).
 - **Money only moves on deterministic checks.** Jev can delay an attest by asking for co-op review,
   but it never calls `attest` or `settle` itself (`web/src/lib/jev-gate.ts`, `docs/JEV.md`).
+
+<details>
+<summary>Detailed flows: onboarding, identity, triggers, settlement, notifications and checkout</summary>
 
 ### 2. Farmer onboarding
 
@@ -525,6 +548,8 @@ sequenceDiagram
   them as recorded rather than recomputed.
 - **Why it matters.** `dataHash` on chain is the sha256 of the pinned input, and `rules.ts` is public.
   Nobody has to trust the keeper to check that a payout was owed.
+
+</details>
 
 ## Architecture
 
