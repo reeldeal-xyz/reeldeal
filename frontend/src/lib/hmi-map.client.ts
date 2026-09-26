@@ -16,18 +16,20 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   const selectedSpecies = () => (dock.querySelector<HTMLInputElement>('input[name="species"]:checked')?.value ?? '');
   const map = L.map(mapElement, { minZoom: 5, maxZoom: 16, zoomControl: false, scrollWheelZoom: false }).setView([38.84, 141.61], 10);
   map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 18,
     attribution: '&copy; Esri, Maxar, Earthstar Geographics, GIS User Community',
   }).addTo(map);
-  let activeOverlay: L.TileLayer.WMS | undefined;
+  const activeOverlays = new Map<string, L.TileLayer.WMS>();
   const layers: Record<string, { name: string; label: string }> = {
     sst: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature', label: 'Sea surface temperature' },
     anom: { name: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', label: 'Temperature anomaly' },
     chl: { name: 'OCI_PACE_Chlorophyll_a', label: 'Chlorophyll' },
   };
   const layerNote = scene.querySelector<HTMLElement>('[data-layer-date]')!;
+  const chlorophyllNote = scene.querySelector<HTMLElement>('[data-chlorophyll-note]')!;
   const mapMessage = scene.querySelector<HTMLElement>('[data-map-message]')!;
+  const layerInputs = [...scene.querySelectorAll<HTMLInputElement>('input[name="map-layer"]')];
   const markerByCode = new Map<string, { marker: L.CircleMarker; plot: Plot }>();
   for (const zone of features.zones) {
     if (zone.geometry) L.geoJSON(zone.geometry, { style: { color: '#f7f5df', weight: 1.5, fillColor: '#f7f5df', fillOpacity: 0.05 } }).addTo(map);
@@ -74,21 +76,34 @@ if (scene && mapElement && !scene.dataset.mapReady) {
   scene.querySelectorAll<HTMLButtonElement>('[data-close-shelf]').forEach((button) => button.addEventListener('click', () => openShelf(null)));
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape') openShelf(null); });
 
-  scene.querySelectorAll<HTMLInputElement>('input[name="map-layer"]').forEach((input) => input.addEventListener('change', () => {
-    if (!input.checked) return;
-    if (activeOverlay) map.removeLayer(activeOverlay);
-    const layer = layers[input.value];
+  function renderMapLayers() {
     mapMessage.hidden = true;
-    if (!layer) { layerNote.textContent = 'Satellite imagery · Esri'; return; }
+    const satellite = layerInputs.find((input) => input.value === 'satellite')?.checked ?? false;
+    if (satellite && !map.hasLayer(imagery)) imagery.addTo(map);
+    if (!satellite && map.hasLayer(imagery)) map.removeLayer(imagery);
+    activeOverlays.forEach((overlay) => map.removeLayer(overlay));
+    activeOverlays.clear();
+    const selected = layerInputs.filter((input) => input.checked && input.value !== 'satellite');
     const time = `${seasonInput.value}-10-31`;
-    const overlay = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
-      layers: layer.name, format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', time,
-      attribution: '&copy; NASA GIBS',
-    } as L.WMSOptions);
-    overlay.on('tileerror', () => { mapMessage.textContent = `${layer.label} imagery is unavailable for ${time}.`; mapMessage.hidden = false; });
-    activeOverlay = overlay.addTo(map);
-    layerNote.textContent = `${layer.label} · ${time} · NASA GIBS`;
-  }));
+    selected.forEach((input) => {
+      const layer = layers[input.value];
+      if (!layer) return;
+      const overlay = L.tileLayer.wms('https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi', {
+        layers: layer.name, format: 'image/png', transparent: true,
+        opacity: selected.length > 1 ? 0.28 : 0.65, version: '1.1.1', time,
+        attribution: '&copy; NASA GIBS',
+      } as L.WMSOptions);
+      overlay.on('tileerror', () => {
+        if (activeOverlays.get(input.value) !== overlay) return;
+        mapMessage.textContent = `${layer.label} imagery is unavailable for ${time}.`;
+        mapMessage.hidden = false;
+      });
+      activeOverlays.set(input.value, overlay.addTo(map));
+    });
+    layerNote.textContent = selected.length ? `NASA GIBS · ${time}` : satellite ? 'Satellite · Esri' : 'Outlines only';
+    chlorophyllNote.hidden = !selected.some((input) => input.value === 'chl');
+  }
+  layerInputs.forEach((input) => input.addEventListener('change', renderMapLayers));
   scene.querySelectorAll<HTMLButtonElement>('[data-zoom]').forEach((button) => button.addEventListener('click', () => {
     if (button.dataset.zoom === 'in') map.zoomIn(); else map.zoomOut();
   }));
@@ -100,6 +115,7 @@ if (scene && mapElement && !scene.dataset.mapReady) {
     scene.querySelectorAll<HTMLButtonElement>('[data-season-step]').forEach((step) => {
       step.disabled = step.dataset.seasonStep === '-1' ? year <= 2022 : year >= 2025;
     });
+    if (layerInputs.some((input) => input.checked && input.value !== 'satellite')) renderMapLayers();
     void updateView();
   }));
   dock.querySelectorAll<HTMLInputElement>('input[name="species"]').forEach((input) => input.addEventListener('change', () => { if (input.checked) { selectedMarker(); void updateView(); } }));
@@ -132,8 +148,6 @@ if (scene && mapElement && !scene.dataset.mapReady) {
       selectedMarker();
       history.pushState(null, '', url);
       status.textContent = `${selectedSpecies()} · ${seasonInput.value} loaded`;
-      const selectedLayer = scene!.querySelector<HTMLInputElement>('input[name="map-layer"]:checked');
-      if (selectedLayer && selectedLayer.value !== 'satellite') selectedLayer.dispatchEvent(new Event('change'));
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         status.textContent = 'Could not update observations. Try again.';

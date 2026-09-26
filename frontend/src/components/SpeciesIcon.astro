@@ -14,5 +14,30 @@ const { species } = Astro.props;
   </> : species === 'hoya' ? <>
     <path d="m18 13-2-8 6-2 3 10 4-8 6 3-3 9c13 8 9 23-5 26C10 43 3 29 12 20Z" fill="#ed916b" />
     <path d="m17 21-3 4m12-7 1 5m7 4-4 3m-9-4-2 4m5 6 3 2m-13-4 2 3" /><path d="m17 7 5-2m8 3 4 2" />
+  </> : species === 'nori' ? <>
+    <path d="M11 5 20 7 29 5l9 3-2 10 2 10-3 13-10-2-10 2-5-11 2-12Z" fill="#42735b" />
+    <path d="M16 13c5 2 11-1 17 1M15 23c8-2 11 2 18 0M17 32c5 1 9-1 15 1" stroke="#b2c79d" />
+  </> : species === 'wakame' ? <>
+    <path d="M23 44c1-14 0-26 1-39" stroke-width="2.5" />
+    <path d="M23 31C10 37 7 31 13 25c-5-5-2-10 9-8M25 24c12 6 18 0 12-7 5-6 0-10-12-7M24 38c10 5 15 0 10-6" fill="#75a77a" />
+    <path d="m12 26 10-4m5-9 10 5m-10 15 7 1" />
+  </> : species === 'kombu' ? <>
+    <path d="M19 44c-7-8-2-14-4-22-2-7 2-13 7-18 6 4 12 10 10 17-2 8 2 15-3 23Z" fill="#628968" />
+    <path d="M23 8c3 9-3 17 0 26m-8-17 6 6m11-2-8 7" stroke="#c2d5a1" />
+  </> : species === 'yellowtail' ? <>
+    <path d="M4 25c9-13 22-16 33-5l8-7-2 12 2 11-8-7C24 40 11 36 4 25Z" fill="#d6a852" />
+    <path d="M8 24c12 2 20-3 30-5" stroke="#fff0b5" stroke-width="3" /><circle cx="13" cy="21" r="1.5" fill="#123a3e" />
+    <path d="m24 15 4-7 5 8m-9 17 4 6 5-8" />
+  </> : species === 'sea-bream' ? <>
+    <path d="M6 25c4-13 17-19 28-10l10-5-2 15 2 14-10-5C22 42 10 38 6 25Z" fill="#df9381" />
+    <path d="m14 15 2-7 5 5 4-8 5 9m-13 22 2 7 6-6" /><circle cx="14" cy="22" r="1.5" fill="#123a3e" />
+    <path d="M17 29c6 3 11 2 16-1" stroke="#f8d2bc" />
+  </> : species === 'salmon' ? <>
+    <path d="M4 24c10-11 23-11 33-5l8-7-2 12 2 12-8-7C27 35 14 37 4 24Z" fill="#d8866c" />
+    <path d="M8 26c12-3 19-2 30-1" stroke="#f8d3ad" stroke-width="3" /><circle cx="13" cy="21" r="1.5" fill="#123a3e" />
+    <path d="M23 16h1m5 0h1m-12 3h1m8 10h1m-10 0h1" stroke-width="2.5" />
+  </> : species === 'bluefin-tuna' ? <>
+    <path d="M3 25c13-10 23-11 34-5l8-10-2 15 2 14-8-10C26 36 15 35 3 25Z" fill="#4781aa" />
+    <path d="m18 18 9-14 1 14m-3 12 7 13 1-14" fill="#315d82" /><path d="M6 25c12 1 21 0 32-1" stroke="#a5c9d7" stroke-width="3" /><circle cx="12" cy="22" r="1.5" fill="#123a3e" />
   </> : <><path d="M6 24c8-17 22-17 31-4l8-6v20l-8-6C26 42 12 37 6 24Z" fill="#73c7dc" /><circle cx="15" cy="22" r="1.5" fill="#123a3e" /></>}
 </svg>
