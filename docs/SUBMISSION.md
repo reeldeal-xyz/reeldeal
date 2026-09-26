@@ -139,7 +139,7 @@ Donor / co-op / holder ─→ web/     ─┼─ Next.js on Railway (web-product
                                     └───────────────────────────────────────────────────────────→ ReliefPool + HumanRegistry (Sepolia)
                                                                                                     │
                          ┌──────────── Astro migration target (workshop today) ────────────────────┘
-Same browser, /workshop ─→ frontend/ ─ Astro on its own container behind Caddy (app.13-196-78-137.sslip.io)
+Same browser, /hmi · /market ─→ frontend/ ─ Astro on its own container behind Caddy (app.13-196-78-137.sslip.io)
                             │ Storybook component library + a few real endpoints (GET /api/risk/heat/:plot)
                             └ unmigrated routes (/liff, /donate, /coop, /holder, /verify/:id) 302→ LEGACY_WEB_ORIGIN (the Railway app above)
 ```
@@ -256,7 +256,7 @@ bun run contracts:build && bun run contracts:test
 bun run typecheck
 bun run pipeline     # pipeline API on :8787
 bun run dev          # web (Next.js/LIFF) on :3000
-bun run frontend:dev # Astro workshop on :4321/workshop
+bun run frontend:dev # Astro app on :4321/hmi
 ```
 
 ## Tests

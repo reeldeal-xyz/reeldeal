@@ -47,22 +47,32 @@ await withServer(undefined, async (request) => {
   const health = await request('/health');
   assert.equal(health.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await health.json(), { status: 'ok', service: 'umi-frontend' });
-  const workshop = await request('/workshop');
-  assert.equal(workshop.status, 200);
-  const html = await workshop.text();
-  assert(!html.includes(secret), 'Server-only env leaked into HTML');
+  const hmi = await request('/hmi');
+  assert.equal(hmi.status, 200);
+  const hmiHtml = await hmi.text();
+  assert(!hmiHtml.includes(secret), 'Server-only env leaked into HTML');
+  assert.match(hmiHtml, /id="hmi-map"/, 'HMI map container missing');
+  assert.match(hmiHtml, /aria-controls="market-shelf"/, 'HMI market shelf missing');
+
+  const market = await request('/market');
+  assert.equal(market.status, 200);
+  const marketHtml = await market.text();
+  assert(!marketHtml.includes(secret), 'Server-only env leaked into HTML');
+  assert.match(marketHtml, /No catch listed yet\./, 'Market empty state missing');
+  assert(!/SaleRouter|JPYC checkout|Open the app to buy|checkout-demo/.test(marketHtml), 'Market page still exposes the demo checkout');
+
+  for (const path of ['/workshop', '/market/checkout-demo', '/api/market/quote']) {
+    assert.equal((await request(path)).status, 404, `Removed route should stay gone: ${path}`);
+  }
+
   const heat = await request('/api/risk/heat/p1213-001?season=2025');
   assert.equal(heat.status, 503);
   assert.equal(heat.headers.get('cache-control'), 'no-store');
   assert.deepEqual(await heat.json(), { status: 'not-configured', data: null });
   assert.equal((await request('/api/risk/heat/p1213-001?season=invalid')).status, 400);
-  assert.match(html, /component-url="[^\"]*BidWorkshop\./);
-  assert.match(html, /component-url="[^\"]*WalletPreview\./);
-  for (const species of ['katsuo', 'sanma', 'saba', 'hotate', 'maguro', 'awabi']) {
-    assert(html.includes(`/images/fish/${species}-ice.webp`), `Missing species illustration: ${species}`);
-  }
+  const html = hmiHtml + marketHtml;
   const assets = [...new Set([...html.matchAll(/(?:src|href|component-url|renderer-url)="(\/(?:_astro|images)\/[^\"]+)"/g)].map((match) => match[1]))];
-  assert(assets.length >= 6, 'Expected CSS, both islands, renderers, and a visible image');
+  assert(assets.length >= 4, 'Expected CSS, the wallet island, renderers, and the brand logo');
   for (const asset of assets) {
     const response = await request(asset);
     assert.equal(response.status, 200, `Missing asset: ${asset}`);
@@ -77,7 +87,7 @@ await withServer(undefined, async (request) => {
   for (const path of ['/unknown', '/api/world', '/map/extra', '/verify/']) {
     assert.equal((await request(path)).status, 404, `Unknown route should stay local: ${path}`);
   }
-  console.log(`PASS built health, workshop, ${assets.length} assets, missing-env routes, and local 404s`);
+  console.log(`PASS built health, HMI/market, ${assets.length} assets, removed demo routes, missing-env routes, and local 404s`);
 });
 
 await withServer('https://legacy.example.test/ignored-base', async (request) => {

@@ -24,9 +24,6 @@ export default defineConfig({
         context: 'server', access: 'secret', optional: true,
         default: 'https://ethereum-sepolia-rpc.publicnode.com',
       }),
-      // Co-op signer key for POST /api/market/quote (SaleRouter EIP-712 quotes). Never sent to the client.
-      // Unset: the quote endpoint responds 503 instead of signing with an absent key.
-      QUOTE_SIGNER_PRIVATE_KEY: envField.string({ context: 'server', access: 'secret', optional: true }),
     },
   },
 });

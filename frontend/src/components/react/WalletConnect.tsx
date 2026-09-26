@@ -35,7 +35,7 @@ function WalletButton({ connect, preview = false }: { connect: () => Promise<unk
       {isConnected && expanded && address && <div className="wallet-connect__panel" id={panelId}>
         <strong>Wallet connected</strong>
         <span className="wallet-connect__address">{address}</span>
-        <span>{chainId === sepolia.id ? 'Sepolia · JPYC' : 'Switch to Sepolia before checkout'}</span>
+        <span>{chainId === sepolia.id ? 'Connected to Sepolia' : 'Connected on another network'}</span>
         <button type="button" onClick={() => { disconnect(); setExpanded(false); }}>Disconnect</button>
       </div>}
       {error && <p className="wallet-connect__error" role="alert">{error}</p>}

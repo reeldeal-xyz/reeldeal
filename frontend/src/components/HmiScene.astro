@@ -3,10 +3,7 @@
 
 import SpeciesIcon from './SpeciesIcon.astro';
 import WalletConnect from './react/WalletConnect';
-import CheckoutForm from './solid/CheckoutForm';
-import ContributionSplit from './molecules/relief/ContributionSplit.astro';
-import { DEMO_LISTING } from '../fixtures/market-checkout-demo';
-import { jpycFromBaseUnits } from '../lib/format-amount';
+import MarketEmpty from './molecules/marketplace/MarketEmpty.astro';
 import 'leaflet/dist/leaflet.css';
 import '../styles/hmi.css';
 
@@ -15,11 +12,8 @@ import type { HeatRiskResult } from '../lib/heat-risk.server';
 import type { HmiData } from '../lib/hmi.server';
 import type { SpeciesResult } from '../lib/species.server';
 
-interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; walletProjectId?: string; checkoutEnabled?: boolean; checkoutUnavailableMessage?: string }
-const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, walletProjectId, checkoutEnabled = false, checkoutUnavailableMessage } = Astro.props;
-const reliefAmount = DEMO_LISTING.totalWei * BigInt(DEMO_LISTING.reliefBps) / 10_000n;
-const listingPrice = Number(jpycFromBaseUnits(DEMO_LISTING.totalWei) ?? '0').toLocaleString('ja-JP');
-const listingForIsland = { listingId: DEMO_LISTING.listingId, sellerAddress: DEMO_LISTING.sellerAddress, totalWei: DEMO_LISTING.totalWei.toString(), reliefBps: DEMO_LISTING.reliefBps };
+interface Props { hmi: HmiData; risk: HeatRiskResult | null; speciesInfo?: SpeciesResult | null; plotCode: string; season: string; requestedSpecies: string; endpoint?: string; metric: 'SST' | 'SST_ANOM' | 'SST_MONTH'; walletProjectId?: string; walletPreview?: boolean }
+const { hmi, risk, speciesInfo, plotCode, season, requestedSpecies, metric, endpoint, walletProjectId, walletPreview = true } = Astro.props;
 const plots = hmi.status === 'available' ? hmi.plots : [];
 const supportedSpecies = [...new Set(plots.flatMap((item) => item.species))];
 const dockSpecies = [...supportedSpecies, ...SPECIES.filter((item) => !supportedSpecies.includes(item))];
@@ -82,7 +76,7 @@ const speciesNames: Record<string, string> = {
     <div id="hmi-map" aria-label="Interactive map of the Miyagi coast" tabindex="0"></div>
     <div class="market-actions">
       <button type="button" class="market-action" data-shelf="market" aria-expanded="false" aria-controls="market-shelf">Fish market</button>
-      <WalletConnect projectId={walletProjectId} preview={!checkoutEnabled} client:only="react" />
+      <WalletConnect projectId={walletProjectId} preview={walletPreview} client:only="react" />
     </div>
     <div class="coast-label"><h1>Miyagi coast</h1><span><i class:list={{ online: hmi.status === 'available' }}></i>{hmi.status === 'available' ? 'Satellite & ocean observations' : pipelineStatus}</span></div>
     <p class="map-message" data-map-message role="status" hidden={!statusText}>{statusText}</p>
@@ -123,25 +117,8 @@ const speciesNames: Record<string, string> = {
 
     <section id="market-shelf" class="map-shelf market-shelf" aria-labelledby="market-heading" inert>
       <header><h2 id="market-heading">Fish market</h2><button type="button" data-close-shelf aria-label="Close fish market">×</button></header>
-      <p class="shelf-kicker">Sepolia · JPYC checkout</p>
-      <div class="market-listing">
-        <span class="market-listing__mark" aria-hidden="true">鰹</span>
-        <div><strong>{DEMO_LISTING.titleJa}</strong><span>{DEMO_LISTING.titleEn}</span></div>
-        <b>¥{listingPrice}</b>
-      </div>
-      <p class="shelf-note">Fixed demo item. The seller address is a placeholder; this is a Sepolia test transaction, not a real fish order.</p>
-      {checkoutUnavailableMessage && <p class="market-shelf__status" role="status">{checkoutUnavailableMessage}</p>}
-      <ContributionSplit
-        reference={`listing:${DEMO_LISTING.listingId.slice(0, 10)}…`}
-        saleAmount={jpycFromBaseUnits(DEMO_LISTING.totalWei) ?? '0'}
-        sellerAmount={jpycFromBaseUnits(DEMO_LISTING.totalWei - reliefAmount) ?? '0'}
-        fundAmount={jpycFromBaseUnits(reliefAmount) ?? '0'}
-        fundShareLabel={`${DEMO_LISTING.reliefBps / 100}%`}
-        state="proposed"
-        explanation="The signed quote confirms this split before checkout."
-      />
-      <CheckoutForm listing={listingForIsland} enabled={checkoutEnabled} disabledLabel={checkoutUnavailableMessage ? 'Checkout unavailable' : undefined} client:load />
-      <a class="market-shelf__all" href="/market">Explore the fish market <span aria-hidden="true">↗</span></a>
+      <MarketEmpty />
+      <a class="market-shelf__all" href="/market">View the fish market</a>
     </section>
 
     <section id="observations-shelf" class="map-shelf bottom-shelf" aria-labelledby="observations-heading" inert>

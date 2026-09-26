@@ -11,7 +11,7 @@ From the repository root (Bun 1.3.14, Node 24):
 ```sh
 bun install --frozen-lockfile
 cp frontend/.env.example frontend/.env
-bun run frontend:dev                 # http://localhost:4321/workshop
+bun run frontend:dev                 # http://localhost:4321/hmi
 bun run frontend:check
 bun run --cwd frontend test
 bun run frontend:build
@@ -71,7 +71,8 @@ Until a replacement route exists, the catch-all redirects these page URLs to
 `LEGACY_WEB_ORIGIN`, preserving path and query. Unknown paths are 404, missing
 configuration is 503, and a same-origin destination is rejected to avoid a loop.
 API routes are not proxied. New Astro page files take precedence over the
-catch-all. `/` currently opens `/workshop`; it is an explicit fixture surface.
+catch-all. `/` redirects to `/hmi`; the component workshop is now Storybook-only,
+with no `/workshop` route in the app.
 
 ## Server and pipeline integration
 
