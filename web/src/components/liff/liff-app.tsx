@@ -40,6 +40,8 @@ export interface LiffAppProps {
   reliefPoolDeployBlock?: string;
 }
 
+const RELOGIN_KEY = 'reeldeal:liff-relogin';
+
 const styles = {
   main: { maxWidth: 420, margin: '0 auto', paddingBottom: 32 },
   brand: { fontSize: 28, fontWeight: 700, margin: 0 },
@@ -251,9 +253,19 @@ export function LiffApp({ addresses, sepoliaRpcUrl, reliefPoolDeployBlock }: Lif
           body: JSON.stringify({ idToken }),
         });
         const json = (await res.json()) as { ok?: boolean; user?: SessionUser; error?: string };
+        if (res.status === 401 && !sessionStorage.getItem(RELOGIN_KEY)) {
+          // LIFF keeps returning its cached ID token after it expires (~1h), which LINE then rejects.
+          // Log out and back in once to get a fresh token; the flag stops a redirect loop.
+          sessionStorage.setItem(RELOGIN_KEY, '1');
+          if (!cancelled) setStatus('redirecting');
+          liff.logout();
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
         if (!res.ok || !json.ok || !json.user) {
           throw new Error(json.error ?? `session request failed (${res.status})`);
         }
+        sessionStorage.removeItem(RELOGIN_KEY);
         if (cancelled) return;
         setUser(json.user);
 
