@@ -7,12 +7,13 @@ import TransactionRow from '../../molecules/relief/TransactionRow.astro';
 import ProvenanceDetails from '../../molecules/relief/ProvenanceDetails.astro';
 import ReliefPreviewAction from './react/ReliefPreviewAction';
 import { heldReasonCopy, type FarmerReliefProps } from './props';
+import { claimPreviewState } from './claim-preview';
 import styles from './farmer-relief.css?inline';
 
 interface Props extends FarmerReliefProps {}
 const { farm, plotLabel, seasonLabel, wallet, identityLevel, slot, outcome, updatedAtLabel, provenance, verificationCancelled } = Astro.props;
-const identityKnown = identityLevel !== null;
-const verified = identityKnown && identityLevel > 0;
+const identityKnown = identityLevel === 0 || identityLevel === 1 || identityLevel === 2;
+const verified = identityLevel === 1 || identityLevel === 2;
 const held = outcome.kind === 'held' ? heldReasonCopy[outcome.reason] : null;
 const slotLabels = { unissued: 'Not issued', requested: 'Request pending', issued: 'Issued', expired: 'Expired', revoked: 'Revoked', unavailable: 'Unavailable' };
 const slotCopy = {
@@ -23,7 +24,18 @@ const slotCopy = {
   revoked: 'This example slot request or registration was revoked. Contact the co-op before requesting it again.',
   unavailable: 'The current season-slot registration could not be loaded.',
 };
-const canPreviewClaim = outcome.kind === 'held' && outcome.reason === 'UNVERIFIED' && verified;
+const claimPreview = claimPreviewState({ outcome, identityLevel, slot, wallet });
+const claimCopy = {
+  'not-applicable': held?.next,
+  'identity-required': held?.next,
+  'identity-unavailable': 'Current identity status is unavailable. The recorded hold does not establish the current verification level, so no claim preview is available.',
+  'wallet-unavailable': 'Identity is verified in this example, but a valid recipient wallet is missing. No claim preview is available.',
+  'slot-required': `${slotCopy[slot]} No claim preview is available without a currently issued slot.`,
+  ready: 'The example identity is now verified and its slot is issued. A claim can be previewed, but the recorded Held outcome remains until confirmation.',
+};
+const heldTitle = outcome.kind === 'held' && outcome.reason === 'UNVERIFIED'
+  ? verified ? 'Identity verified · relief still held' : 'Recorded hold: identity check'
+  : held?.title;
 ---
 
 <style is:inline set:html={styles} />
@@ -68,10 +80,10 @@ const canPreviewClaim = outcome.kind === 'held' && outcome.reason === 'UNVERIFIE
   />}
 
   {outcome.kind === 'held' && held && <section class="relief-card" aria-label="Why relief is held">
-    <h2 class="relief-card__title">{held.title}</h2>
+    <h2 class="relief-card__title">{heldTitle}</h2>
     <p class="relief-card__note">{held.detail}</p>
-    <p class="relief-card__note">{canPreviewClaim ? 'The example identity is now verified. A claim can be requested, but the recorded Held outcome remains until confirmation.' : held.next}</p>
-    {canPreviewClaim && <ReliefPreviewAction mode="claim" initiallyPending={outcome.claimPending} client:load />}
+    <p class="relief-card__note">{claimCopy[claimPreview]}</p>
+    {claimPreview === 'ready' && <ReliefPreviewAction mode="claim" initiallyPending={outcome.claimPending} client:load />}
   </section>}
 
   {outcome.kind === 'expired' && <section class="relief-card" aria-label="Claim window closed">

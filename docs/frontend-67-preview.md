@@ -42,7 +42,11 @@ are imported. They neither grant verified status nor mark a payment Paid.
 ## Validation
 
 Run `bun run frontend:check`, `bun run frontend:build`, and
-`bun run storybook:build`. Nineteen named stories cover the states above.
+`bun run storybook:build`. Twenty-three named stories cover the states above,
+including a historical identity hold with a currently expired/revoked slot,
+missing wallet or unknown identity. The claim demo is only available with a
+currently issued slot, verified identity and nonzero valid wallet. This is a
+display guard, not a replacement for the contract's eligibility checks.
 `CancelIdentityCheck` and `ClaimRequestStaysHeld` include browser play assertions
 that wait for hydration. Story building alone does not execute those assertions.
 Inspect at 320, 390 and 1440 pixels. Check keyboard focus, cancellation, natural
@@ -50,11 +54,13 @@ scrolling, the provenance disclosure and the absence of a claim button for
 non-UNVERIFIED reasons.
 
 Local checks: frontend typecheck, Astro build, four existing frontend tests and
-113 contract tests passed. Static Storybook generated all nineteen farmer
+113 contract tests passed. Static Storybook initially generated all nineteen farmer
 stories with the inline CSS and React hydration references. It retains the
 documented Astro adapter transport-disconnect diagnostic during cleanup.
-Whole-repository typecheck stops in unchanged `web/` with TS2688 for the implicit
-`minimatch` type library; shared, pipeline and frontend checks pass. Browser
+Whole-repository typecheck encountered TS2688 in `web/` from ambient
+`/Users/ericmanganaro/node_modules/@types/minimatch` outside this repository;
+this is home-directory type contamination, not an established source failure.
+Shared, pipeline and frontend checks pass. Browser
 visual inspection and play execution remain required for this slice.
 
 The component inlines its own prefixed CSS so it also survives static Astro
