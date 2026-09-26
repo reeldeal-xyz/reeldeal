@@ -36,6 +36,8 @@
 #hmi-map .leaflet-popup-content { font: 700 13px/1.4 var(--font-body); }
 .coast-stack { position: absolute; top: 94px; left: 12px; z-index: 800; display: grid; gap: 8px; width: min(260px, calc(100vw - 100px)); }
 .coast-label { display: grid; gap: 6px; padding: 9px 11px; border: 1px solid #6f9c9a; border-radius: 4px; background: var(--sea-paper); box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
+.coast-controls { display: grid; gap: 6px; min-width: 0; }
+.coast-toggle { display: none; }
 /* Keep status messages visible when panels open. */
 .hmi-page:has(.map-shelf[data-open]) .coast-label { visibility: hidden; }
 .pipeline-status { margin: 0; padding: 9px 11px; border: 1px solid #d9be9f; border-radius: 4px; background: #fff7ec; font-size: 12px; line-height: 1.45; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
@@ -53,7 +55,7 @@
 .hmi-page:has(.side-shelf[data-open]) .observations-toggle { visibility: hidden; }
 .hmi-page:has(.bottom-shelf[data-open]) .observations-toggle { visibility: hidden; }
 .coast-label h1 { margin: 0; font: 800 17px/1.2 var(--font-body); }
-.coast-label span { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; color: #45666a; }
+.coast-status { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 11px; color: #45666a; }
 .coast-label i { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #aa7450; }.coast-label i.online { background: #138a74; }
 .map-message { display: grid; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid #d9be9f; border-radius: 4px; background: #fff7ec; font-size: 12px; line-height: 1.45; box-shadow: 0 1px 3px rgb(0 0 0 / .12); }
 .map-message button { min-height: 44px; border: 1px solid #123a3e; border-radius: 4px; color: #fff; background: #123a3e; font-weight: 750; }
@@ -153,6 +155,13 @@
 @media (prefers-reduced-motion: reduce) { .map-shelf { transition: none; } }
 
 @media (max-width: 699px) {
+  .coast-label { width: fit-content; max-width: 100%; gap: 0; padding: 0; border-radius: 8px; }
+  .coast-title { display: none; }
+  .coast-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--sea-ink); font-size: 14px !important; font-weight: 800 !important; text-align: start; }
+  .coast-toggle svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .coast-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .coast-controls { display: none; }
+  .coast-label:has(.coast-toggle[aria-expanded="true"]) .coast-controls { display: grid; width: min(258px, calc(100vw - 102px)); max-height: min(45dvh, calc(100dvh - 270px - env(safe-area-inset-bottom))); overflow-y: auto; overscroll-behavior: contain; padding: 10px; border-top: 1px solid #cdded6; }
   #forecast-shelf { right: 12px; padding: 10px 12px; max-height: calc(100dvh - 210px - env(safe-area-inset-bottom)); }
   .hmi-page:has(#forecast-shelf[data-open]) .map-tools,.hmi-page:has(#forecast-shelf[data-open]) .map-zoom { visibility: hidden; }
 }

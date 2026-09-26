@@ -1,8 +1,8 @@
-# Astro frontend and component workshop
+# Astro frontend
 
-This is the #56/#58 foundation. The existing `web/` app still owns the live donor,
-co-op, holder, map, verification and LIFF flows. Do not switch production traffic
-until each route has passed its migration acceptance.
+The main app lives in `frontend/`: coastal map at `/hmi`, fish market at `/market`,
+and relief dashboard at `/relief`. `/` opens the map. Storybook is a separate
+component catalogue; there is no `/workshop` route in the app.
 
 ## Run
 
@@ -16,147 +16,86 @@ bun run frontend:check
 bun run --cwd frontend test
 bun run frontend:build
 bun run --cwd frontend smoke:built
-HOST=127.0.0.1 PORT=4328 LEGACY_WEB_ORIGIN=http://localhost:3000 bun run frontend:start
+HOST=127.0.0.1 PORT=4328 node --env-file=frontend/.env frontend/dist/server/entry.mjs
 bun run storybook                    # http://localhost:6008
 ```
 
-`storybook` builds once and serves the result locally. Rebuild after edits. Use
-`bun run storybook:build` in CI. The static workshop needs no database, wallet,
-pipeline, or messaging credentials. The production Node server needs its env
-provided by the host; it does not automatically read `frontend/.env` at startup.
+Configure `PIPELINE_API_URL` for plot and satellite data, `SEPOLIA_RPC_URL` for
+fund and transaction reads, and `LEGACY_WEB_ORIGIN` for the quote signer and
+remaining legacy pages. Optional wallet and forecast settings are documented
+in [`.env.example`](.env.example). The production Node process needs its
+environment supplied by the host or `--env-file`.
 
-`GET /health` reports the frontend process only, not database or pipeline health.
+`GET /health` checks this frontend process. It does not establish database,
+pipeline or RPC availability. Container deployment is documented in
+[DEPLOY.md](DEPLOY.md).
 
-`GET /api/risk/heat/{plotCode}?season=YYYY` reads the configured pipeline's
-observed heat response. It enforces a five-second deadline, a 2 MiB response
-limit, exact plot/season matching, finite Celsius values, calendar dates,
-ordered unique observations and per-value source/pixel metadata. Upstream
-errors never activate fixtures. `fetchedAt` records this app's fetch, not the
-provider's retrieval time. Coverage distinguishes missing days from null and
-zero values; no freshness cutoff is invented for a historical season.
+## Connected screens
 
-The current parser accepts `SST`, `SST_ANOM` and `SST_MONTH` from the merged
-Python heat implementation. New indices/advisory envelopes fail validation
-until reviewed. #79's Python-produced conformance fixtures and OpenAPI drift
-check, a deployed response and #55's signed evidence manifest remain release
-gates. This endpoint makes no eligibility decision and cannot sign or pay.
+| Route | Behavior |
+| --- | --- |
+| `/hmi` | Miyagi farm polygons, satellite imagery, sea temperature, temperature anomaly, chlorophyll, polygon analysis, species/season selection and forecast playback |
+| `/market` | Scallop, hoya and oyster first; search/filter; compact purchase review; JPYC wallet checkout and verified sale contributions |
+| `/relief` | Fund balances, plot/season outcome, event evidence, held-payment claim, donations and market contributions |
+| `/preview` | Synthetic journeys for market, donor, farmer, holder and co-op components |
 
-## Connected preview screens (#67)
+The map and market provide English/Japanese controls. Temperature observations
+and forecasts remain separate from relief eligibility: the shared rules and
+contracts determine payment, not the map's selected layer or forecast slider.
 
-Open `/preview` from the Workshop's **Journeys** link. The overview connects
-`/preview/market`, `/preview/donate`, `/preview/farmer`, `/preview/holder` and
-`/preview/coop` using the same components as Storybook. The donor journey runs
-locally from amount entry through approval, donation, receipt and activity.
-Holder controls preview a request; pending actions do not change the recorded
-slot. Navigation starts a fresh sample screen; no account state is shared or
-persisted between pages.
+Marketplace quotes allocate **5% to the relief fund and 95% to the seller**.
+The Solid checkout validates the signed quote and signer, checks wallet funds
+and allowance, and verifies matching purchase/contribution receipts before
+showing success. A submitted transaction can be checked again after a reload.
+Closing purchase review does not cancel an already submitted transaction.
 
-These routes need no backend configuration. The live `/donate`, `/holder`,
-`/coop` and `/liff` route handoffs remain unchanged. See
-[the donor and operations preview notes](../docs/frontend-67-donor-operations-preview.md)
-for state coverage and the remaining integration gates.
-
-## Island boundaries
-
-- Astro owns layouts, routes and server composition.
-- `src/components/react/` owns React islands. Keep wagmi/QueryClient/World
-  providers in the same hydrated React tree as their consumers. MapLibre and
-  LINE initialization belongs in client effects.
-- `src/components/solid/` owns the reusable marketplace interaction. Its local
-  TypeScript config selects Solid JSX; integration include paths keep JSX
-  transforms separate. Both frameworks have interactive workshop stories.
-- `BidPanel` accepts `BidServices`. The workshop supplies an in-memory adapter;
-  it cannot access `window.ethereum`, send network requests, or call LINE. The
-  demo JPY offer is carried over from `superposition/reeldeal`, not the JPYC
-  purchase/relief settlement implementation tracked by #66. That adapter must
-  distinguish definitive rejection from an ambiguous submission before launch.
+`/api/market/quote` forwards validated requests to the existing quote signer in
+`web/`; the signing key stays there. Deploy that service with the same shared
+catalogue revision as Astro, including hoya and oyster. Payments use Sepolia
+test funds. Generated seafood illustrations are not photographs of sale lots;
+[asset provenance](public/images/fish/README.md) is recorded separately.
 
 ## Route migration inventory
 
-| URL | Current owner | Astro handoff |
-| --- | --- | --- |
-| `/map` | `web/` replay and map | #68 |
-| `/donate` | `web/` donor flow | #67 |
-| `/verify/[eventId]` | `web/` event verification | #68 |
-| `/liff` | `web/` farmer flow, #31 | #67 |
-| `/coop` | `web/` co-op tools | #67 |
-| `/holder` | `web/` holder tools | #67 |
-
-Until a replacement route exists, the catch-all redirects these page URLs to
-`LEGACY_WEB_ORIGIN`, preserving path and query. Unknown paths are 404, missing
-configuration is 503, and a same-origin destination is rejected to avoid a loop.
-API routes are not proxied. New Astro page files take precedence over the
-catch-all. `/` opens the coastal map at `/hmi` (`/hmi?lang=ja` for Japanese);
-the component workshop is now Storybook-only, with no `/workshop` route in the app.
+These page routes still redirect to `LEGACY_WEB_ORIGIN`, preserving path and
+query: `/map`, `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, and `/holder`.
+Missing configuration returns 503; unknown paths return 404. A same-origin
+redirect is rejected. The catch-all does not proxy API routes.
 
 ## Server and pipeline integration
 
-`astro:env/server` keeps `DATABASE_URL`, `PIPELINE_API_URL` and
-`LEGACY_WEB_ORIGIN` off the client. Only `PUBLIC_CHAIN_ID` is public. Configure
-secrets at runtime; do not pass them as island props or add a `PUBLIC_` prefix.
+Secrets remain server-side through `astro:env/server`. Plot geometry and
+metadata reach Astro through the pipeline API. The configured PostGIS
+inventory is authoritative; database-free pipeline development can use its
+reviewed seed. Database failures do not silently activate demo geometry.
 
-Future Astro API handlers import the reviewed `packages/app-core` boundary
-(#63), which owns application actions. PostgreSQL access stays server-side;
-Jay owns `risk` migrations, and the application owns `app`. Pipeline reads use
-Jay's FastAPI/OpenAPI handoff (#79) through the agreed shared adapter. This PR
-does not create schema migrations or change Trigger fields. New temperature
-fixtures must use `tempC`; existing shared domain reconciliation belongs to #55/#59.
+Heat responses are checked for plot/season identity, finite Celsius values,
+dates, observation ordering and source metadata. Missing observations stay
+missing. Unavailable fund or transaction reads are not displayed as zero or
+as confirmed payments. Forecasts are advisory.
+
+## Island boundaries
+
+- Astro owns routes, layouts and server composition.
+- `src/components/react/` owns wallet providers and marketplace filters/dialog controls.
+- `src/components/solid/` owns checkout and donation interactions.
+- `src/lib/hmi-map.client.ts` owns Leaflet layers and map interactions.
+- `packages/shared/` owns chain interfaces, catalogue, relief split and API validation.
 
 ## Storybook
 
-Stories use production components, organized as Atoms → Molecules → Organisms
-→ Pages. Astro props are pre-rendered: Controls do not change static props.
-Add a named story for each state, then rebuild. Hydrated islands remain
-interactive, and bid/wallet stories include `play` assertions.
+Stories use production components, arranged as Atoms → Molecules → Organisms
+→ Pages. Astro props are pre-rendered; use named stories for different static
+states. Hydrated controls have interaction assertions. `bun run storybook`
+builds once and serves the result; rebuild after edits. CI uses
+`bun run storybook:build`.
 
-The framework's native React/Solid CSF preview entries are disabled because all
-stories use Astro wrappers. Astro supplies both hydration renderers. This also
-avoids the obsolete `storybook-solidjs-vite/renderer/entry-preview` import.
+Viewport presets cover 320px and 390px phones, iPhone 17 (402×874), iPad portrait
+and landscape, and desktop (1440×900). Marketplace stories check later-card
+purchase review, dialog bounds, stable card width, focus return, filtering and
+Japanese checkout. Map stories cover layer panels, forecast playback and the
+single chlorophyll legend.
 
-The six generated seafood illustrations under `public/images/fish` are reused
-unchanged from the local storefront; their README records provenance. Astro and
-Storybook share species-matched images for preview cards and detail fallbacks.
-Submitted landing photos take precedence; unknown species retain the silhouette.
-Illustrations do not count as landing evidence.
-Viewport presets are 320×720, 390×844 and 1440×900. Full-page stories own their
-gutters; isolated components receive one 16px inset. Lot Detail uses the same
-isolated canvas as the other organism stories, without an extra page frame.
-
-Fixtures are synthetic: preview lots and lot-detail shapes originate from
-`superposition/reeldeal` at `c3546e7`; wallet addresses, amounts, decisions and
-receipts are examples. They are not observations, confirmed transfers or relief
-eligibility decisions. #61's reviewed domain records depend on #59.
-
-### Visual changes
-
-The existing accent colors, outlines, shadows, typography and phone frame are
-preserved. Only white surfaces use warmer paper (`#f2eddf`) and ivory
-(`#faf6ec`). Spacing uses existing tokens: 12px card padding, 16px grid gaps,
-24px between detail groups, and one card column below 360px. Cards and action
-rows can grow or wrap rather than clipping text.
-
-### Known upstream build diagnostic
-
-The pinned Astro 7/Storybook adapter can log `Failed to create the dev server
-app: transport was disconnected` when its temporary Vite SSR server closes.
-The Astro app build is clean; the static Storybook build completes. The log
-comes from Astro's dev-server bootstrap, which the adapter starts while
-pre-rendering. Do not hide unrelated errors: verify rendered story files,
-hydration, images and play assertions as well as the exit code.
-
-## Relief molecule previews (#61)
-
-Farm, species, equipment, contribution, measurement, provenance and transaction
-components reuse the existing atoms in 35 synthetic Storybook states. Resource
-cards include Japanese/English labels and loading, empty, missing and unavailable
-examples. Unmapped farms remain visible with their mapping gap explained.
-
-Temperature props use `tempC`; missing readings display text rather than zero.
-Zero Celsius remains a valid observation. Invalid values fall back to missing
-or unavailable, and unknown statuses cannot produce an empty badge. Forecasts
-are advisory, while Pending, Paid and Held explain the represented outcome.
-
-These are presentation props and local samples, not the #59 domain/API contract.
-Shared fixture adapters and validation of incoming domain data remain
-outstanding until the reviewed #59 records are available.
-The previews make no wallet, pipeline, database or LINE calls.
+Preview fixtures and example receipts are synthetic. They do not establish
+live inventory, transfers or relief eligibility. Storybook needs no database,
+wallet, pipeline or messaging credentials.

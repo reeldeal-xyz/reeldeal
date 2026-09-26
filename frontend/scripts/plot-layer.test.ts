@@ -16,6 +16,7 @@ describe('HMI farm-plots layer', () => {
     };
     const plot = { plotCode: '04-ku-1101', source: 'fishery_right', operation: 'cage', species: [], areaM2: 359_999.3, seaArea: null };
     expect(plotFacts(plot, labels)).toEqual(['cage · 36 ha']);
+    expect(plotFacts({ ...plot, operation: null }, labels)).toEqual(['36 ha']);
     expect(plotFacts({ ...plot, species: ['scallop', 'oyster'], seaArea: 'karakuwa-east', areaM2: 18_200 }, labels))
       .toEqual(['Scallop, oyster', 'cage · 1.82 ha']);
     expect(plotAreaName('kesennuma-bay', labels)).toBe('Kesennuma Bay');
