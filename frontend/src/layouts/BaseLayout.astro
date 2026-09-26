@@ -37,9 +37,10 @@ const ja = lang === 'ja';
             <image href={reeldealLogo} width="1254" height="1254" />
           </svg>
         </a>
-        <nav class="site-nav" style="grid-template-columns:repeat(2,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
+        <nav class="site-nav" style="grid-template-columns:repeat(3,minmax(0,1fr))" aria-label={ja ? 'メインメニュー' : 'Main navigation'}>
           <a href="/workshop" aria-current={section === 'workshop' ? 'page' : undefined}>{ja ? '魚市場' : 'Fish market'}</a>
           <a href={ja ? '/hmi?lang=ja' : '/hmi'} aria-current={section === 'hmi' ? 'page' : undefined}>{ja ? '沿岸マップ' : 'Coastal map'}</a>
+          <a href="/preview" aria-current={section === 'preview' ? 'page' : undefined}>{ja ? '利用の流れ' : 'Journeys'}</a>
         </nav>
       </div></header>
       <main id="main"><slot /></main>
@@ -47,3 +48,9 @@ const ja = lang === 'ja';
     </div>
   </body>
 </html>
+<style>
+  @media (max-width: 380px) {
+    .site-header__inner { flex-wrap: wrap; justify-content: center; gap: 8px; padding-block: 8px; }
+    .site-nav { flex-basis: 100%; }
+  }
+</style>

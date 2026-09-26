@@ -159,5 +159,6 @@
 /* Short screens: bottom panels end below the tool column (94px + 4 tools) instead of sliding under it; they scroll. */
 @media (max-height: 699px) { .bottom-shelf { max-height: max(140px, calc(100dvh - 412px - env(safe-area-inset-bottom))); } }
 /* Very short screens: tighten the tool column so it clears the zoom buttons. */
-@media (max-height: 580px) { .map-tools { top: 70px; gap: 4px; }.map-tool { min-height: 44px; }.coast-stack { top: 70px; } }
+/* The coast stack clears the header, which is up to 76px tall at <=380px wide (BaseLayout wraps it there). */
+@media (max-height: 580px) { .map-tools { top: 70px; gap: 4px; }.map-tool { min-height: 44px; }.coast-stack { top: 84px; } }
 @media (prefers-reduced-motion: reduce) { .map-shelf { transition: none; } }
