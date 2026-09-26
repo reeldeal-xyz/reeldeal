@@ -110,3 +110,20 @@ The Astro app build is clean; the static Storybook build completes. The log
 comes from Astro's dev-server bootstrap, which the adapter starts while
 pre-rendering. Do not hide unrelated errors: verify rendered story files,
 hydration, images and play assertions as well as the exit code.
+
+## Relief molecule previews (#61)
+
+Farm, species, equipment, contribution, measurement, provenance and transaction
+components reuse the existing atoms in 35 synthetic Storybook states. Resource
+cards include Japanese/English labels and loading, empty, missing and unavailable
+examples. Unmapped farms remain visible with their mapping gap explained.
+
+Temperature props use `tempC`; missing readings display text rather than zero.
+Zero Celsius remains a valid observation. Invalid values fall back to missing
+or unavailable, and unknown statuses cannot produce an empty badge. Forecasts
+are advisory, while Pending, Paid and Held explain the represented outcome.
+
+These are presentation props and local samples, not the #59 domain/API contract.
+Shared fixture adapters and validation of incoming domain data remain
+outstanding until the reviewed #59 records are available.
+The previews make no wallet, pipeline, database or LINE calls.

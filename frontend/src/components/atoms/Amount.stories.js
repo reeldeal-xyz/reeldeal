@@ -5,3 +5,4 @@ export const JPY = { args: { value: '2400', currency: 'JPY' } };
 export const Large = { args: { value: '9007199254740993.000000000000000001' } };
 export const Zero = { args: { value: '0' } };
 export const Unavailable = { args: { value: 'unknown' } };
+export const NumericInput = { args: { value: 2400 } };
