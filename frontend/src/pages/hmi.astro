@@ -99,7 +99,7 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
         </form>
       </aside>
       <section class="map-panel" aria-labelledby="map-title">
-        <div class="panel-heading"><div><h2 id="map-title">{copy.map}</h2></div><span class="map-scale">38.85°N · 141.8°E</span></div>
+        <div class="panel-heading"><div><h2 id="map-title">{copy.map}</h2></div><output class="map-scale" data-map-center aria-live="polite">38.85°N · 141.80°E</output></div>
         {statusText && <p class="notice" role="status">{statusText}</p>}
         <div class="map-wrap">
           <nav class="map-layers" aria-label={lang === 'ja' ? '衛星データレイヤー' : 'Satellite data layers'}>
@@ -113,9 +113,9 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
           </div>
           <div class="area-controls"><button type="button" data-area-draw aria-pressed="false">{copy.draw}</button><button type="button" data-area-run disabled>{copy.analyze}</button><button type="button" data-area-clear disabled>{copy.clear}</button></div>
           <div id="hmi-map" class="map" role="application" aria-label={lang === 'ja' ? '宮城県の養殖区画図。クリックして範囲を指定できます。' : 'Miyagi plot map. Click to draw a polygon area.'} tabindex="0"></div>
-
           {!statusText && hmi.status === 'available' && !hmi.plots.length && <p class="empty-map">{lang === 'ja' ? '表示範囲内に区画がありません。' : 'No plots in this map extent.'}</p>}
         </div>
+        <p class="map-tile-status" data-map-tile-status role="status" hidden><span>{lang === 'ja' ? '地図タイルを読み込めませんでした。' : 'Map tiles failed to load.'}</span><button type="button" data-map-tiles-retry>{lang === 'ja' ? '再試行' : 'Retry'}</button></p>
         <p class="map-help">{copy.mapHelp}</p>
         <p class="map-help" data-area-help aria-live="polite">{copy.help} {copy.extent}</p>
         <section class="area-result" data-area-result aria-live="polite" hidden></section>
@@ -140,7 +140,6 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
         </section>
       </aside>
     </div>
-    <footer class="hmi-foot">{copy.source}: {lang === 'ja' ? '衛星観測データ。区画の一部はデモ用です。' : 'Satellite observations. Some plot geometries are for demonstration.'}</footer>
   </div>
 </BaseLayout>
 <script>
@@ -159,15 +158,24 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
   if (map) {
     const bounds: L.LatLngBoundsExpression = [[37.2, 140.5], [40.5, 143.1]];
     map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19, attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-    }).addTo(map);
+    });
     const gibs = 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
     const overlays: Record<string, L.TileLayer.WMS> = {
       sst: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
       anom: L.tileLayer.wms(gibs, { layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies', format: 'image/png', transparent: true, opacity: 0.72, version: '1.1.1', attribution: 'NASA GIBS / GHRSST MUR' }),
       chl: L.tileLayer.wms(gibs, { layers: 'OCI_PACE_Chlorophyll_a', format: 'image/png', transparent: true, opacity: 0.78, version: '1.1.1', attribution: 'NASA GIBS / PACE OCI' }),
     };
+    const tileStatus = document.querySelector<HTMLElement>('[data-map-tile-status]');
+    let activeLayer = 'satellite';
+    const monitorTiles = (layer: L.TileLayer, name: string, base = false) => layer.on('loading', () => {
+      if ((base || activeLayer === name) && tileStatus) tileStatus.hidden = true;
+    }).on('tileerror', () => {
+      if ((base || activeLayer === name) && tileStatus) tileStatus.hidden = false;
+    });
+    monitorTiles(imagery, 'satellite', true).addTo(map);
+    Object.entries(overlays).forEach(([name, layer]) => monitorTiles(layer, name));
     const drawLayer = L.layerGroup().addTo(map);
     const dataLayer = L.layerGroup().addTo(map);
     features.zones.forEach((zone) => L.geoJSON(zone.geometry, { style: { color: '#f0d879', weight: 2, dashArray: '5 4', fillColor: '#f0d879', fillOpacity: 0.08 } }).bindTooltip(zone.name).addTo(dataLayer));
@@ -180,8 +188,19 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
       L.circleMarker([plot.centroid[1], plot.centroid[0]], { radius: plot.selected ? 8 : 6, color: '#fff', weight: 2, fillColor: plot.source === 'demo' ? '#e6b94f' : '#eb6046', fillOpacity: 1 }).bindTooltip(plot.plotCode).addTo(dataLayer);
     });
     map.fitBounds(bounds, { padding: [10, 10] });
+    const centerOutput = document.querySelector<HTMLOutputElement>('[data-map-center]');
+    const setCenter = () => {
+      const center = map.getCenter();
+      if (centerOutput) centerOutput.value = `${Math.abs(center.lat).toFixed(2)}°${center.lat < 0 ? 'S' : 'N'} · ${Math.abs(center.lng).toFixed(2)}°${center.lng < 0 ? 'W' : 'E'}`;
+    };
+    map.on('moveend', setCenter);
+    setCenter();
     const layerButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-map-layer]')];
+    document.querySelector<HTMLButtonElement>('[data-map-tiles-retry]')?.addEventListener('click', () => {
+      imagery.redraw(); if (activeLayer !== 'satellite') overlays[activeLayer]?.redraw();
+    });
     const activate = (name: string) => {
+      activeLayer = name;
       Object.values(overlays).forEach((layer) => map.removeLayer(layer));
       if (name !== 'satellite') overlays[name]?.addTo(map);
       layerButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mapLayer === name)));
@@ -262,8 +281,8 @@ const metricName = metric === 'SST_ANOM' ? (lang === 'ja' ? '水温偏差' : 'SS
   .swatch.heat { background: #db714d; }.swatch.hab { background: #8d60a9; }.swatch.storm { background: #547bca; }.disabled { opacity: .62; }
   .layer-note,.mode-panel > p,.source-note,.coverage { margin-top: 9px; color: var(--hmi-muted); font-size: .7rem; line-height: 1.45; }
   .mode-switch { display: flex; gap: 5px; }.mode-switch button { min-height: 34px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; font-size: .72rem; font-weight: 700; }.mode-switch [aria-pressed="true"] { color: white; background: #124750; }.mode-switch button:disabled { opacity: .6; }
-  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: clamp(390px, 58vh, 620px); touch-action: none; cursor: grab; background: #cbe9e8; }.map:active { cursor: grabbing; }.map.drawing { cursor: crosshair; }.map:focus-visible { outline: 3px solid #0b5ed7; outline-offset: -3px; }.map-layers,.map-controls,.area-controls { position: absolute; z-index: 1000; display: flex; gap: 5px; padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; box-shadow: 0 1px 4px #163e4430; }.map-layers { top: 9px; left: 9px; max-width: calc(100% - 130px); overflow-x: auto; }.map-layers button,.map-controls button,.area-controls button { flex: none; min-height: 38px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: 700 .74rem var(--font-body); cursor: pointer; }.map-layers button[aria-pressed="true"] { color: white; border-color: #124750; background: #124750; }.map-controls { top: 9px; right: 9px; }.map-controls > div { display: flex; gap: 3px; }.map-controls button { min-width: 38px; padding: 0 8px; }.map-controls button[data-map-zoom='in'],.map-controls button[data-map-zoom='out'] { font-size: 1.05rem; }.area-controls { bottom: 10px; left: 10px; flex-wrap: wrap; max-width: calc(100% - 20px); }.area-controls button { min-height: 42px; }.area-controls button:first-child { color: white; border-color: #124750; background: #124750; }.area-controls button:disabled { opacity: .48; cursor: default; }.map .drawing { cursor: crosshair; }.area-result { margin-top: 8px; padding: 10px; border-radius: 6px; color: #263f37; background: #edf5ed; font-size: .78rem; line-height: 1.45; }.area-result[hidden] { display: none; }.map-help { margin: 6px 0 0; color: var(--hmi-muted); font-size: .66rem; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }.leaflet-container { font: inherit; }
+  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: clamp(390px, 58vh, 620px); touch-action: none; cursor: grab; background: #cbe9e8; }.map:active { cursor: grabbing; }.map.drawing { cursor: crosshair; }.map:focus-visible { outline: 3px solid #0b5ed7; outline-offset: -3px; }.map-layers,.map-controls,.area-controls { position: absolute; z-index: 1000; display: flex; gap: 5px; padding: 5px; border: 1px solid #aec3bd; border-radius: 7px; background: #fbfcf8ed; box-shadow: 0 1px 4px #163e4430; }.map-layers { top: 9px; left: 9px; max-width: calc(100% - 130px); overflow-x: auto; }.map-layers button,.map-controls button,.area-controls button { flex: none; min-height: 38px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: 700 .74rem var(--font-body); cursor: pointer; }.map-layers button[aria-pressed="true"] { color: white; border-color: #124750; background: #124750; }.map-controls { top: 9px; right: 9px; }.map-controls > div { display: flex; gap: 3px; }.map-controls button { min-width: 38px; padding: 0 8px; }.map-controls button[data-map-zoom='in'],.map-controls button[data-map-zoom='out'] { font-size: 1.05rem; }.area-controls { bottom: 10px; left: 10px; flex-wrap: wrap; max-width: calc(100% - 20px); }.area-controls button { min-height: 42px; }.area-controls button:first-child { color: white; border-color: #124750; background: #124750; }.area-controls button:disabled { opacity: .48; cursor: default; }.map .drawing { cursor: crosshair; }.map-layer-note,.map-help { margin: 6px 0 0; color: var(--hmi-muted); font-size: .7rem; line-height: 1.4; }.map-date { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #d4dfda; border-radius: 7px; background: #f5f8f4; }.map-date label { display: grid; gap: 4px; color: var(--hmi-muted); font-size: .68rem; font-weight: 700; }.map-date input,.map-date button { min-height: 42px; padding: 0 9px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; }.map-date button { font-size: .72rem; font-weight: 700; cursor: pointer; }.map-date button:disabled,.map-date input:disabled { opacity: .5; cursor: default; }.map-date span { color: var(--hmi-muted); font-size: .68rem; }.area-result { margin-top: 8px; padding: 10px; border-radius: 6px; color: #263f37; background: #edf5ed; font-size: .78rem; line-height: 1.45; }.area-result[hidden] { display: none; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }.leaflet-container { font: inherit; }
   .detail-card h2 { margin-bottom: 7px; text-transform: capitalize; }.detail-card > p:not(.eyebrow) { color: var(--hmi-muted); font-size: .78rem; line-height: 1.45; }.section-title { align-items: end; }.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }.chart polyline { fill: none; stroke: #ce6548; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }.chart-grid { fill: none; stroke: #d9e3dd; stroke-width: 1; }.chart text { fill: var(--hmi-muted); font-size: 11px; }.empty-chart { margin-top: 12px; }.threshold { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e9e4; font-size: .75rem; }.threshold div { display: grid; gap: 2px; }.threshold span { color: var(--hmi-muted); font-size: .67rem; }.threshold b { white-space: nowrap; }.forecast-card { border-color: #dbcbc1; background: #faf6f0; }.hmi-foot { padding-top: 13px; color: var(--hmi-muted); font-size: .68rem; }
   @media(max-width: 980px) { .hmi-workspace { grid-template-columns: 190px minmax(0,1fr); }.detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); }.detail-card { min-width: 0; } }
-  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.heading-tools { justify-content: space-between; margin-top: 10px; }.live-badge { display: inline-flex; align-items: center; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.panel-heading { align-items: start; }.map { height: min(52vh, 460px); min-height: 380px; }.map-layers { top: 5px; left: 5px; max-width: calc(100% - 110px); gap: 3px; padding: 3px; }.map-layers button,.map-controls button { min-height: 40px; padding: 0 7px; font-size: .68rem; }.map-controls { top: 5px; right: 5px; gap: 3px; padding: 3px; }.area-controls { bottom: 5px; left: 5px; gap: 4px; padding: 4px; }.area-controls button { min-height: 44px; padding: 0 8px; font-size: .69rem; }.map-legend { gap: 8px; }.detail-rail { gap: 9px; } }
+  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.heading-tools { justify-content: space-between; margin-top: 10px; }.live-badge { display: inline-flex; align-items: center; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.panel-heading { align-items: start; }.map { height: min(52vh, 460px); min-height: 380px; }.map-layers { top: 5px; left: 5px; max-width: calc(100% - 110px); gap: 3px; padding: 3px; }.map-layers button,.map-controls button { min-height: 40px; padding: 0 7px; font-size: .68rem; }.map-controls { top: 5px; right: 5px; gap: 3px; padding: 3px; }.area-controls { bottom: 5px; left: 5px; gap: 4px; padding: 4px; }.area-controls button { min-height: 44px; padding: 0 8px; font-size: .69rem; }.map-date { align-items: stretch; }.map-date label { flex: 1 1 160px; }.map-date input,.map-date button { width: 100%; }.map-date span { flex: 1 1 100%; }.map-legend { gap: 8px; }.detail-rail { gap: 9px; } }
 </style>
