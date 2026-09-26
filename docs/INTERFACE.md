@@ -115,11 +115,13 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 
 ## Rules and regression
 
-`RULES` and `REFERENCE_FIRES` in `packages/shared/src/rules.ts`. The pipeline must reproduce `REFERENCE_FIRES` exactly at 38.85N 141.66E:
+`RULES` and `REFERENCE_FIRES` in `packages/shared/src/rules.ts`. The pipeline must reproduce `REFERENCE_FIRES` exactly at 38.85N 141.66E. The dates were re-derived on 2026-09-26 from the pipeline's JAXA daily SST series (`pipeline/tests/heat/snapshots/kesennuma-sst-2022-2025.csv`; gap fill SGLI night → SGLI day → AMSR2, `pipeline/README.md` Q10), replacing the NASA MUR dates. `packages/shared/test/reference-fires.test.ts` recomputes them from that snapshot.
 
 | Season | Fires |
 |---|---|
 | 2022 | none |
-| 2023 | scallop tier 2 on 11 Aug, scallop tier 1 on 12 Aug, hoya on 25 Aug |
-| 2024 | hoya on 15 Sep |
-| 2025 | scallop tier 1 on 28 Aug, hoya on 1 Sep |
+| 2023 | scallop tier 1 on 13 Aug, scallop tier 2 on 14 Aug, hoya on 27 Aug |
+| 2024 | scallop tier 1 on 5 Sep, hoya on 9 Sep |
+| 2025 | scallop tier 1 on 20 Aug, hoya on 31 Aug |
+
+Each SST value carries `source.product` (SGLI or AMSR2). Consumers should keep it with the value so a payout that rests on AMSR2's coarser offshore reading can be shown as such.

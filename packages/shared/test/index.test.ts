@@ -55,8 +55,8 @@ describe('rules and regression targets', () => {
 
   test('REFERENCE_FIRES 2022 has no fires and 2023 matches the documented regression target', () => {
     expect(Object.keys(REFERENCE_FIRES['2022'])).toHaveLength(0);
-    expect(REFERENCE_FIRES['2023']['scallop:2']).toBe('2023-08-11');
-    expect(REFERENCE_FIRES['2023']['scallop:1']).toBe('2023-08-12');
+    expect(REFERENCE_FIRES['2023']['scallop:2']).toBe('2023-08-14');
+    expect(REFERENCE_FIRES['2023']['scallop:1']).toBe('2023-08-13');
   });
 });
 

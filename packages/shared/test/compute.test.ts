@@ -95,7 +95,7 @@ test('triggerToJson/triggerFromJson round-trip bigints as decimal strings', () =
 
 // ---------------------------------------------------------------------------------------------------
 // Regression: reproduce REFERENCE_FIRES exactly from a synthetic 92-day SST series at the reference
-// point, the same job pipeline/src/indices.ts (#6) must do against the real NASA data. The series below
+// point. The real-data check is test/reference-fires.test.ts, against the pipeline's JAXA snapshot. The series below
 // is constructed (not measured), but it is constructed *blind to the compute functions* — by placing
 // count/last-day targets for each HEAT category and letting `computeIndices`/`evaluateRules` do the
 // actual threshold evaluation — so this is a real exercise of the algorithm, not a tautology.
@@ -172,9 +172,10 @@ function buildSeason(year: number, plan: { A: CategoryPlan; B: CategoryPlan; C: 
 // (heat26 <= heat25 <= heat24) exactly like the real cumulative definition.
 const SEASON_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: CategoryPlan }> = {
   '2022': { A: { count: 0, last: null }, B: { count: 2, last: null }, C: { count: 8, last: null } },
-  '2023': { A: { count: 12, last: 42 }, B: { count: 2, last: 43 }, C: { count: 16, last: 56 } }, // Aug 11/12/25
-  '2024': { A: { count: 0, last: null }, B: { count: 0, last: null }, C: { count: 30, last: 77 } }, // Sep 15
-  '2025': { A: { count: 0, last: null }, B: { count: 14, last: 59 }, C: { count: 16, last: 63 } }, // Aug 28, Sep 1
+  // 2023: scallop:1 (HEAT25) reaches 14 on Aug 13, the day before scallop:2 (HEAT26) reaches 12 on Aug 14.
+  '2023': { A: { count: 12, last: 45 }, B: { count: 3, last: 44 }, C: { count: 15, last: 58 } }, // Aug 13/14/27
+  '2024': { A: { count: 0, last: null }, B: { count: 14, last: 67 }, C: { count: 16, last: 71 } }, // Sep 5, Sep 9
+  '2025': { A: { count: 0, last: null }, B: { count: 14, last: 51 }, C: { count: 16, last: 62 } }, // Aug 20, Aug 31
 };
 
 for (const [season, plan] of Object.entries(SEASON_PLANS)) {

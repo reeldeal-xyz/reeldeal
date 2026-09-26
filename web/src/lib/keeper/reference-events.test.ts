@@ -43,7 +43,7 @@ describe('getReferenceEvent', () => {
     expect(ref.species).toBe('scallop');
     expect(ref.tier).toBe(2);
     expect(ref.peril).toBe('HEAT26');
-    expect(ref.firedOn).toBe('2023-08-11');
+    expect(ref.firedOn).toBe('2023-08-14');
   });
 
   test('throws with the list of known ids for an unknown id', () => {
