@@ -163,6 +163,7 @@ def test_plot_inventory_uses_real_fishery_right_geometry_from_postgis():
     assert plot["areaM2"] > 100_000
     assert 141.63 < plot["centroid"][0] < 141.65
     assert 38.88 < plot["centroid"][1] < 38.90
+    assert client.get("/hab/plots/p1213-001/risk", params={"season": "2026"}).status_code == 200
 
 
 def test_upload_rejects_an_invalid_polygon():

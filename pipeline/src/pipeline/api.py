@@ -139,9 +139,10 @@ def core_router(modules: Iterable[ModuleName]) -> APIRouter:
 
     @router.get("/plots", response_model=list[Plot])
     def list_plots(bbox: str | None = None, species: Species | None = None) -> list[Plot]:
-        """Plot inventory (no personal data): the reviewed seed, then uploads. bbox = west,south,east,north.
+        """Plot inventory (no personal data): every live plot in the database. bbox = west,south,east,north.
 
-        Uploads come from the database; while it is unavailable only the seed is listed.
+        That covers uploads, the loaded fishery rights and the demo plots; while the database is unavailable only the
+        reviewed seed is listed.
         """
         return [_plot(p) for p in store.query_all(_bbox(bbox), species)]
 
