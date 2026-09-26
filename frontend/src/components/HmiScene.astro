@@ -36,8 +36,7 @@ const copy = ja ? {
   mapLabel: '日本のインタラクティブ地図（宮城県を初期表示）', coast: '日本沿岸', online: '衛星・海洋観測', panels: '地図パネル', market: '魚市場',
   layers: 'レイヤー', thresholds: '基準値', forecast: '予報', area: '範囲', observations: '観測', close: '閉じる',
   plot: '養殖区画', noPlot: '区画データなし', language: '言語',
-  satellite: '衛星写真', sst: '海面水温', anom: '水温偏差', chl: 'クロロフィル',
-  chlNote: 'クロロフィルは海色を示すもので、赤潮・貝毒の確認ではありません。',
+  satellite: '衛星写真', sst: '海面水温', anom: '水温偏差',
   imageryContext: '地図画像は参考表示です。区画ごとの検証済み観測値とは別のデータです。',
   speciesThresholds: '魚種別の基準値', daysAbove: '基準水温以上の日数。補償の判定は別に行われます。',
   noThreshold: 'この魚種の水温基準は未登録です。', rules: 'ルール', profiles: 'プロファイル', evidence: '根拠資料',
@@ -60,8 +59,7 @@ const copy = ja ? {
   mapLabel: 'Interactive map of Japan, initially focused on Miyagi', coast: 'Japan coast', online: 'Satellite & ocean observations', panels: 'Map panels', market: 'Fish market',
   layers: 'Layers', thresholds: 'Thresholds', forecast: 'Forecast', area: 'Area', observations: 'Observations', close: 'Close',
   plot: 'Farm plot', noPlot: 'No plot data', language: 'Language',
-  satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly', chl: 'Chlorophyll',
-  chlNote: 'Chlorophyll shows ocean colour, not a confirmed bloom.',
+  satellite: 'Satellite', sst: 'Sea temperature', anom: 'Temp anomaly',
   imageryContext: 'Map imagery is visual context, separate from validated plot observations.',
   speciesThresholds: 'Species thresholds', daysAbove: 'Days above the temperature threshold. Relief eligibility is determined separately.',
   noThreshold: 'No heat threshold is registered for this species.', rules: 'Rules', profiles: 'profiles', evidence: 'Response evidence',
@@ -145,7 +143,7 @@ const clientCopy = JSON.stringify({
   draw: copy.draw, cancel: copy.cancel, help: copy.help, extent: copy.extent, sampling: copy.sampling, noData: copy.noData,
   areaFailed: copy.areaFailed, tilesFailed: copy.tilesFailed, loading: copy.loading, loaded: copy.loaded,
   updateFailed: copy.updateFailed, panelFailed: copy.panelFailed, outlines: copy.outlines, satelliteNote: copy.satelliteNote,
-  overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, chl: copy.chl, habLog: ja ? '（対数）' : '(log)',
+  overlayUnavailable: copy.overlayUnavailable, sst: copy.sst, anom: copy.anom, habLog: ja ? '（対数）' : '(log)',
   plotSelect: copy.plotSelect, plotHeatLoading: copy.plotHeatLoading, plotHeat: copy.plotHeat, plotHeatNotBuilt: copy.plotHeatNotBuilt,
   plotHeatNoPixels: copy.plotHeatNoPixels, plotHeatUnavailable: copy.plotHeatUnavailable,
 });
@@ -215,7 +213,6 @@ const languageHref = (locale: 'en' | 'ja') => {
         <label><input type="checkbox" name="map-layer" value="satellite" checked /><span>{copy.satellite}</span></label>
         <label><input type="checkbox" name="map-layer" value="sst" /><span>{copy.sst}</span></label>
         <label><input type="checkbox" name="map-layer" value="anom" /><span>{copy.anom}</span></label>
-        <label><input type="checkbox" name="map-layer" value="chl" /><span>{copy.chl}</span></label>
         <label><input type="checkbox" name="map-layer" value="hab" disabled={!habLayer} aria-describedby="hab-reason" /><span>{ja ? 'HAB指標（JAXA）' : 'HAB chl-a (JAXA)'}</span></label>
       </fieldset>
       {!!plots.length && <ul class="plot-legend" aria-label={ja ? '区画の凡例' : 'Plot legend'}>
@@ -227,7 +224,6 @@ const languageHref = (locale: 'en' | 'ja') => {
         </select>
       </label>
       <p class="shelf-note" data-layer-date>{copy.satelliteNote}</p>
-      <p class="shelf-note" data-chlorophyll-note hidden>{copy.chlNote}</p>
       <div data-response-panel="hab">
         <div data-hab-source data-overlay={habOverlay}></div>
         <p id="hab-reason" class="shelf-note" aria-live="polite">{habText}</p>
