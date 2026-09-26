@@ -166,3 +166,14 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 Each SST value carries `source.product` (SGLI or AMSR2). Consumers should keep it with the value so a payout that rests on AMSR2's coarser offshore reading can be shown as such.
 
 Seasons for the replay: `2022`, `2023`, `2024`, `2025` (July to September data), all paying the `"2026"` season slots.
+
+
+## Astro relief read API: unavailable is not zero (#152 / #40)
+
+`GET /api/relief/fund` returns `atBlock` (decimal block number), balances and reservations read at that block, and a bounded recent `events` list. `totals` is `null` when the event scan is unavailable; it is never a synthetic zero balance. `eventsAvailable` reports scan success; `eventsComplete` also requires that the display list is not truncated. Consumers must not reuse a truncated display list as complete event history. The chain scan uses contiguous 25,000-block requests with a bounded total range; larger deployments require the persistent indexer tracked by #69.
+
+`GET /api/relief/plot/:plot?season=2026&eventId=0x…` validates the plot label, season, optional full 32-byte event ID and duplicate parameters before reading. Omitted season defaults to 2026; invalid supplied values return 400. Unknown enrollment/event returns 404 and failed required reads return 503. Successful data carries `atBlock`, nullable `enrolled`, `plotReadAvailable`, `targetReadAvailable` and `settlementReadStatus` (`available`, `not-found`, `unavailable`). A failed read is not evidence of no farmer, no identity or no settlement.
+
+An explicit `eventId` is never replaced by a newer event. Without one, plot outcomes are resolved against the requested attestation season, not merely the newest plot log. Missing or truncated history must not grant eligibility. `recipient` is the recorded payment recipient, not necessarily the current ENS slot owner.
+
+The public relief page is a lookup, not an authenticated My Plots list. An invalid selection must never display the first plot's payment. The **Payment confirmed** label additionally requires a successful receipt, at least two confirmations and a matching nonzero `Paid`/`Claimed` event from the configured ReliefPool for the exact plot/event/amount, plus the matching JPYC transfer from the pool to that recipient in the same receipt. A recorded state without matching receipt proof stays explicitly unverified. Transaction submission/replacement/recovery and authenticated wallet/LINE return remain separate release gates in #40/#70/#71.

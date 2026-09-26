@@ -6,7 +6,8 @@ export const GET: APIRoute = async () => {
   try {
     const client = createSepoliaClient(SEPOLIA_RPC_URL);
     const summary = await getFundSummary(client);
-    return Response.json(summary, { headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+    const status = summary.balanceWei === null && summary.reservedWei === null && !summary.eventsAvailable ? 503 : 200;
+    return Response.json(summary, { status, headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
   } catch {
     return Response.json(
       { error: 'unavailable' },
