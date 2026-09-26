@@ -8,14 +8,14 @@ Caddy (pipeline/) :443 ─┬─ <SITE_ADDRESS>      → api:8787  (pipeline pro
 web ──> db:5432 (reeldeal network, role `app`)   web ──> LEGACY_WEB_ORIGIN (redirects for unported pages)
 ```
 
-Live: `https://app.13-196-78-137.sslip.io`. Pages not yet ported to Astro redirect to `LEGACY_WEB_ORIGIN`, the Next.js app on Railway, until #63/#66–#68 land.
+Live: `https://app.13-196-78-137.sslip.io`. The map, market and relief dashboard are native Astro pages. LIFF, donor, co-op, holder and verification pages redirect to `LEGACY_WEB_ORIGIN`, the Next.js app on Railway.
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `Dockerfile` | Multi-stage build from the repo root: Bun installs the frontend's deps from `bun.lock`, Astro builds, and the runtime is `node:24-slim` with production deps only, running as `node`. Healthcheck on `/health`. |
-| `Dockerfile.dockerignore` | Keeps the root build context to the manifests, lockfile and `frontend/`. |
+| `Dockerfile.dockerignore` | Keeps the root build context to the manifests, lockfile, `packages/shared/` and `frontend/`. |
 | `docker-compose.yml` | The `web` service on the external `reeldeal` network, no published ports, `.env` for runtime secrets. |
 | `deploy/up.sh` | Builds and starts the container, then checks that `/health` reports `GIT_SHA`. |
 | `../pipeline/caddy/Caddyfile` | The `app.{$SITE_ADDRESS}` site. |
@@ -56,6 +56,11 @@ frontend/deploy/up.sh    # then e.g. docker compose -f pipeline/docker-compose.y
 
 See [HMI forecast and thresholds](../docs/hmi-forecast-thresholds.md). Set `OPEN_METEO_API_KEY` only in the server-side `frontend/.env` to use the commercial customer hosts. Without a key, the provider endpoints are noncommercial-only. Provider quotas are process-local, not a shared multi-replica quota manager.
 
-### Weather forecast configuration (#161)
+## Quote service deployment
 
-Set `OPEN_METEO_API_KEY` in the server-only `frontend/.env` for a commercial provider subscription. The API uses customer hosts when a key is configured; no key is exposed to the browser. Without one, only noncommercial public endpoint usage is permitted. Process-local request budgets do not replace shared account quotas in a multi-replica deployment. See [HMI forecast and thresholds](../docs/hmi-forecast-thresholds.md).
+Deploy `web/` with the same `packages/shared/src/market.ts` revision as Astro. The
+Astro `/api/market/quote` route proxies the legacy signer; deploying Astro alone does
+not update its catalogue. Check `rd-lot-004`, `kesennuma-hoya` and
+`karakuwa-oysters` quotes through the Astro origin. Each must use the deployed router,
+the requested buyer, the shared listing price and `reliefBps: 500`. A quote check does
+not send a payment.

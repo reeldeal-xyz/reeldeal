@@ -4,358 +4,157 @@
 
 **Community-funded relief payments for aquaculture farmers.**
 
-Parametric relief for Japan's aquaculture farmers: donors fund a pool, a public ocean
-risk index (JAXA satellite data, prefecture shipping-restriction bulletins) crosses a
-species threshold, and JPYC pays out on Sepolia to the ENSv2-registered owner of the
-affected plot's season slot — capped per real person with World ID, explained and
-delivered over LINE.
+Buy local seafood. Put **5% of each purchase into a relief fund**. Use public ocean
+data and species-specific rules to direct JPYC relief to eligible farmers.
 
-Built at ETHGlobal Tokyo 2026 (Classic track). For the submission write-up —
-sponsor-by-sponsor integration table with code references and proof transactions,
-deployed addresses, demo script, team, and an honest list of what's real today versus
-what's still in progress — see **[docs/SUBMISSION.md](docs/SUBMISSION.md)**.
+Built at ETHGlobal Tokyo 2026, Classic track. The deployed contracts use
+**Sepolia, chain 11155111**.
 
-- Farmer app (LINE LIFF): <https://liff.line.me/2011749457-SgvM5ahH>
-- Astro app: <https://app.13-196-78-137.sslip.io> · Pipeline risk API: <https://13-196-78-137.sslip.io>
-- ReliefPool demo pool (Sepolia): [`0xB258…43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) (first live payout: [`0x560E…96D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32)) · SaleRouter: [`0xfc17…58bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) · HumanRegistry: [`0xc713…D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8)
+[Coastal map](https://app.13-196-78-137.sslip.io/hmi) ·
+[Fish market](https://app.13-196-78-137.sslip.io/market) ·
+[Relief dashboard](https://app.13-196-78-137.sslip.io/relief) ·
+[LINE farmer app](https://liff.line.me/2011749457-SgvM5ahH) ·
+[Submission](docs/SUBMISSION.md) · [Form text](docs/FORM.md)
 
----
+## The problem
 
-## Current app
+Heat stress and shipping restrictions disrupt aquaculture livelihoods. Farmers,
+co-ops and supporters need a shared view of ocean conditions, clear relief rules
+and a record of where contributions go. A restriction bulletin is evidence of
+constrained sales; it does not measure an individual farm's loss.
 
-The Astro app contains the coastal map (`/hmi`), fish market (`/market`) and relief
-dashboard (`/relief`). Scallop, hoya and oyster lead the market. Purchases allocate
-**5% to the relief fund and 95% to the seller**, through SaleRouter on Sepolia.
-The map includes registered plots, satellite/ocean layers, species-specific
-relief thresholds, polygon analysis and advisory forecast playback.
+## What Reel Deal does
 
-See [frontend/README.md](frontend/README.md) for local setup, routes, Storybook
-and integration boundaries. The quote signer and remaining LINE/co-op/holder
-flows still run in `web/`; Astro is the main UI. Preview journeys and generated
-seafood illustrations are separate from confirmed transactions and observations.
+| Screen | Purpose |
+| --- | --- |
+| Coastal map | Explore Japan's coast from Miyagi: plot polygons, satellite imagery, sea temperature/anomaly, chlorophyll, species thresholds and advisory forecast playback. Select a plot or draw an area. |
+| Fish market | Scallop, sea pineapple (hoya) and oyster lead the catalogue. Review the price and **95% seller / 5% relief** split before wallet checkout. |
+| Relief | Inspect fund balances, contributions, plot outcomes, payment evidence and held-payment claims. |
+| LINE | Farmer identity, season slots, wallet and payment notifications through LIFF. |
 
-## Background and proposed data model
+The map and market support English/Japanese. Mobile map controls collapse; market
+purchase reviews use a dialog. Generated seafood illustrations are documented in
+[asset provenance](frontend/public/images/fish/README.md).
 
-Reel Deal is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
+## How it works
 
-Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event.
+1. A donation or SaleRouter checkout funds ReliefPool in JPYC.
+2. A farmer holds an ENSv2 plot season slot and verifies identity with World ID.
+3. The pipeline supplies ocean observations and reviewed restriction indices.
+   Shared species rules determine whether a relief trigger fires.
+4. The keeper applies the confidence/review gate and submits a signed trigger.
+   ReliefPool requires two signer signatures.
+5. Settlement resolves the season-slot owner and either pays or records a held
+   share with a reason. MultiBaas events drive the LINE notification path.
 
-The policyholder pays the fund, the fund manages the money and pays the beneficiaries in the case of event.
+Forecast playback is advisory. Moving the slider does not trigger a payment.
 
-Types of insurance:
-
-1. Conventional, damages-based insurance: In this form of insurance, the policyholder pays the fund regularly. When event defined by the policy occurs (ex. car accident), the insurance company evaluates the damages and pays out depending on the value of damages. The beneficiary receives the fund after the damage is estimated.  
-2. Parametric insurance: In this form of insurance the policyholder pays the fund regularly. When the event defined by the policy occurs, the payout is triggered by event thresholds rather than the damages that occured. For example, in wildfire scenario, the insurance payout is triggered by the property reaching excessive temperature (ex. above 200 deg C). Benefit is that this insurance does not require someone to assess damages and funds are released sooner, so can be used for responding to the triggered event.
-
-We are working with parametric insurance model, with thresholds crossed leading to release of funds.
-
-The thresholds are defined by the species and equipment used for farming, since each species (finfish, shellfish, seaweed) has different tolerances to threats, like heat stress, storm energy damage, toxins from harmful algal blooms.
-
-Avoiding the full "insurance" claim, since that comes with substantial legal burden. Instead, this is a relief fund that is a social good.
-
-Fund the relief fund through range of mechanisms:
-
-1. Direct donations to the fund  
-2. Collecting fees from fisherman / aquaculture farmers  
-3. Selling the local products (ReelDeal)
-
-The data to inform whether the thresholds are crossed or not, comes from satellite imagery data (JAXA, NASA, ESA), deployed sensor networks with direct readings in-ocean, PDF reports from local government. The sensor networks and reports from local government is the ground truth, which we can calibrate / confidence on the satellite imagery derived results.
-
-We can understand / forecast / hindcast the occurrence of threshold triggering events from these data. This forms the spatial model for risk, model the distribution (where and how likely) thresholds are crossed (therefore cause damage to local fisherman, trigger payouts).
-
-## **DataTypes**
-
-Farm
-
-- ID unique  
-- Location of the farm, GeoJSON polygon   
-- Specie (relation to Species)  
-- Equipment (relation to Equipments) 
-
-AquacultureFarmer
-
-- ID unique  
-- Farms (relation to Farm, one to many)   
-- Fund (relation)
-
-Species
-
-- Species name string  
-- Thresholds by RiskModel, numeric
-
-Equipments 
-
-- Equipment type string  
-- Description string 
-
-Event
-
-- Threshold  
-- Datetime  
-- Fund   
-- Farm
-
-Threshold
-
-- RiskModel  
-- Values for threshold (above, below, between these values) 
-
-Fund
-
-- Total value of fund  
-- Transactions 
-
-Buyer
-
-- ID  
-- Transactions (Buyer and Fund)
-
-Donor
-
-- ID  
-- Transactions ID 
-
-Transactions
-
-- ID  
-- Buyer  
-- Donor
-
-RiskDataProvider
-
-- Provider name, string  
-- Ex. NASA, ESA, JAXA  
-- DataLayer, relation to RiskDataLayers (one to many) 
-
-RiskDataLayers
-
-- Name string   
-  - Ex. NASA Chlorophyll A concentration, NASA Sea Surface Temperature  
-- Frequency numeric  
-  - 1 (daily)  
-  - 30 (monthly) 
-
-RiskModel
-
-- Name string  
-  - Ex. Harmful Algal Bloom Model v1, reading from set of variables from RiskDataInput  
-    - Random Forest model  
-  - Ex. Heat Stress Model v2, reading from set of variables from RiskDataInput  
-    - Neural network   
-- Version string
-
-RiskType
-
-- Name string  
-  - Harmful Algal Bloom, Heat Stress, Storm Damage  
-- Units string  
-  - concentration ppm, degrees Celsius, wind speed km/h 
-
-### Entity relationships
+## Architecture
 
 ```mermaid
-erDiagram
-    AquacultureFarmer ||--o{ Farm : owns
-    AquacultureFarmer }o--|| Fund : "member of"
-    Farm }o--|| Species : farms
-    Farm }o--|| Equipment : uses
-    Species ||--o{ Threshold : "tolerates up to"
-    RiskModel ||--o{ Threshold : "evaluated by"
-    RiskModel }o--|| RiskType : predicts
-    RiskModel }o--o{ RiskDataLayer : "reads inputs"
-    RiskDataProvider ||--o{ RiskDataLayer : publishes
-    Threshold ||--o{ Event : "crossed in"
-    Farm ||--o{ Event : "affected by"
-    Fund ||--o{ Event : "pays out for"
-    Fund ||--o{ Transaction : ledger
-    Buyer ||--o{ Transaction : "purchase fee"
-    Donor ||--o{ Transaction : donates
-    AquacultureFarmer |o--o{ Transaction : "pays fee"
-    Event |o--o{ Transaction : payout
-
-    AquacultureFarmer {
-        uuid id PK
-        uuid fund_id FK
-        string wallet "no PII on chain"
-    }
-    Farm {
-        uuid id PK
-        geometry location "GeoJSON polygon, EPSG:4326"
-        string species FK
-        string equipment FK
-        uuid farmer_id FK
-    }
-    Species {
-        string name PK
-    }
-    Equipment {
-        string type PK
-        string description
-    }
-    Threshold {
-        uuid id PK
-        string species FK
-        uuid risk_model_id FK
-        string op "above | below | between"
-        numeric low
-        numeric high
-    }
-    Event {
-        uuid id PK
-        uuid threshold_id FK
-        uuid farm_id FK
-        uuid fund_id FK
-        timestamptz datetime
-    }
-    Fund {
-        uuid id PK
-        numeric total_value "JPYC, 18 decimals"
-    }
-    Transaction {
-        uuid id PK
-        uuid fund_id FK
-        uuid buyer_id FK "nullable"
-        uuid donor_id FK "nullable"
-        uuid farmer_id FK "nullable, fee"
-        uuid event_id FK "nullable, payout"
-        numeric amount
-        string tx_hash
-    }
-    Buyer {
-        uuid id PK
-    }
-    Donor {
-        uuid id PK
-    }
-    RiskDataProvider {
-        string name PK "NASA, ESA, JAXA"
-    }
-    RiskDataLayer {
-        uuid id PK
-        string provider FK
-        string name "e.g. NASA SST"
-        int frequency_days "1 daily, 30 monthly"
-    }
-    RiskModel {
-        uuid id PK
-        string name "e.g. HAB Model v1"
-        string version
-        string risk_type FK
-    }
-    RiskType {
-        string name PK "HAB, Heat Stress, Storm Damage"
-        string units
-    }
+flowchart LR
+    UI[Astro: map, market, relief] --> API[FastAPI: plots, heat, HAB]
+    API --> DB[(PostGIS)]
+    UI --> Q[Legacy web: quote signer]
+    UI -->|Wallet checkout| S[SaleRouter]
+    S -->|95%| Seller[Seller]
+    S -->|5%| Pool[ReliefPool]
+    API --> K[Keeper: rules and review gate]
+    K -->|Signed trigger| Pool
+    ENS[ENSv2 season slots] --> Pool
+    World[HumanRegistry] --> Pool
+    Pool --> Farmer[Eligible farmer]
+    Pool --> MB[MultiBaas events]
+    MB --> LINE[LINE notifications]
 ```
 
-Relationships inferred beyond the lists above:
-- "Thresholds by RiskModel" on Species is a `Threshold` row per (species, risk model).
-- Each RiskModel predicts one RiskType.
-- A Transaction has exactly one counterparty: a buyer (ReelDeal sale), a donor, a farmer (fee), or an event (payout).
-- `Fund.total_value` is derived from its Transactions and reconciled with the on-chain ReliefPool balance, which is the source of truth for money.
-- Farmers are stored off-chain. On chain there are only wallets, plot codes and nullifiers.
+Astro is the main UI on AWS EC2. The legacy `web/` service on Railway still owns
+quote signing, the keeper, LINE and remaining co-op/holder/verification pages.
+Astro redirects those pages explicitly. Storybook is a separate component catalogue.
 
-## Deployment & team plan
+| Directory | Responsibility |
+| --- | --- |
+| [`frontend/`](frontend/README.md) | Astro screens, wallet islands and Storybook |
+| [`pipeline/`](pipeline/README.md) | FastAPI plot inventory, heat and HAB data |
+| [`db/`](db/README.md) | PostGIS schema, migrations and deployment |
+| `web/` | Quote signer, keeper, LINE and legacy routes |
+| `contracts/` | Solidity ReliefPool, SaleRouter, HumanRegistry and ENS adapters |
+| `packages/shared/` | Rules, schemas, catalogue, ABIs and addresses |
 
-The following is the initial team plan, retained as design context. Current
-deployment instructions live in [frontend/DEPLOY.md](frontend/DEPLOY.md),
-[pipeline/DEPLOY.md](pipeline/DEPLOY.md) and [db/README.md](db/README.md).
-Planned items below are not a record of completed migrations.
+[Pipeline interface](docs/INTERFACE.md) · [ADRs](docs/adrs) ·
+[HMI handoff](docs/HMI-HANDOFF.md) · [Deployment](frontend/DEPLOY.md)
 
-Target stack: **FastAPI** (`pipeline/`) for satellite analysis, an **Astro** frontend (replaces the Next.js app in `web/`), and **Postgres + PostGIS** as the system of record for the entities above. Everything runs on the existing single EC2 instance in Tokyo (`pipeline/DEPLOY.md`), extended from one service to four.
+## Integration evidence
 
-```
-Caddy :443 ─┬─ app.<host> → astro  (Astro SSR, @astrojs/node, :4321)
-            └─ api.<host> → api    (FastAPI pipeline, :8787)          [exists]
-astro ─┬─> db: Postgres/PostGIS, schema `app`    (Drizzle migrations, TS)
-       ├─> api: risk index values                (types generated from OpenAPI)
-       └─> Sepolia (ReliefPool, JPYC), MultiBaas, LINE, World ID
-api  ───> db: schema `risk`                      (Alembic migrations, Python)
-cron ───> docker compose run api pipeline all build   (daily layers → S3 + out/)
-```
+| Integration | Role | Implementation / evidence |
+| --- | --- | --- |
+| ENSv2 | Resolve the current holder of a plot's expiring season slot | [ENS adapters](contracts/src/adapters), [deployment and recorded runs](docs/SUBMISSION.md#deployed-addresses-sepolia-chain-11155111) |
+| World ID | Bind a verified person to a wallet and cap relief units per person | [HumanRegistry](contracts/src/HumanRegistry.sol), [verification record](docs/WORLD_DEBRIEF.md) |
+| Curvegrid MultiBaas | Index relief events and deliver authenticated webhooks | [Integration](docs/MULTIBAAS.md) |
+| JPYC | Sale, donation and relief currency, with 18-decimal accounting | [SaleRouter](contracts/src/SaleRouter.sol), [ReliefPool](contracts/src/ReliefPool.sol) |
+| LINE | LIFF farmer interface and payment notifications | [LINE integration](web/src/lib/line.ts) |
+| TypeSafe Jev | Typed confidence gate and fixed bilingual reply selection | [Integration and recorded calls](docs/JEV.md) |
 
-- **Hosting:** EC2 t3.medium + Elastic IP + Caddy TLS stays as in `pipeline/DEPLOY.md`. sslip.io resolves subdomains (`app.1-2-3-4.sslip.io`). `docker-compose.yml` and `Caddyfile` move to a root `deploy/` so they cover all services.
-- **Database:** a `db` service (`postgis/postgis:16-3.4`) on a named volume, with a nightly `pg_dump` to the existing S3 bucket. Moving to RDS can wait until after the hackathon.
-- **Schema ownership.** This keeps the pipeline's "index values only" boundary. Either side may read the other's schema, but only the owner writes to it.
-  - `risk` is owned by the pipeline: RiskDataProvider, RiskDataLayer, RiskModel, RiskType, plots, zones and stations.
-  - `app` is owned by the app: Farm, AquacultureFarmer, Species, Equipment, Threshold, Event, Fund, Transaction, Buyer and Donor.
-- **Astro:** SSR with the Node adapter and React islands, so `MapCanvas`, `WorldVerify` and the wagmi providers carry over. The Next API routes (keeper, LINE/MultiBaas webhooks, World verify) become Astro endpoints in `src/pages/api/`. Their library code in `web/src/lib/` moves unchanged to `packages/app-core` first.
-- **Secrets** live only in the server's `.env`. Private keys are never `PUBLIC_*`.
+Sepolia contracts: [ReliefPool](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5),
+[SaleRouter](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd),
+[HumanRegistry](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8).
+The [recorded end-to-end run](docs/SUBMISSION.md#recorded-end-to-end-run-2026-09-26)
+links donations, attestations and settlements. No new transaction is implied by a UI screenshot.
 
-Planned layout: `frontend/` (Astro) · `pipeline/` · `packages/shared` (interface contract + generated pipeline types) · `packages/app-core` (server logic) · `contracts/` · `deploy/`. `web/` is removed once Astro reaches parity.
+## Run locally
 
-### Workstreams (3–4 developers)
-
-Each workstream owns its paths through `CODEOWNERS`. Changes elsewhere need a review from the owner.
-
-| Owner | Area | Paths | First deliverables |
-|---|---|---|---|
-| **A: Jay** | Pipeline / risk data | `pipeline/**` | `risk` schema + Alembic; real `/heat/*` values for Kesennuma; OpenAPI export |
-| **B** | Astro frontend | `frontend/**` | Scaffold; port `/map`, `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, `/holder` |
-| **C** | App backend + DB | `packages/app-core/**`, `packages/shared/**`, `frontend/src/pages/api/**`, `deploy/db/**` | `app` schema (Drizzle) from the ER diagram; seed data; ported API routes; MultiBaas → Transaction indexer; keeper reads pipeline indices |
-| **D** (C with 3 devs) | Contracts + infra | `contracts/**`, `deploy/**`, `.github/**` | Root compose with `db` + `astro`; CI on PRs; deploy from `main` |
-
-### Interfaces to freeze before parallel work
-
-1. **ER diagram** (above). Changing it takes a PR reviewed by A and C.
-2. **Pipeline API types:** FastAPI's OpenAPI JSON is committed to `packages/shared/openapi/pipeline.json`, and `openapi-typescript` generates `packages/shared/src/generated/pipeline.ts` from it. CI fails if the generated file is stale.
-3. **`packages/shared` + `docs/INTERFACE.md`** stay the chain ↔ app contract (Trigger, ids, rules). See CLAUDE.md.
-4. **`.env.example`** lists every variable, grouped by service.
-
-### Git and CI
-
-- Trunk-based on `main`, with short-lived branches named `<area>/<issue#>-slug` (e.g. `frontend/12-map-page`). Use conventional commits that include the issue number.
-- Issues are labelled `area:pipeline|frontend|app|contracts|infra`, with one milestone per phase.
-- **`ci.yml`** runs on every PR, with jobs filtered by path:
-  - `bun run typecheck` and `bun test`
-  - `forge test`
-  - `uv run pytest`
-  - `astro check && astro build`
-  - OpenAPI drift check
-- **`deploy.yml`** generalizes `deploy-pipeline.yml`. It deploys on push to `main` over the existing OIDC + SSM path and rebuilds only the services whose paths changed (`docker compose up -d --build --wait <svc>`). Add `refs/heads/main` to the OIDC trust policy (`pipeline/DEPLOY.md` §5) and retire the `pipeline` deploy branch.
-- Protect `main`: require 1 approval and green CI.
-
-### Phases
-
-| Phase | Goal | Exit criteria |
-|---|---|---|
-| **0. Foundations** (~2 h, everyone) | Freeze the contracts | ER diagram merged; `CODEOWNERS`; `ci.yml`; `deploy/` compose with `db` and a placeholder Astro app live at `app.<host>` |
-| **1. Parallel build** | Each stream works against mocks | A: real `/heat/risk` for the demo plots. B: pages render from fixtures and generated types. C: migrations, seed data (Kesennuma farms, species, thresholds), ported API routes. D: contracts on Sepolia, addresses in `packages/shared/src/addresses.ts` |
-| **2. Integration** | Replace the mocks | Astro reads the live pipeline and DB. End to end: pipeline SST → keeper Trigger → ReliefPool payout → Transaction row → LINE push |
-| **3. Demo hardening** | A stable demo | Miyagi layers pre-built (`pipeline/DEPLOY.md` §6); DB seeded; `web/` removed; Setup below updated |
-
-Local dev, once `deploy/` exists: `docker compose -f deploy/docker-compose.yml up db api`, then `bun run --filter frontend dev`.
-
-## Repository Structure
-
-Justin's [HMI contribution handoff](docs/HMI-HANDOFF.md) links #40, #46 → #68,
-and #47, with the relief demo scope, research evidence and product copy.
-
-- `contracts/` Foundry: `ReliefPool`, `SaleRouter`, `HumanRegistry`
-- `frontend/` Astro: coastal map, marketplace, relief dashboard and Storybook components
-- `web/` Next.js: quote signer, keeper, LINE/co-op/holder flows and remaining API routes
-- `pipeline/` Python (uv, FastAPI): PostGIS plot inventory, satellite heat/chlorophyll layers and heat/HAB indices. The app owns Triggers. Spec: `pipeline/README.md`
-- `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
-- `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
-- `db/` Postgres/PostGIS migrations, roles and deployment scripts
-- *Planned* (see Deployment & team plan): `packages/app-core/` shared server logic; root `deploy/` orchestration; migration of remaining `web/` routes.
-
-## Setup
+Use Bun 1.3.14, Node 24 and uv. Foundry is required for contract tests; Docker is
+required for the disposable PostGIS integration tests.
 
 ```sh
 git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
 cd reeldeal
+bun install --frozen-lockfile
 cp .env.example .env
 cp frontend/.env.example frontend/.env
-bun install
 (cd pipeline && uv sync)
-bun run contracts:build && bun run contracts:test
-bun run typecheck
-bun run pipeline   # pipeline API on :8787 (uv run pipeline-serve)
-bun run pipeline:test
-bun run frontend:dev  # main Astro app on :4321
-bun run dev           # legacy backend/pages on :3000, separate terminal
-bun run storybook     # component catalogue on :6008, separate terminal
 ```
 
-Built at ETHGlobal Tokyo 2026 (Classic track), from 21:00 JST Friday 25 Sep.
+Configure the backend origins and RPC in `frontend/.env`; see the
+[frontend guide](frontend/README.md). Start each service in its own terminal:
+
+```sh
+bun run frontend:dev  # Astro: http://localhost:4321/hmi
+bun run pipeline      # FastAPI: http://localhost:8787
+bun run dev           # Legacy service: http://localhost:3000
+bun run storybook     # Components: http://localhost:6008
+```
+
+A connected plot inventory needs a migrated PostGIS database and pipeline data.
+Follow [database setup](db/README.md) and [pipeline setup](pipeline/README.md).
+Never commit environment files or signing keys.
+
+## Verify
+
+```sh
+bun run frontend:check
+bun test frontend/scripts packages/shared/test
+bun run frontend:build
+bun run --cwd frontend smoke:built
+bun run storybook:build
+bun run pipeline:test
+bun run contracts:test
+bun run dog:map
+bun run dog:check
+```
+
+CI also exercises the API against migrated PostGIS and smoke-tests the deployed
+container routes. The [submission write-up](docs/SUBMISSION.md#tests) describes the
+fork-based payout test and its recorded result.
+
+## Release status
+
+The deployed app reads the plot inventory, heat/HAB data, weather forecast and
+Sepolia relief events. Remaining release gaps are recorded in
+[submission status](docs/SUBMISSION.md#current-release): the legacy quote service
+needs the current hoya/oyster catalogue deployed; storm risk and heat/HAB onset
+forecasts are not implemented; imported polygons do not verify farmer ownership.
+This is a Sepolia submission, not a mainnet launch.
+
+[Team](docs/SUBMISSION.md#team) · [Research](docs/research/aquaculture-evidence.md) ·
+[Original design notes](docs/original-design-notes.md)

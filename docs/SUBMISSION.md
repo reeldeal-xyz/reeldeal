@@ -2,19 +2,22 @@
 
 # Submission: Reel Deal
 
-ETHGlobal Tokyo 2026, Classic track. Owner: Sailesh (#27). This draft is written to be
-edited fast at the 03:00 JST freeze and again for the 08:30 JST deadline — every
-factual claim below cites the file, PR, issue or tx it comes from, so an update only
-needs to change the cited source and this file's matching line.
+ETHGlobal Tokyo 2026, Classic track. Submission owner: Sailesh (#27).
 
-Status as of 2026-09-26, main `5c1e3d6`. "Live" below means observed on Sepolia
-(chain 11155111) today, with a transaction hash. "Merged" means in `main` but not
-necessarily wired into the deployed app. "Planned" means an open issue, not code.
+Updated 2026-09-27 JST. The app uses **Sepolia (chain 11155111)**. Transaction
+proofs below are the recorded September 26 runs; they are not new payments.
+The project's name is **Reel Deal**. `umi.eth` remains the deployed ENS parent.
 
-> **Never "Umi Relief."** The project's official name is **Reel Deal**. Code
-> identifiers, package names and internal docs stay neutral (`reeldeal-xyz/reeldeal`,
-> `packages/shared`, ENS label `umi.eth` is a historical artifact of an earlier name and
-> is not renamed — see `docs/research/aquaculture-evidence.md`).
+## Current release
+
+- **App:** <https://app.13-196-78-137.sslip.io/hmi> — coastal map, fish market and relief dashboard in Astro.
+- **Market:** scallop, sea pineapple (hoya) and oyster first; signed checkout sends **95% to the seller and 5% to the relief fund** atomically through SaleRouter.
+- **Map:** PostGIS plot polygons, satellite imagery, sea temperature/anomaly, chlorophyll, species thresholds, polygon analysis and hourly forecast playback. EN/JP; mobile controls collapse.
+- **Verified live:** 467 plots at pipeline `/ready`; heat observations, HAB restriction indices, weather forecast, relief balances/events, and a scallop quote with `reliefBps: 500` (2026-09-27, 03:43–03:45 JST). No payment was sent during these checks.
+- **Release blocker:** the Railway quote service returns `unknown_listing` for hoya. Deploy current `packages/shared/src/market.ts` with the legacy `web/` service, then verify hoya and oyster quotes before treating all listings as purchasable. Astro and the signer must use the same catalogue.
+
+LIFF, co-op, holder, verification and donation pages still use the legacy backend;
+Astro redirects those routes explicitly. Deployment details: [frontend/DEPLOY.md](../frontend/DEPLOY.md).
 
 ## Tagline
 
@@ -26,10 +29,7 @@ characters, fits the ETHGlobal short-description field as-is.)
 
 *(≤100 characters, paste directly into the ETHGlobal "short description" field)*
 
-> Parametric relief for Japan's aquaculture farmers, paid in JPYC when ocean risk crosses a threshold.
-
-(101 characters incl. this parenthetical excluded — trim "Japan's " if the form counts
-tighter than expected.)
+> Parametric relief for aquaculture farmers, paid in JPYC when ocean risk crosses a threshold.
 
 ## Description
 
@@ -73,11 +73,11 @@ with a public paper trail.*
 
 ## How it works
 
-1. **Donors fund the pool.** JPYC (18 decimals) donations call `ReliefPool.donate(amount, memo)`
-   on Sepolia (`contracts/src/ReliefPool.sol`). Sale-linked donations
-   (`ReliefPool.donate(amount, "sale:<orderId>")` from a marketplace checkout) are
-   designed but **not yet wired to an on-chain router** — see
-   [What's next](#honest-limitations-and-whats-next).
+1. **Donations and sales fund the pool.** Direct JPYC donations call `ReliefPool.donate`.
+   Marketplace checkout calls `SaleRouter`: it pays the seller 95% and donates 5%
+   with a `sale:<orderId>` memo in the same transaction. The Astro review dialog
+   validates the signed quote and confirms both checkout and donation receipt events
+   (`contracts/src/SaleRouter.sol`, `frontend/src/lib/market-proof.ts`).
 2. **Farmers register.** A licence holder registers a per-plot ENSv2 subname under
    `karakuwa.umi.eth` and issues a non-transferable, expiring **"2026" season slot** to
    the farmer working that plot (`docs/INTERFACE.md`'s ENS layout, issues #7/#10/#11).
@@ -87,9 +87,9 @@ with a public paper trail.*
    person, not per wallet.
 4. **A public risk index crosses a threshold.** The pipeline (`pipeline/`, Jay) publishes
    an index value with provenance (a sha256 of the pinned source). Today: JAXA daily SST
-   for the **heat** module (implemented); the historical scallop shipping-restriction
-   replay for **HAB** uses a pinned prefecture bulletin, not yet the live pipeline route
-   (`BANWEEKS`/`BAN_ACTIVE` remain issue [#80](https://github.com/reeldeal-xyz/reeldeal/issues/80)).
+   for the **heat** module; reviewed prefecture restrictions stored in PostGIS for
+   **HAB** (`BANWEEKS` / `BAN_ACTIVE`). Chlorophyll map layers are an algae proxy,
+   not a toxin result. Storm risk remains unimplemented; weather forecasts are advisory.
    The app's `RULES` (`packages/shared/src/rules.ts`) — never the pipeline — decide when
    a threshold is met and build a `Trigger`.
 5. **A confidence gate reviews the trigger.** Jev (TypeSafe, via OpenRouter) scores the
@@ -119,7 +119,7 @@ with a public paper trail.*
 
 ```
 JAXA Earth API (SST, chl-a)      ─┐              ┌─ heat  (climate change, IMPLEMENTED) ─┐
-Copernicus (physics, waves)      ─┼─> pipeline ──┼─ hab   (algal blooms, spec/501)      ─┼─> index values + sha256 ─┐
+Copernicus (physics, waves)      ─┼─> pipeline ──┼─ hab   (restrictions + chl-a)       ─┼─> index values + sha256 ─┐
 JMA tide/track, 貝毒/赤潮 bulletins ─┘  (Jay,      └─ storm (surge, waves, spec/501)       ─┘   (FastAPI, :8787)       │
                                        national)                                                                     v
                                             keeper (app): RULES thresholds ─> Jev gate ─> signed Trigger ─> ReliefPool
@@ -128,25 +128,17 @@ World ID (IDKit 4.3) ─> server verify (developer.world.org/api/v4/verify) ─>
 MultiBaas (Curvegrid) indexes Donated/Attested/Paid/Held ─> HMAC-signed webhook ─> LINE Messaging API push
 ```
 
-Two UI surfaces run today, at different levels of readiness (see
-[What's next](#honest-limitations-and-whats-next) for the merge plan):
-
-```
-                         ┌──────────── LIVE production path (today's demo ran here) ─────────────┐
-Farmer's phone (LINE)  ─→ LIFF app ─┐                                                             │
-Donor / co-op / holder ─→ web/     ─┼─ Next.js on Railway (web-production-746aa.up.railway.app) ──┤
-                                    │  keeper, World verify, MultiBaas webhook, LINE webhook       │
-                                    └───────────────────────────────────────────────────────────→ ReliefPool + HumanRegistry (Sepolia)
-                                                                                                    │
-                         ┌──────────── Astro migration target (workshop today) ────────────────────┘
-Same browser, /hmi · /market ─→ frontend/ ─ Astro on its own container behind Caddy (app.13-196-78-137.sslip.io)
-                            │ Storybook component library + a few real endpoints (GET /api/risk/heat/:plot)
-                            └ unmigrated routes (/liff, /donate, /coop, /holder, /verify/:id) 302→ LEGACY_WEB_ORIGIN (the Railway app above)
+```text
+Browser → Astro /hmi · /market · /relief (AWS EC2, Caddy)
+          ├─ FastAPI → PostGIS plots / heat / HAB; weather forecast provider
+          ├─ Sepolia reads + wallet checkout → SaleRouter → seller + ReliefPool
+          └─ quote API → legacy web/ signing service (Railway)
+LINE → legacy LIFF app → World ID / ENS / keeper / MultiBaas / LINE webhooks
 ```
 
-Data plane: PostgreSQL 16 + PostGIS 3.7 (Railway, interim; `db/README.md`) — `geo`
-(plots, sea areas), `risk` (pipeline time series, not yet populated), `app`
-(`slot_requests`, `wallet_links`, `plot_wallets`).
+PostGIS stores the plot inventory and reviewed restrictions. Plot geometry is read
+through the pipeline; ENS remains authoritative for season-slot ownership. Production
+services use the database; component fixtures stay in Storybook and `/preview`.
 
 ## Sponsors
 
@@ -167,8 +159,8 @@ they're technology partners the project uses, not prize tracks it's entered agai
 |---|---|---|---|
 | **ENS** (ENSv2 Sepolia) | `umi.eth` parent → `karakuwa.umi.eth` branch → 15 per-plot registries → non-transferable, expiring **"2026" season slots**; `PermissionedResolver` text records (`zone`/`species`/`area`/`unit`); ReliefPool resolves the payout target through ENS at settlement time, not a cached copy | `contracts/src/adapters/EnsPlotResolver.sol`, `EnsSlotResolver.sol`, `contracts/src/interfaces/IEnsV2.sol`, `contracts/script/ens/EnsV2.sol` (write side), `docs/INTERFACE.md`'s ENS layout section | EnsPlotResolver [`0x5Fd0…F89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) (deploy [`0xa372…95c78a`](https://sepolia.etherscan.io/tx/0xa372f082de22b95b763cd9d012ac849177b45b2539ba44ed33498ba58195c78a)), EnsSlotResolver [`0xbf91…c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) (deploy [`0x1511…52c8c`](https://sepolia.etherscan.io/tx/0x1511575cb70e24035b69c5bf6977614927cd16a3fdc020cb4452b897d42c528c)) |
 | **Curvegrid MultiBaas** | Event indexing for `Donated`/`Attested`/`Paid`/`Held`; HMAC-SHA256-signed webhook drives the LINE push in place of a keeper-side event poller; donor-ledger dashboard reads indexed events | `scripts/multibaas-setup.ts` (setup/link script), `web/src/lib/multibaas.ts` (`verifyMultiBaasSignature`), `web/src/app/api/multibaas/webhook/route.ts`, `web/src/app/api/multibaas/events/route.ts`, `docs/MULTIBAAS.md` | Webhook registered against `https://web-production-746aa.up.railway.app/api/multibaas/webhook` (`docs/MULTIBAAS.md` §Setup); doc sources read directly and cited: docs.curvegrid.com/multibaas/{webhooks,event-indexing,manage-contracts} |
-| **JPYC** | The only payout/donation currency, 18 decimals throughout (never assumed 6); EIP-3009/EIP-2612 domain hardcoded from a live signature-recovery check because the proxy reverts on `DOMAIN_SEPARATOR()`/`eip712Domain()` | `packages/shared/src/addresses.ts` (`JPYC`, `JPYC_DECIMALS`, `JPYC_EIP712_DOMAIN` — see its long inline comment for the verification), `contracts/src/ReliefPool.sol` (`SafeERC20`), `web/src/lib/liff/wallet-relay.ts` (gasless send) | JPYC [`0xE7C3…3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29); today's live run paid 10,000 JPYC (`10000e18`) to `p1213-001` |
-| **LINE** | LIFF farmer app (My Farm, Wallet tab: balance/activity/gasless send/key backup); LINE Login; Messaging API push on Paid/Held; Jev's LINE intent-routing replies go out over the same reply API | `web/src/app/liff/**`, `web/src/lib/line.ts`, `web/src/lib/line-auth.ts`, `web/src/app/api/line/webhook/route.ts` | LIFF `https://liff.line.me/2011749457-SgvM5ahH`, OA `@475hqocx`; today's live run delivered a "Paid" push card to the farmer's LINE |
+| **JPYC** | The only payout/donation currency, 18 decimals throughout (never assumed 6); EIP-3009/EIP-2612 domain hardcoded from a live signature-recovery check because the proxy reverts on `DOMAIN_SEPARATOR()`/`eip712Domain()` | `packages/shared/src/addresses.ts` (`JPYC`, `JPYC_DECIMALS`, `JPYC_EIP712_DOMAIN` — see its long inline comment for the verification), `contracts/src/ReliefPool.sol` (`SafeERC20`), `web/src/lib/liff/wallet-relay.ts` (gasless send) | JPYC [`0xE7C3…3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29); recorded September 26 run paid 10,000 JPYC (`10000e18`) to `p1213-001` |
+| **LINE** | LIFF farmer app (My Farm, Wallet tab: balance/activity/gasless send/key backup); LINE Login; Messaging API push on Paid/Held; Jev's LINE intent-routing replies go out over the same reply API | `web/src/app/liff/**`, `web/src/lib/line.ts`, `web/src/lib/line-auth.ts`, `web/src/app/api/line/webhook/route.ts` | LIFF `https://liff.line.me/2011749457-SgvM5ahH`, OA `@475hqocx`; recorded earlier-pool run delivered a "Paid" push card to the farmer's LINE |
 | **TypeSafe (Jev, via OpenRouter)** | Off-critical-path decision layer: (1) classifies farmer LINE messages into a canned bilingual reply, (2) gates whether the keeper attests a fired trigger (`attest_now` / `co_op_review`, threshold 0.7). Never signs, never pays, can only add friction | `web/src/lib/jev.ts` (client), `web/src/lib/jev-gate.ts` (`decideAttest`), `web/src/lib/jev-templates.ts`; wired into `web/src/lib/keeper/run.ts::runKeeper` | `docs/JEV.md` logs 3 real alpha-API calls against `https://openrouter.ai/api/alpha/decisions` on 2026-09-26 (total spend $0.000069); includes a real marginal-confidence example (0.53 → `co_op_review`) |
 | **Reown AppKit** | Wallet sign-in for people **without LINE**: `/app` → *Connect wallet* (WalletConnect QR / mobile deep link / browser wallets, Sepolia) → SIWE (EIP-4361) verified server-side → the same session and farmer UI as LINE users | `web/src/app/app/`, `web/src/app/api/wallet-auth/{nonce,verify}/`, `web/src/lib/siwe.ts`, `@reown/appkit` + `@reown/appkit-adapter-wagmi` `2.0.0-wagmi-v3.0` | [#123](https://github.com/reeldeal-xyz/reeldeal/pull/123); live at https://web-production-746aa.up.railway.app/app |
 
@@ -187,10 +179,10 @@ Curvegrid/ENS Labs' deployment, re-verified live 2026-09-26, not ours.
 | **EnsSlotResolver** | [`0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) | [`0x1511575c…d42c528c`](https://sepolia.etherscan.io/tx/0x1511575cb70e24035b69c5bf6977614927cd16a3fdc020cb4452b897d42c528c) | |
 | **JPYC** (third-party token) | [`0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29) | — | 18 decimals, faucet.jpyc.co.jp |
 | **ENSv2 core** (third-party: ETHRegistrar, ETHRegistry, RootRegistry, PermissionedResolver impl, UserRegistry impl) | see `packages/shared/src/addresses.ts` `ENS` object | — | Redeploys ~monthly; re-verified live 2026-09-26, `contracts-v2@71a3b73` |
-| **SaleRouter** (atomic JPYC purchase → `ReliefPool.donate`) | One tx: pull the buyer's JPYC, pay the seller, `donate(relief, "sale:<orderId>")`; EIP-712 signed quotes (co-op signer), replay/double-sale guards, integer split (`relief = floor(total·bps/10000)`) | `contracts/src/SaleRouter.sol`, `packages/shared/src/quote.ts`, `docs/SALE-ROUTER.md` | [`0xfc17…58bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) → demo pool `0xB258…43e5`; 24 Foundry tests + fork dry run ([#125](https://github.com/reeldeal-xyz/reeldeal/pull/125)); storefront wiring is SP-12 #66 |
+| **SaleRouter** (atomic JPYC purchase → `ReliefPool.donate`) | One tx: pull the buyer's JPYC, pay the seller, `donate(relief, "sale:<orderId>")`; EIP-712 signed quotes (co-op signer), replay/double-sale guards, integer split (`relief = floor(total·bps/10000)`) | `contracts/src/SaleRouter.sol`, `packages/shared/src/quote.ts`, `docs/SALE-ROUTER.md` | [`0xfc17…58bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) → demo pool `0xB258…43e5`; Foundry tests + fork dry run ([#125](https://github.com/reeldeal-xyz/reeldeal/pull/125)); Astro checkout merged in [#172](https://github.com/reeldeal-xyz/reeldeal/pull/172) and [#174](https://github.com/reeldeal-xyz/reeldeal/pull/174) |
 | ReliefPool v1 (superseded) | [`0x803d06aa8b1c1e6bb1418f586328fade877afe9f`](https://sepolia.etherscan.io/address/0x803d06aa8b1c1e6bb1418f586328fade877afe9f) | [`0xba71494e…9108ed89383`](https://sepolia.etherscan.io/tx/0xba71494e484afabf6ecc6fa6175e435b5d2253c3d1518639cbc219108ed89383) | Trigger v1 (no `tempC`), domain `{"ReliefPool","1"}` — replaced by v2 under #55/#117/#118; a v1 signature never verifies against v2 |
 
-### Today's live end-to-end run
+### Recorded end-to-end run (2026-09-26)
 
 Event `2026-scallop-banweeks-karakuwa` (Karakuwa east scallop shipping restriction,
 May 12 → Sep 15 2026, per the [pinned Miyagi prefecture PDF](https://www.pref.miyagi.jp/documents/24934/080915_mahikeika.pdf),
@@ -228,7 +220,8 @@ with confirmed LINE delivery; the address itself is no longer live.
 
 Read honestly: this is a **historical replay** (the 2022–2025 SST/restriction seasons
 pay the live "2026" season slots — `docs/INTERFACE.md`), on **testnet**, with
-**synthetic plot geometry** (50 m discs, not surveyed farms — `db/README.md` §4.1). A
+**demo enrolments**. The current map uses imported fishery-right polygons (#147),
+which do not establish farmer ownership or validate those enrolments. A
 shipping restriction is evidence of constrained sales, not a measured loss (see
 [Honest limitations](#honest-limitations-and-whats-next)).
 
@@ -236,13 +229,13 @@ shipping restriction is evidence of constrained sales, not a measured loss (see
 
 | Time | Beat | Shows |
 |---|---|---|
-| 0:00–0:20 | **Hook.** "Karakuwa's scallop farmers were under a shipping restriction from May to September. Conventional insurance would still be assessing damage. Reel Deal already paid out." | Title card, map of Karakuwa/Kesennuma |
+| 0:00–0:20 | **Hook.** "Karakuwa's scallop farmers were under a shipping restriction from May to September. Reel Deal demonstrates a rule-based relief payment on Sepolia." | Title card, map of Karakuwa/Kesennuma |
 | 0:20–0:50 | **Fund it.** Donor screen, JPYC donation into ReliefPool. "Community-funded relief payments for aquaculture farmers." | `/donate` (web/), `ReliefPool.donate` tx |
 | 0:50–1:20 | **The evidence.** Pull up the pinned Miyagi prefecture bulletin; show the sha256 hash matches; show the BANWEEKS count hit 4 weekly checkpoints. "This isn't a vibe — it's a public PDF and a hash anyone can recompute." | Evidence/verification screen, the pinned PDF, `dataHash` |
 | 1:20–1:50 | **The gate.** Show Jev's attest-gate decision (confidence 0.53, correctly escalated) and the co-op approval. "Money never moves on a guess — a human co-op signs off when confidence is marginal." | Co-op review screen, Jev decision log (`docs/JEV.md` style JSON line) |
-| 1:50–2:20 | **The payout.** Attest tx, then settle: `p1213-001`'s World-ID-verified farmer gets 10,000 JPYC on-screen (Etherscan), the other 7 plots show Held(UNVERIFIED) with a plain-language reason. LINE phone lights up with the Paid card. | Etherscan tx, LIFF wallet screen, real phone with LINE push |
+| 1:50–2:20 | **The payout.** Attest tx, then settle: `p1213-001`'s World-ID-verified farmer gets 10,000 JPYC on-screen (Etherscan), the other 7 plots show Held(UNVERIFIED) with a plain-language reason. Show the previously recorded LINE Paid card; do not imply a new push. | Etherscan tx, LIFF wallet screen, real phone with LINE push |
 | 2:20–2:50 | **The stack.** One breath each: ENS non-transferable season slot (can't be sold/squatted), World ID caps per human not per wallet, MultiBaas indexed the event and drove the push. | Quick cuts: ENS resolver read, HumanRegistry level badge, MultiBaas dashboard |
-| 2:50–3:00 | **Close + honesty beat.** "Historical replay, testnet, synthetic plots today — the mechanism is real and the money moved." Link to repo. | End card, GitHub URL |
+| 2:50–3:00 | **Close + honesty beat.** "Historical replay on Sepolia, with public transaction evidence." Link to repo. | End card, GitHub URL |
 
 ## Run it locally
 
@@ -288,47 +281,29 @@ Roles as recorded in the issues/PRs, not job titles:
 | Sailesh Sivakumar | [@ss251](https://github.com/ss251) | Identity, ENS, signing/payout policy, contracts, keeper, LIFF wallet; submission owner (#27) |
 | Jay Matsushiba | [@JayMatsushiba](https://github.com/JayMatsushiba) | Pipeline/risk data: JAXA + Copernicus ingestion, heat module, PostGIS db service, deploy infra (#75–#82, #110, #111, #114) |
 | Justin Diclemente | [@logohere](https://github.com/logohere) | HMI product design/QA/PM: evidence review and product copy, seafood illustrations, Dotdog/ADRs, demo narrative (#32, #36, #40, #85, #87, #93) |
-| Eric Manganaro | [@superposition](https://github.com/superposition) | Astro/Storybook frontend, marketplace + relief molecule/organism previews — the "Superposition" tracker (#54, SP-01…SP-20) |
+| Eric Manganaro | [@superposition](https://github.com/superposition) | Astro/Storybook frontend, marketplace + relief components and integration — the "Superposition" tracker (#54, SP-01…SP-20) |
 | Zenith_Assets | [@zenith0053](https://github.com/zenith0053) | Exploratory "AquaSure Command" risk-dashboard prototype, `prototypes/aquasure-command/` — open PR [#102](https://github.com/reeldeal-xyz/reeldeal/pull/102), not yet merged into `main` |
 
 ## Honest limitations and what's next
 
-Written in the spirit of this repo's existing docs (see every ADR and `docs/HMI-HANDOFF.md`):
-say what's real, say what isn't, don't blur the line.
+- **Testnet and replay.** Published proofs are Sepolia transactions from a reference
+  restriction event. They do not demonstrate autonomous monitoring or a mainnet launch.
+- **Data coverage.** Heat and HAB restriction routes are implemented. Heat/HAB onset
+  forecasts and the storm risk module still return `501`; the map's hourly weather
+  forecast is advisory and does not attest relief triggers. Reviewed bulletins require
+  ingestion updates (`pipeline/src/pipeline/hazards/`).
+- **Trigger trust.** The keeper can self-sign pinned inputs when the feed has no signed
+  value (`web/src/lib/keeper/run.ts`). This remains a release limitation.
+- **Plot rights and ownership.** Imported fishery-right polygons replace the old map
+  discs. They are not farmer-verified registrations; ENS season-slot ownership and
+  eligibility remain separate. Restrictions do not prove a farm's stock loss or yen loss.
+- **Backend deployment.** The native Astro UI is deployed, but signing and LINE services
+  still depend on `web/`. The quote catalogue mismatch above must be resolved.
+- **Identity.** My Number Card and passport credentials are not integrated or tested.
+  The recorded level-2 proof used World ID Orb; simulator support is a staging path,
+  not evidence of production identity verification (`docs/WORLD_DEBRIEF.md`).
 
-**True today:**
-- The attest → settle → Paid/Held → LINE pipeline is real and ran end-to-end on Sepolia
-  today with real transactions (above).
-- World ID, ENS non-transferability/expiry, and JPYC 18-decimal accounting are enforced
-  on-chain, not just in the UI.
-- MultiBaas indexing and the LINE push are live, not mocked.
-
-**Not yet true — say so before a judge finds it first:**
-- **Historical replay, not live monitoring.** Seasons 2022–2025's SST/restriction data
-  pay the live "2026" season slots (`docs/INTERFACE.md`). The pipeline's HAB module
-  (`BANWEEKS`, `BAN_ACTIVE`) and the storm module are still specs returning `501`
-  (`pipeline/README.md` §7–8); only the heat module's `SST`/`SST_ANOM`/`SST_MONTH` are
-  implemented. Today's HAB trigger used a pinned historical PDF, not the live pipeline
-  route.
-- **Self-signed fallback triggers.** When the feed doesn't serve a signed index value,
-  the keeper self-signs a Trigger from pinned inputs rather than blocking the demo
-  (`web/src/lib/keeper/run.ts`) — this is a demo convenience, not the target trust model
-  (`docs/INTERFACE.md`'s open question on whether the pipeline should sign index values).
-- **Synthetic geometry.** All 15 demo plots are 50 m synthetic discs
-  (`db/README.md` §4.1, `pipeline/data/ref/plots.geojson`), not surveyed farm polygons.
-  Fishery-right (MSIL) polygon licensing is still an open question (`pipeline/README.md` Q3).
-- **Shipping restriction ≠ measured loss.** A prefecture bulletin proves constrained
-  sales for a species/area, never a specific farm's stock loss or yen amount
-  (`docs/research/aquaculture-evidence.md`).
-- **Two UIs, one migration in progress.** The live demo ran on the Next.js app (`web/`,
-  Railway). The Astro app (`frontend/`, `app.13-196-78-137.sslip.io`) is a real,
-  separately deployed container, but LIFF/donor/co-op/holder/verify routes there still
-  redirect to the Next.js app until #67/#68 land — Astro is a component workshop with a
-  few live endpoints today, not yet the production surface.
-- **The marketplace lives in the Next.js app.** Six listings at `/market` on Railway check out through the deployed SaleRouter (#160; first live sale donated 45 JPYC, tx `0x03507296…23606`). The Astro `/market` is still empty (#144).
-- **Level 2 is World ID Orb only.** My Number Card and passport credentials are not integrated or tested, so the app neither requests nor accepts them. The deployed HumanRegistry still recognises their schema ids (9303/9310), but nothing sends them. Level 2 was proven with an Orb credential (schema 1, `Upgraded` on Sepolia); see `docs/WORLD_DEBRIEF.md` for the friction log and the fixes it drove (#101, #113).
-
-**What's next, roughly in order:** finish #67/#68 (Astro takes over the live routes),
-implement HAB/storm pipeline routes for real live monitoring (retiring the pinned-PDF
-replay), move the marketplace into the Astro storefront (#66),
-and integrate and test My Number Card / passport as level-2 credentials (#25).
+Before a real-money launch: resolve the quote deployment mismatch, independently
+review contracts and custody/signing operations, validate farmer enrolments and data
+freshness, and provide production identity/provider configuration. Those checks are
+not satisfied by a successful testnet demo.

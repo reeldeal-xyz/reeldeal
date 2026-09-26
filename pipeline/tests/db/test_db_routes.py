@@ -178,21 +178,29 @@ def test_upload_rejects_an_invalid_polygon():
 
 
 @pytest.mark.parametrize("operation", [None, "bottom"])
-def test_inventory_returns_stored_area_position_and_prefecture(operation):
+@pytest.mark.parametrize("prefecture", [None, "Miyagi"])
+def test_inventory_returns_stored_area_position_and_prefecture(operation, prefecture):
     code = f"metadata-{uuid.uuid4().hex[:8]}"
     with db.connect() as conn:
+        conn.execute(
+            """INSERT INTO geo.prefectures (code, name_ja, name_en, geom)
+               SELECT '04', '宮城県', 'Miyagi', geom FROM geo.plots WHERE plot_code = 'p1213-001' AND retired_at IS NULL
+               ON CONFLICT (code) DO NOTHING"""
+        )
+        conn.execute(
+            """INSERT INTO geo.sea_areas (id, prefecture_code, name_ja, kind, geom, accuracy)
+               VALUES (%s, %s, 'test', 'other',
+                       ST_Multi(ST_GeomFromText('POLYGON((140 40,140.01 40,140.01 40.01,140 40.01,140 40))', 4326)),
+                       'synthetic test area')""",
+            (code, "04" if prefecture else None),
+        )
         expected = conn.execute(
             """INSERT INTO geo.plots (plot_code, origin, geom, species, operation, sea_area_id)
-               SELECT %s, 'msil', geom, species, %s, sea_area_id
+               SELECT %s, 'msil', geom, species, %s, %s
                FROM geo.plots WHERE plot_code = 'p1213-001' AND retired_at IS NULL
                RETURNING area_m2, ST_X(centroid) AS lon, ST_Y(centroid) AS lat, sea_area_id""",
-            (code, operation),
+            (code, operation, code),
         ).fetchone()
-        prefecture = conn.execute(
-            """SELECT pref.name_en FROM geo.sea_areas sa
-               JOIN geo.prefectures pref ON pref.code = sa.prefecture_code WHERE sa.id = %s""",
-            (expected["sea_area_id"],),
-        ).fetchone()["name_en"]
     response = client.get("/plots")
     assert response.status_code == 200
     plot = next(p for p in response.json() if p["plotCode"] == code)
