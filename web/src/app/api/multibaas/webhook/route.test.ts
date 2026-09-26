@@ -13,7 +13,14 @@ mock.module('@/lib/line', () => ({
   pushHeld: pushHeldMock,
 }));
 
+// Preserve every other real export (bindWalletToLineUser, recordPlotWallet, _resetPayoutDirectoryCacheForTests)
+// rather than replacing the whole module -- bun's `mock.module` swaps the module registry entry for the rest
+// of this test process (it isn't scoped to this file), so dropping them here would break any later-loaded
+// file that statically imports them by name (issue #15's app/api/liff/* routes do).
+const realPayoutDirectory = await import('@/lib/payout-directory');
+
 mock.module('@/lib/payout-directory', () => ({
+  ...realPayoutDirectory,
   payoutDirectory: {
     lineUserIdForWallet: lineUserIdForWalletMock,
     lineUserIdForPlot: lineUserIdForPlotMock,
