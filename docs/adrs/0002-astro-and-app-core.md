@@ -19,10 +19,12 @@ Move server libraries into `packages/app-core/` and expose them through Astro en
 ## Consequences
 
 Keep `web/` available until route parity, persistence, and rollback are verified.
-Port `/map`, `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, and `/holder` without
+Port `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, and `/holder` without
 moving server secrets into browser bundles. Storybook uses production components.
-The frontend foundation is implemented; `packages/app-core/` and production route
-parity are not claimed as complete.
+`/map` is retired, not ported: the Astro app's native `/hmi` supersedes it, and
+`web/`'s homepage, nav brand link, and `frontend/`'s own `/map` all redirect to
+`/hmi` instead. The frontend foundation is implemented; `packages/app-core/` and
+production route parity are not claimed as complete.
 
 ## Evidence
 

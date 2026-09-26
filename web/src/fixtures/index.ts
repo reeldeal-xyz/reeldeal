@@ -4,5 +4,4 @@
 // with the real pipeline once it ships the same shapes over HTTP.
 export * from './series';
 export * from './buoy';
-export * from './geo';
 export * from './banweeks';

@@ -3,7 +3,6 @@ import { expect, test } from 'bun:test';
 import { computeHeatIndexDays } from '../src/lib/heat-indices';
 import { fixtureBanweeksTriggers } from '../src/fixtures/banweeks';
 import { FIXTURE_BUOY_MONTH, fixtureBuoy } from '../src/fixtures/buoy';
-import { ZONE_FEATURES, SYNTHETIC_PLOTS, zoneFeaturesGeoJson } from '../src/fixtures/geo';
 import { fixtureCsvText, fixtureIndices, fixtureSeries, fixtureTriggers } from '../src/fixtures/series';
 
 const REPLAY_SEASONS = ['2022', '2023', '2024', '2025'] as const;
@@ -45,13 +44,4 @@ test('the 2026 BANWEEKS fixture matches pipeline/data/toxin/scallop-ban-2026.jso
   // fixtureTriggers(zone, '2026') must delegate to the same BANWEEKS fixture, not the HEAT generator.
   const viaFixtureTriggers = await fixtureTriggers('karakuwa-east', '2026');
   expect(viaFixtureTriggers).toEqual(fixtureBanweeksTriggers('karakuwa-east'));
-});
-
-test('zone geometry is labelled approximate and plots are labelled synthetic by construction', () => {
-  const geojson = zoneFeaturesGeoJson();
-  expect(geojson.features).toHaveLength(ZONE_FEATURES.length);
-  for (const f of geojson.features) expect(f.properties.accuracy).toMatch(/approximate/i);
-  expect(SYNTHETIC_PLOTS).toHaveLength(15);
-  const zones = new Set(SYNTHETIC_PLOTS.map((p) => p.zone));
-  expect(zones).toEqual(new Set(['karakuwa-east', 'kesennuma-bay']));
 });
