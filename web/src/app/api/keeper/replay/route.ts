@@ -35,15 +35,20 @@ export async function POST(req: Request) {
   }
 
   const dryRun = Boolean((body as Record<string, unknown>).dryRun);
+  // Skips the Jev attest gate (docs/JEV.md) and proceeds straight to attest -- a live-demo override, so a
+  // co_op_review hold never blocks the map's replay button when someone on stage needs it to just work.
+  const force = Boolean((body as Record<string, unknown>).force);
 
   try {
-    const result = await runKeeper({ referenceEventId: eventId, dryRun });
+    const result = await runKeeper({ referenceEventId: eventId, dryRun, force });
     return Response.json({
       ok: true,
       eventId: result.eventId,
       triggerSource: result.triggerSource,
       alreadyAttested: result.alreadyAttested,
       dryRun: result.dryRun,
+      status: result.status,
+      jevGate: result.jevGate,
       attestTxHash: result.attestTxHash,
       settleTxHashes: result.settleTxHashes,
       eligiblePlots: result.eligiblePlots,

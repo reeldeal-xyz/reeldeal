@@ -16,6 +16,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { ReliefPoolAbi, eventIdOf, idOf } from '@repo/shared';
 import { runKeeper, type KeeperRunDeps } from './run';
 import type { KeeperPublicClient, KeeperWalletClient } from './chain-clients';
+import type { AttestGateState } from '@/lib/jev-gate';
 
 const POOL_ADDRESS = '0x1111111111111111111111111111111111111111' as Address;
 const KEEPER_ACCOUNT = { address: '0x9999999999999999999999999999999999999999' } as unknown as Account;
@@ -158,6 +159,14 @@ function baseDeps(chain: ReturnType<typeof buildFakeChain>, overrides: Partial<K
     lineUserIdForWallet: mock(async () => null),
     lineUserIdForPlot: mock(async () => null),
     recordPlotWallet: mock(() => {}),
+    // Defaults to a clean "go ahead" so the Jev gate is invisible to every test that isn't specifically
+    // exercising it -- override to test co_op_review / --force behavior.
+    decideAttest: mock(async () => ({
+      decision: 'attest_now' as const,
+      confidence: 0.95,
+      probabilities: { attest_now: 0.95, co_op_review: 0.05 },
+      reason: 'jev_choice' as const,
+    })),
     ...overrides,
   };
 }
@@ -328,5 +337,91 @@ describe('runKeeper', () => {
   test('throws a clear error when the pool has no signer threshold set yet (issue #16 not done)', async () => {
     const chain = buildFakeChain({ threshold: 0n, enrolledPlots: [] });
     await expect(runKeeper({ referenceEventId: REF_ID }, baseDeps(chain))).rejects.toThrow(/no signer threshold set/);
+  });
+
+  describe('Jev attest gate (docs/JEV.md)', () => {
+    function chainWithFallbackSigners() {
+      // No enrolled plots: these tests only care about the attest step / gate wiring, not settlement.
+      return buildFakeChain({
+        registeredSigners: [privateKeyToAccount(PIPELINE_KEY).address, privateKeyToAccount(COOP_KEY).address],
+        enrolledPlots: [],
+      });
+    }
+
+    test('co_op_review: skips attest entirely and returns an escalated result', async () => {
+      const chain = chainWithFallbackSigners();
+      const decideAttest = mock(async (_state: AttestGateState) => ({
+        decision: 'co_op_review' as const,
+        confidence: 0.4,
+        probabilities: { attest_now: 0.4, co_op_review: 0.6 },
+        reason: 'low_confidence' as const,
+      }));
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { decideAttest }));
+
+      expect(decideAttest).toHaveBeenCalledTimes(1);
+      const state = decideAttest.mock.calls[0]![0];
+      expect(state.trigger).toMatchObject({ zone: 'karakuwa-east', species: 'scallop', peril: 'HEAT26', tier: 2 });
+      expect(state.sourceHashes).toHaveLength(1);
+
+      expect(result.status).toBe('escalated');
+      expect(result.jevGate).toMatchObject({ decision: 'co_op_review', reason: 'low_confidence' });
+      expect(result.attestTxHash).toBeUndefined();
+      expect(result.settleTxHashes).toEqual([]);
+      expect(chain.simulateCalls).toEqual([]); // never even simulates `attest`
+    });
+
+    test('attest_now: proceeds to attest and settle as normal, with status "ok"', async () => {
+      const chain = chainWithFallbackSigners();
+      const decideAttest = mock(async () => ({
+        decision: 'attest_now' as const,
+        confidence: 0.9,
+        probabilities: { attest_now: 0.9, co_op_review: 0.1 },
+        reason: 'jev_choice' as const,
+      }));
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { decideAttest }));
+
+      expect(decideAttest).toHaveBeenCalledTimes(1);
+      expect(result.status).toBe('ok');
+      expect(result.jevGate?.decision).toBe('attest_now');
+      expect(result.attestTxHash).toBeDefined();
+      expect(chain.simulateCalls.map((c) => c.functionName)).toContain('attest');
+    });
+
+    test('force: true skips the gate entirely and attests even though Jev would hold it', async () => {
+      const chain = chainWithFallbackSigners();
+      const decideAttest = mock(async () => ({
+        decision: 'co_op_review' as const,
+        confidence: 0.2,
+        probabilities: { attest_now: 0.2, co_op_review: 0.8 },
+        reason: 'low_confidence' as const,
+      }));
+
+      const result = await runKeeper({ referenceEventId: REF_ID, force: true }, baseDeps(chain, { decideAttest }));
+
+      expect(decideAttest).not.toHaveBeenCalled();
+      expect(result.status).toBe('ok');
+      expect(result.jevGate).toBeUndefined();
+      expect(result.attestTxHash).toBeDefined();
+      expect(chain.simulateCalls.map((c) => c.functionName)).toContain('attest');
+    });
+
+    test('already attested: never asks the gate (nothing to attest)', async () => {
+      const chain = buildFakeChain({ alreadyAttested: true, enrolledPlots: [] });
+      (chain.publicClient as unknown as { readContract: unknown }).readContract = mock(async (call: { functionName: string; args: readonly unknown[] }) => {
+        if (call.functionName === 'plots') return [ZONE_ID, SPECIES_ID, true];
+        if (call.functionName === 'attestations') return [ZONE_ID, SPECIES_ID, '2026', 8, 1n, 8n, 1700000000n, 1900000000n];
+        if (call.functionName === 'plotSettlements') return [0, zeroHash];
+        throw new Error(`unexpected: ${call.functionName}`);
+      });
+      const decideAttest = mock(async () => ({ decision: 'attest_now' as const, confidence: 1, probabilities: { attest_now: 1, co_op_review: 0 }, reason: 'jev_choice' as const }));
+
+      const result = await runKeeper({ referenceEventId: REF_ID }, baseDeps(chain, { decideAttest }));
+
+      expect(decideAttest).not.toHaveBeenCalled();
+      expect(result.status).toBe('ok');
+      expect(result.jevGate).toBeUndefined();
+    });
   });
 });

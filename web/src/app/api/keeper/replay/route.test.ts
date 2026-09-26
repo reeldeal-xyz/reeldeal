@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test';
+import type { KeeperRunResult } from '@/lib/keeper/run';
 
 const TOKEN = 'test-keeper-token';
 
-const runKeeperMock = mock(async (_opts: { referenceEventId: string; dryRun?: boolean }) => ({
+const runKeeperMock = mock(async (_opts: { referenceEventId: string; dryRun?: boolean; force?: boolean }): Promise<KeeperRunResult> => ({
   referenceEventId: '2023-scallop-tier2',
   eventId: '0xevent' as `0x${string}`,
   trigger: undefined,
@@ -15,6 +16,8 @@ const runKeeperMock = mock(async (_opts: { referenceEventId: string; dryRun?: bo
   settleTxHashes: ['0xsettle' as `0x${string}`],
   plotOutcomes: [{ plotLabel: 'p1', status: 'Paid' as const, amount: 20000000000000000000000n }],
   pushes: [{ plotLabel: 'p1', kind: 'Paid' as const, lineUserId: 'U1', sent: true }],
+  status: 'ok' as const,
+  jevGate: undefined,
 }));
 
 mock.module('@/lib/keeper/run', () => ({ runKeeper: runKeeperMock }));
@@ -70,10 +73,17 @@ describe('POST /api/keeper/replay', () => {
   test('runs the keeper and returns tx hashes for a valid request', async () => {
     const res = await POST(request({ event: '2023-scallop-tier2' }, TOKEN));
     expect(res.status).toBe(200);
-    expect(runKeeperMock).toHaveBeenCalledWith({ referenceEventId: '2023-scallop-tier2', dryRun: false });
+    expect(runKeeperMock).toHaveBeenCalledWith({ referenceEventId: '2023-scallop-tier2', dryRun: false, force: false });
 
-    const json = (await res.json()) as { ok: boolean; attestTxHash: string; settleTxHashes: string[]; plotOutcomes: { amount?: string }[] };
+    const json = (await res.json()) as {
+      ok: boolean;
+      status: string;
+      attestTxHash: string;
+      settleTxHashes: string[];
+      plotOutcomes: { amount?: string }[];
+    };
     expect(json.ok).toBe(true);
+    expect(json.status).toBe('ok');
     expect(json.attestTxHash).toBe('0xattest');
     expect(json.settleTxHashes).toEqual(['0xsettle']);
     // bigint amount must come back JSON-serializable (as a string).
@@ -82,7 +92,38 @@ describe('POST /api/keeper/replay', () => {
 
   test('passes dryRun through to the keeper', async () => {
     await POST(request({ event: '2023-scallop-tier2', dryRun: true }, TOKEN));
-    expect(runKeeperMock).toHaveBeenCalledWith({ referenceEventId: '2023-scallop-tier2', dryRun: true });
+    expect(runKeeperMock).toHaveBeenCalledWith({ referenceEventId: '2023-scallop-tier2', dryRun: true, force: false });
+  });
+
+  test('passes force through to the keeper', async () => {
+    await POST(request({ event: '2023-scallop-tier2', force: true }, TOKEN));
+    expect(runKeeperMock).toHaveBeenCalledWith({ referenceEventId: '2023-scallop-tier2', dryRun: false, force: true });
+  });
+
+  test('surfaces an escalated Jev gate decision instead of tx hashes', async () => {
+    runKeeperMock.mockImplementationOnce(async () => ({
+      referenceEventId: '2023-scallop-tier2',
+      eventId: '0xevent' as `0x${string}`,
+      trigger: undefined,
+      triggerSource: 'fallback' as const,
+      dryRun: false,
+      alreadyAttested: false,
+      attestTxHash: undefined,
+      eligiblePlots: [],
+      unsettledPlots: [],
+      settleTxHashes: [],
+      plotOutcomes: [],
+      pushes: [],
+      status: 'escalated' as const,
+      jevGate: { decision: 'co_op_review' as const, confidence: 0.4, probabilities: { attest_now: 0.4, co_op_review: 0.6 }, reason: 'low_confidence' as const },
+    }));
+
+    const res = await POST(request({ event: '2023-scallop-tier2' }, TOKEN));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { status: string; attestTxHash?: string; jevGate: { decision: string } };
+    expect(json.status).toBe('escalated');
+    expect(json.attestTxHash).toBeUndefined();
+    expect(json.jevGate.decision).toBe('co_op_review');
   });
 
   test('maps an unknown reference event to a 400', async () => {
