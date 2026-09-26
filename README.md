@@ -15,7 +15,7 @@ what's still in progress — see **[docs/SUBMISSION.md](docs/SUBMISSION.md)**.
 
 - Farmer app (LINE LIFF): <https://liff.line.me/2011749457-SgvM5ahH>
 - Astro app: <https://app.13-196-78-137.sslip.io> · Pipeline risk API: <https://13-196-78-137.sslip.io>
-- ReliefPool (Sepolia): [`0x560E…96D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) · HumanRegistry: [`0xc713…D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8)
+- ReliefPool demo pool (Sepolia): [`0xB258…43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) (first live payout: [`0x560E…96D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32)) · SaleRouter: [`0xfc17…58bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) · HumanRegistry: [`0xc713…D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8)
 
 ---
 

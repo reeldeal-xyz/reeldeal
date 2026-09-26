@@ -169,7 +169,7 @@ they're technology partners the project uses, not prize tracks it's entered agai
 | **JPYC** | The only payout/donation currency, 18 decimals throughout (never assumed 6); EIP-3009/EIP-2612 domain hardcoded from a live signature-recovery check because the proxy reverts on `DOMAIN_SEPARATOR()`/`eip712Domain()` | `packages/shared/src/addresses.ts` (`JPYC`, `JPYC_DECIMALS`, `JPYC_EIP712_DOMAIN` — see its long inline comment for the verification), `contracts/src/ReliefPool.sol` (`SafeERC20`), `web/src/lib/liff/wallet-relay.ts` (gasless send) | JPYC [`0xE7C3…3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29); today's live run paid 10,000 JPYC (`10000e18`) to `p1213-001` |
 | **LINE** | LIFF farmer app (My Farm, Wallet tab: balance/activity/gasless send/key backup); LINE Login; Messaging API push on Paid/Held; Jev's LINE intent-routing replies go out over the same reply API | `web/src/app/liff/**`, `web/src/lib/line.ts`, `web/src/lib/line-auth.ts`, `web/src/app/api/line/webhook/route.ts` | LIFF `https://liff.line.me/2011749457-SgvM5ahH`, OA `@475hqocx`; today's live run delivered a "Paid" push card to the farmer's LINE |
 | **TypeSafe (Jev, via OpenRouter)** | Off-critical-path decision layer: (1) classifies farmer LINE messages into a canned bilingual reply, (2) gates whether the keeper attests a fired trigger (`attest_now` / `co_op_review`, threshold 0.7). Never signs, never pays, can only add friction | `web/src/lib/jev.ts` (client), `web/src/lib/jev-gate.ts` (`decideAttest`), `web/src/lib/jev-templates.ts`; wired into `web/src/lib/keeper/run.ts::runKeeper` | `docs/JEV.md` logs 3 real alpha-API calls against `https://openrouter.ai/api/alpha/decisions` on 2026-09-26 (total spend $0.000069); includes a real marginal-confidence example (0.53 → `co_op_review`) |
-| **Reown AppKit** | **Not integrated.** `web/src/lib/wagmi.ts` uses injected connectors only (MetaMask) — its own comment: *"no WalletConnect project id to manage for a hackathon demo."* No `@reown`/`@walletconnect`/AppKit package appears in `bun.lock` or any `package.json`; no matching env var in `.env.example` | — | **TODO before submission**: either wire Reown AppKit for non-LINE wallet sign-in, or drop this row and the claim from any submission form. Do not list it as used until code exists |
+| **Reown AppKit** | Wallet sign-in for people **without LINE**: `/app` → *Connect wallet* (WalletConnect QR / mobile deep link / browser wallets, Sepolia) → SIWE (EIP-4361) verified server-side → the same session and farmer UI as LINE users | `web/src/app/app/`, `web/src/app/api/wallet-auth/{nonce,verify}/`, `web/src/lib/siwe.ts`, `@reown/appkit` + `@reown/appkit-adapter-wagmi` `2.0.0-wagmi-v3.0` | [#123](https://github.com/reeldeal-xyz/reeldeal/pull/123); live at https://web-production-746aa.up.railway.app/app |
 
 ## Deployed addresses (Sepolia, chain `11155111`)
 
@@ -178,13 +178,15 @@ Curvegrid/ENS Labs' deployment, re-verified live 2026-09-26, not ours.
 
 | Contract | Address | Deploy tx | Notes |
 |---|---|---|---|
-| **ReliefPool** (v2, live) | [`0x560E8404be74DCB7F3877835F374CF1B1B696D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) | [`0x1e583bd2…9505fb`](https://sepolia.etherscan.io/tx/0x1e583bd21588f944a6797a662c55d338f72fa7ec00b530366382c959b79505fb) (block 11785370) | Trigger v2 (`tempC`), EIP-712 domain `{"ReliefPool","2"}`, 2-of-3 signers (#55, #117, #118) |
+| **ReliefPool** (v2, first live run — the 10,000 JPYC payout above) | [`0x560E8404be74DCB7F3877835F374CF1B1B696D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) | [`0x1e583bd2…9505fb`](https://sepolia.etherscan.io/tx/0x1e583bd21588f944a6797a662c55d338f72fa7ec00b530366382c959b79505fb) (block 11785370) | Trigger v2 (`tempC`), EIP-712 domain `{"ReliefPool","2"}`, 2-of-3 signers (#55, #117, #118) |
+| **ReliefPool** (v2, **current demo pool** — the app points here) | [`0xB25888A81B6F2D337c2f0CBFB863324F258c43e5`](https://sepolia.etherscan.io/address/0xB25888A81B6F2D337c2f0CBFB863324F258c43e5) | block 11785698, created by `bun run e2e -- --live` | Same v2 contract, 100,000 JPYC seed; SaleRouter donates here |
+| **SaleRouter** | [`0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) | #125 | Atomic sale → seller + `donate("sale:<orderId>")`; quote signer = co-op signer, max 10% |
 | **HumanRegistry** | [`0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8) | [`0x14757a36…3f4f7aa`](https://sepolia.etherscan.io/tx/0x14757a363b91b2a8e08c2d820523d24da651e59c51c519f993424b7cb3f4f7aa) | |
 | **EnsPlotResolver** | [`0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b`](https://sepolia.etherscan.io/address/0x5Fd09356151DfF3DFca06B1270e5DDAF11DaF89b) | [`0xa372f082…95c78a`](https://sepolia.etherscan.io/tx/0xa372f082de22b95b763cd9d012ac849177b45b2539ba44ed33498ba58195c78a) | |
 | **EnsSlotResolver** | [`0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec`](https://sepolia.etherscan.io/address/0xbf91d74c0010ba727bD3B251B3fc5700835c80Ec) | [`0x1511575c…d42c528c`](https://sepolia.etherscan.io/tx/0x1511575cb70e24035b69c5bf6977614927cd16a3fdc020cb4452b897d42c528c) | |
 | **JPYC** (third-party token) | [`0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29`](https://sepolia.etherscan.io/address/0xE7C3D8C9a439feDe00D2600032D5dB0Be71C3c29) | — | 18 decimals, faucet.jpyc.co.jp |
 | **ENSv2 core** (third-party: ETHRegistrar, ETHRegistry, RootRegistry, PermissionedResolver impl, UserRegistry impl) | see `packages/shared/src/addresses.ts` `ENS` object | — | Redeploys ~monthly; re-verified live 2026-09-26, `contracts-v2@71a3b73` |
-| **SaleRouter** (atomic JPYC purchase → `ReliefPool.donate`) | **TODO — not deployed.** Issue [#65](https://github.com/reeldeal-xyz/reeldeal/issues/65) (SP-11) is open, `agent:blocked` | — | Marketplace sale-to-relief contribution is designed (`donate(amount, "sale:<orderId>")`) but not yet atomic on chain |
+| **SaleRouter** (atomic JPYC purchase → `ReliefPool.donate`) | One tx: pull the buyer's JPYC, pay the seller, `donate(relief, "sale:<orderId>")`; EIP-712 signed quotes (co-op signer), replay/double-sale guards, integer split (`relief = floor(total·bps/10000)`) | `contracts/src/SaleRouter.sol`, `packages/shared/src/quote.ts`, `docs/SALE-ROUTER.md` | [`0xfc17…58bd`](https://sepolia.etherscan.io/address/0xfc178e7fA7b3119e2E233FeDF5e2E317D95658bd) → demo pool `0xB258…43e5`; 24 Foundry tests + fork dry run ([#125](https://github.com/reeldeal-xyz/reeldeal/pull/125)); storefront wiring is SP-12 #66 |
 | ReliefPool v1 (superseded) | [`0x803d06aa8b1c1e6bb1418f586328fade877afe9f`](https://sepolia.etherscan.io/address/0x803d06aa8b1c1e6bb1418f586328fade877afe9f) | [`0xba71494e…9108ed89383`](https://sepolia.etherscan.io/tx/0xba71494e484afabf6ecc6fa6175e435b5d2253c3d1518639cbc219108ed89383) | Trigger v1 (no `tempC`), domain `{"ReliefPool","1"}` — replaced by v2 under #55/#117/#118; a v1 signature never verifies against v2 |
 
 ### Today's live end-to-end run
@@ -240,7 +242,7 @@ bun run frontend:dev # Astro workshop on :4321/workshop
 ```sh
 bun run test                    # bun run --filter '*' test && pipeline:test (uv run pytest) && forge test
 bun run contracts:test          # forge test -vv
-bun run e2e -- --fork           # NEW (landed just before this doc): fork-mode end-to-end (see below)
+bun run e2e                     # fork-mode end-to-end: 8/8 PASS (see below)
 ```
 
 `bun run e2e` (`scripts/e2e.ts`, merged in [#121](https://github.com/reeldeal-xyz/reeldeal/pull/121)
@@ -253,12 +255,7 @@ every other enrolled plot is Held(`UNVERIFIED`); the second run is a no-op; and 
 Trigger signed under the old v1 EIP-712 domain is rejected while the same Trigger under
 the live v2 domain is accepted. It skips gracefully if `anvil`/`forge` aren't on `PATH`.
 
-**Not independently re-run for this doc**: `--fork` mode needs `DEPLOYER_PRIVATE_KEY`,
-`PIPELINE_SIGNER_PRIVATE_KEY`, `COOP_SIGNER_PRIVATE_KEY` and the ENS resolver adapter
-addresses in a real repo-root `.env`, none of which are present in this docs worktree.
-Foundry submodules were initialized and `forge build` passes clean here, but a specific
-pass count (e.g. "8/8") could not be confirmed from this checkout — re-run
-`bun run e2e -- --fork` with the real `.env` before quoting a pass count publicly.
+Verified by Sailesh on `main` after the rebase: **8/8 PASS** (deploy against the fork, attested, `p1213-001` Paid to the World-ID-verified farmer for exactly `perUnit` = 10,000 JPYC, 7 plots Held(`UNVERIFIED`), idempotent re-run, no JPYC moved on re-run, v1 signature rejected / v2 accepted). ~75 s per run, repeatable. `bun run e2e -- --live --yes` does the same against a fresh pool on real Sepolia (used to create the demo pool `0xB258…43e5`).
 
 ## Team
 
@@ -306,19 +303,13 @@ say what's real, say what isn't, don't blur the line.
   separately deployed container, but LIFF/donor/co-op/holder/verify routes there still
   redirect to the Next.js app until #67/#68 land — Astro is a component workshop with a
   few live endpoints today, not yet the production surface.
-- **Reown AppKit is not integrated** (see the sponsor table above) — the non-LINE wallet
-  path is MetaMask-only via wagmi's injected connector.
-- **Atomic marketplace checkout is not deployed.** `ReliefPool.donate(amount, "sale:<orderId>")`
-  exists on the contract, but the router that calls it atomically with a marketplace
-  sale (issue #65) is open and blocked.
+- **Marketplace storefront wiring is pending.** The SaleRouter is deployed and tested (#125); calling it from the Astro checkout is SP-12 (#66).
 - **World ID level-2 debrief is an empty template.** `docs/WORLD_DEBRIEF.md` (issue #25)
   still has blank fields even though a real level-2 verification ran today — the
   friction log needs to be filled in from server logs (`scope:"world-id"` in
   `web/src/lib/world/log.ts`) before submission if judges ask for it.
-- **`bun run e2e -- --fork` landed at the last minute** (PR #121) and was built here, not
-  independently re-run to completion in this docs worktree — see the caveat under Tests.
 
 **What's next, roughly in order:** finish #67/#68 (Astro takes over the live routes),
 implement HAB/storm pipeline routes for real live monitoring (retiring the pinned-PDF
-replay), ship the SaleRouter (#65) so a ReelDeal sale atomically contributes to relief,
-fill in the World ID debrief (#25), and decide Reown vs. drop the claim.
+replay), wire the deployed SaleRouter into the storefront (#66),
+fill in the World ID debrief (#25).
