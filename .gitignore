@@ -19,3 +19,9 @@ contracts/broadcast/*/31337/
 .data/
 .doghouse/
 specs/**/*.dag
+
+# Astro and Storybook generated output
+frontend/.astro/
+frontend/dist/
+frontend/storybook-static/
+frontend/.storybook-cache/

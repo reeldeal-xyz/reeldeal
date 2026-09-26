@@ -1,0 +1,8 @@
+---
+import BidWorkshop from '../../src/components/solid/BidWorkshop';
+import type { Scenario } from '../../src/components/solid/BidWorkshop';
+interface Props { scenario?: Scenario }
+const { scenario = 'ready' } = Astro.props;
+---
+<p class="notice" style="margin-bottom:24px">Interactive fixture · no payments or wallet requests</p>
+<BidWorkshop scenario={scenario} client:load />

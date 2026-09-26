@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import MarketCard from '../components/molecules/MarketCard.astro';
+import Field from '../components/atoms/Field.astro';
+import Amount from '../components/atoms/Amount.astro';
+import Address from '../components/atoms/Address.astro';
+import Status from '../components/atoms/Status.astro';
+import BidWorkshop from '../components/solid/BidWorkshop';
+import WalletPreview from '../components/react/WalletPreview';
+import { previewLots } from '../fixtures/preview-lots';
+---
+<BaseLayout title="Coastal market workshop">
+  <section class="shell page-heading"><h1>Component workshop</h1><p>A preview of the marketplace supporting Japan’s fishing communities. All lots, wallets and relief states below use synthetic data.</p></section>
+  <div class="shell stack">
+    <section aria-labelledby="lots-title"><h2 id="lots-title">Local catch / 地元の水揚げ</h2><div class="market-grid">{previewLots.map((lot, index) => <MarketCard lot={lot} index={index} first={index === 0} href="#offer" />)}</div></section>
+    <section class="workshop-panel stack" aria-labelledby="relief-title"><div><h2 id="relief-title">Relief fund</h2><p>Clear amounts and status, with room for the details.</p></div><strong style="font-size:1.75rem"><Amount value="20000" /></strong><div class="workshop-statuses"><Status state="pending" /><Status state="paid" /><Status state="held" detail="Identity verification required" /></div><Address value="0x0000000000000000000000000000000000000001" /><Field id="farm-name" label="Farm name / 養殖場名" hint="Use the name registered with your co-op." /></section>
+    <section id="offer" class="stack" aria-labelledby="offer-title"><h2 id="offer-title">Offer interaction</h2><p class="notice">This reuses the demo offer UI. The JPYC purchase and relief split are tracked separately in #66.</p><BidWorkshop client:load /></section>
+    <section class="workshop-panel"><WalletPreview client:load /></section>
+  </div>
+</BaseLayout>
+<style>
+  h2 { margin: 0 0 16px; font-size: 1.25rem; line-height: 1.3; }
+  p { margin: 0; }
+  .workshop-panel { padding: 24px; background: var(--color-surface); border: 2px solid var(--color-ink); border-radius: var(--radius-card); }
+  .workshop-statuses { display: flex; flex-wrap: wrap; gap: 12px; }
+  :global(#offer .bid-panel) { max-width: 540px; }
+  @media (max-width: 359px) { .workshop-panel { padding: 16px; } }
+</style>

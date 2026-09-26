@@ -1,0 +1,6 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+interface Props extends HTMLAttributes<'input'> { id: string; invalid?: boolean }
+const { id, invalid = false, class: className, ...props } = Astro.props;
+---
+<input {...props} id={id} class:list={['input', className]} aria-invalid={invalid || undefined} />

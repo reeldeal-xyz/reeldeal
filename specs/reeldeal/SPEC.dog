@@ -16,14 +16,15 @@ implementation and deployment evidence.
 - `Shared`: Trigger/EIP-712 types, feed schemas, rules, computation, ABIs, addresses.
 - `Pipeline`: existing TypeScript file-backed feed API and pinned buoy, toxin,
   and geographic datasets. Dataset age is not determined by file modification time.
-- `Application`: existing Next.js UI, API routes, keeper, identity, and LINE integration.
+- `Application`: existing Next.js UI, API routes, keeper, identity, and LINE integration;
+  the `frontend/` Astro/Storybook foundation redirects legacy pages to `web/`.
 - `Tooling` and `Documentation`: repository operation and maintained contracts.
 
 ## Planned integration
 
 | Planned system | Authoritative tickets | Acceptance boundary |
 |---|---|---|
-| Astro frontend and app-core | #54, #56, #63 | Preserve existing routes and identity/money behavior |
+| Complete frontend migration and app-core | #54, #63, #67, #68 | Foundation exists; preserve existing routes and identity/money behavior |
 | FastAPI risk API | #75–#82 | Real heat values with source hashes; shared handoff #55/#79 |
 | Postgres app/risk schemas | #57, #59, #62 | Separate app/risk ownership and agreed geographic identity |
 | HMI | #32, #36, #40, #47 | Verified datasets first; later station/3D/scenario work |

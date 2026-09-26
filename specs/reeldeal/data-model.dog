@@ -49,7 +49,7 @@ states: [observed]
 
 ### Entity: Application
 
-Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration. Astro migration is planned under #54.
+Current Next.js UI/routes, keeper, wallet/identity flows, event handling, and LINE integration, plus the frontend/ Astro and Storybook foundation. Production route and service migration remains under #54.
 
 ```yaml
 entity: Application
@@ -58,7 +58,7 @@ properties:
   adr:
     default: docs/adrs/0002-astro-and-app-core.md
   paths:
-    default: web/
+    default: web/ frontend/
 states: [observed]
 ```
 
@@ -96,7 +96,7 @@ states: [observed]
 
 ### Entity: AstroApplication
 
-Astro frontend and app-core, owned by #54/#56/#63. No completed migration is claimed.
+Completed Astro application and app-core migration, owned by #54/#63. The frontend/ foundation exists; production routes and server-service migration are still pending.
 
 ```yaml
 entity: AstroApplication

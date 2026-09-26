@@ -1,11 +1,13 @@
 # 0002: Migrate to Astro SSR and app-core
 
-Status: Accepted direction. Implementation remains pending in the linked issues.
+Status: Accepted direction. Foundation merged in #88; production migration remains pending.
 
 ## Context
 
-Main runs Next.js in `web/`, including UI, API routes, and keeper libraries.
-The selected migration must preserve those behaviors and URLs.
+Main retains Next.js in `web/`, including UI, API routes, and keeper libraries.
+PR #88 added `frontend/` with Astro SSR and Storybook. Its legacy-page catch-all
+redirects to `web/`; it does not proxy APIs. Production migration must preserve
+the existing behaviors and URLs.
 
 ## Decision
 
@@ -19,11 +21,14 @@ Move server libraries into `packages/app-core/` and expose them through Astro en
 Keep `web/` available until route parity, persistence, and rollback are verified.
 Port `/map`, `/donate`, `/verify/[eventId]`, `/liff`, `/coop`, and `/holder` without
 moving server secrets into browser bundles. Storybook uses production components.
-The target directories are not claimed as implemented by this ADR.
+The frontend foundation is implemented; `packages/app-core/` and production route
+parity are not claimed as complete.
 
 ## Evidence
 
 [Current runtime](../../web/package.json), [current server libraries](../../web/src/lib),
+[frontend foundation](../../frontend/README.md),
+[#88](https://github.com/reeldeal-xyz/reeldeal/pull/88),
 [#56](https://github.com/reeldeal-xyz/reeldeal/issues/56),
 [#58](https://github.com/reeldeal-xyz/reeldeal/issues/58),
 [#63](https://github.com/reeldeal-xyz/reeldeal/issues/63),

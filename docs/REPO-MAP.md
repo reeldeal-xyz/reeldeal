@@ -18,7 +18,7 @@ removed files, new untracked sources, changed revisions, or a changed graph arti
 
 The map covers tracked contracts, interfaces, Solidity tests/deployment scripts,
 deployment records, pipeline, shared types/ABIs, UI, scripts, config, and docs.
-It includes new Python, Astro, app-core, and deployment files when they land.
+It includes the current frontend foundation and new Python, app-core, and deployment files when they land.
 Dependencies, vendored contracts, runtime stores, secrets, build outputs, and
 symlinks are excluded. Files are mapped, not executed; no RPC or provider calls
 are made.
@@ -31,7 +31,7 @@ Foundry remappings, external dependencies, dynamic imports, and Python imports
 can remain unresolved. Check `coverage.json`; absence of a link is not proof that
 systems are unrelated. Generated graph quality is not an implementation score.
 
-Observed files belong in the generated graph. Planned Astro/FastAPI/Postgres
+Observed files belong in the generated graph. Remaining frontend/FastAPI/Postgres
 systems remain in [#54](https://github.com/ss251/reeldeal/issues/54) and
 [#82](https://github.com/ss251/reeldeal/issues/82); HMI work is
 [#32](https://github.com/ss251/reeldeal/issues/32). Current `web/` is mapped as
