@@ -1,175 +1,666 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import HmiObservations from '../components/organisms/HmiObservations.astro';
+import 'leaflet/dist/leaflet.css';
+import '../styles/hmi.css';
 import { PIPELINE_API_URL } from 'astro:env/server';
-import { heatCoverage, heatDays } from '@repo/shared';
+import { heatDays } from '@repo/shared';
 import { readHeatRisk } from '../lib/heat-risk.server';
 import { readSpecies } from '../lib/species.server';
-import { geoPath, geoPoint, readHmiData } from '../lib/hmi.server';
+import { readHmiData } from '../lib/hmi.server';
 
 const hmi = await readHmiData(PIPELINE_API_URL);
+const lang = Astro.url.searchParams.get('lang') === 'ja' ? 'ja' : 'en';
+const copy = lang === 'ja' ? {
+  title: '養殖リスクマップ',
+  subtitle: '宮城県沿岸の養殖区画と海況データ',
+  plot: '養殖区画',
+  species: '魚種',
+  season: 'データ年',
+  layer: '観測項目',
+  update: '表示を更新',
+  map: '養殖区画と海域',
+  draw: '範囲を描く',
+  cancel: '描画を終了',
+  analyze: '範囲を解析',
+  clear: '消去',
+  help: '地図をクリックして3点以上を指定し、解析してください。',
+  mapHelp: '＋／−で拡大・縮小。ドラッグで移動。',
+  extent: '範囲は宮城県沿岸に限られます。',
+  sampling: '衛星水温データを集計中…',
+  source: 'データ出典',
+  selected: '選択中の区画',
+  references: '魚種別の基準値',
+  countOnly: '観測日数のみ。補償判定そのものではありません。',
+  noPlot: '区画データがありません',
+  noPlotDetail: '区画データに接続できません。',
+  noThreshold: 'この魚種の基準値は未登録です。',
+  pipeline: 'データ接続中',
+  notConfigured: '未設定',
+  offline: '接続なし',
+  noData: '有効な水温データはありません',
+  noObservations: '検証済みの観測値がありません。',
+  reset: '選択区画へ',
+  mapControls: '地図操作',
+  pipelineMissing: 'データパイプラインが未設定です。',
+  imageryContext: '地図画像は参考表示です。区画別の検証済み観測値とは別データです。',
+} : {
+  title: 'Aquaculture risk map',
+  subtitle: 'Aquaculture plots and ocean conditions off Miyagi, Japan',
+  plot: 'Farm plot',
+  species: 'Species',
+  season: 'Data year',
+  layer: 'Observation',
+  update: 'Update view',
+  map: 'Plots and sea areas',
+  draw: 'Draw area',
+  cancel: 'Finish drawing',
+  analyze: 'Analyze area',
+  clear: 'Clear',
+  help: 'Click the map to add 3 or more points, then analyze.',
+  mapHelp: 'Use +/− to zoom; drag to pan.',
+  extent: 'Area limited to the mapped Miyagi coast.',
+  sampling: 'Sampling satellite temperature data…',
+  source: 'Data source',
+  selected: 'Selected plot',
+  references: 'Species thresholds',
+  countOnly: 'Observed days only. This is not itself a relief decision.',
+  noPlot: 'No plot data',
+  noPlotDetail: 'No connected plot data available.',
+  noThreshold: 'No threshold registered for this species.',
+  pipeline: 'Data connected',
+  notConfigured: 'Not configured',
+  offline: 'Offline',
+  noData: 'No valid temperature data',
+  noObservations: 'No validated observations to chart.',
+  reset: 'Reset to plot',
+  mapControls: 'Map controls',
+  pipelineMissing: 'Pipeline is not configured.',
+  imageryContext: 'Map imagery is visual context, separate from validated plot observations.',
+};
+
 const plotCode = Astro.url.searchParams.get('plot') ?? '';
 const season = /^20\d{2}$/.test(Astro.url.searchParams.get('season') ?? '') ? Astro.url.searchParams.get('season')! : '2025';
-const plot = hmi.status === 'available' ? hmi.plots.find((item) => item.plotCode === plotCode) ?? hmi.plots[0] : undefined;
+const plot = hmi.status === 'available'
+  ? hmi.plots.find((item) => item.plotCode === plotCode) ?? hmi.plots[0]
+  : undefined;
 const selectedSpecies = Astro.url.searchParams.get('species') ?? plot?.species[0] ?? '';
 const supportedSpecies = plot?.species ?? [];
 const species = supportedSpecies.includes(selectedSpecies) ? selectedSpecies : supportedSpecies[0] ?? '';
+const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM'
+  ? 'SST_ANOM'
+  : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
 const [risk, speciesInfo] = await Promise.all([
   plot ? readHeatRisk({ origin: PIPELINE_API_URL, plotCode: plot.plotCode, season }) : null,
   species ? readSpecies({ origin: PIPELINE_API_URL, species }) : null,
 ]);
-const speciesData = speciesInfo?.data ?? null;
 const data = risk?.data ?? null;
-const metric = Astro.url.searchParams.get('metric') === 'SST_ANOM' ? 'SST_ANOM'
-  : Astro.url.searchParams.get('metric') === 'SST_MONTH' ? 'SST_MONTH' : 'SST';
-const series = data?.indices.filter((item) => item.index === metric) ?? [];
-const values = series.flatMap((item) => item.value === null ? [] : [item.value]);
-const min = values.length ? Math.min(...values) : 0;
-const max = values.length ? Math.max(...values) : 1;
-const chartSegments: string[] = [];
-let chartSegment: string[] = [];
-series.forEach((item, index) => {
-  if (item.value === null) {
-    if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
-    chartSegment = [];
-    return;
-  }
-  chartSegment.push(`${(index / Math.max(series.length - 1, 1) * 760 + 20).toFixed(1)},${(180 - ((item.value - min) / Math.max(max - min, 0.1)) * 140).toFixed(1)}`);
-});
-if (chartSegment.length > 1) chartSegments.push(chartSegment.join(' '));
-const coverage = data ? heatCoverage(data) : null;
-const provenance = [...new Map(series.flatMap((item) => item.source ? [[item.source.sha256, item.source]] : [])).values()].slice(0, 4);
+const speciesData = speciesInfo?.data ?? null;
+const seasons = [...new Set([Number(season), 2026, 2025, 2024, 2023, 2022])].sort((a, b) => b - a);
+
 const heatRules = speciesData?.rules.filter((rule) => rule.peril === 'HEAT') ?? [];
 const sst = (data?.indices.filter((item) => item.index === 'SST') ?? []).map((item) => ({ date: item.asOf, value: item.value }));
-const counts = heatRules.map((rule) => ({ rule, count: rule.tempC !== null && rule.window
-  ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0 }));
+const counts = heatRules.map((rule) => ({
+  rule,
+  count: rule.tempC !== null && rule.window ? heatDays(sst, rule.tempC, rule.window).at(-1)?.value ?? 0 : 0,
+}));
 const speciesText = !species || speciesInfo?.status === 'available' ? ''
-  : speciesInfo?.status === 'not-configured' ? 'Species reference data is not configured for this deployment.'
-  : speciesInfo?.status === 'not-found' ? `No species reference for ${species}.`
-  : speciesInfo?.status === 'invalid-payload' ? 'Species reference failed validation.'
-  : 'Species reference data is unavailable.';
-const statusText = hmi.status === 'not-configured' ? 'Pipeline is not configured for this deployment.'
-  : hmi.status === 'unavailable' ? 'Live plot and zone data are unavailable.'
-  : hmi.status === 'invalid-payload' ? 'Pipeline map data failed validation.' : '';
-const riskText = !plot ? '' : risk?.status === 'not-configured' ? 'Heat data is not configured for this deployment.'
-  : risk?.status === 'unimplemented' ? 'Heat analysis is not implemented by the connected pipeline.'
-  : risk?.status === 'not-found' ? `No heat data for ${plot.plotCode} in ${season}.`
-  : risk?.status === 'stale' ? 'Heat data does not reach the selected season’s required observation date.'
-  : risk?.status === 'partial' ? 'Heat observations have missing or null days.'
-  : risk?.status === 'invalid-payload' ? 'Heat response failed validation.'
-  : risk?.status === 'timeout' || risk?.status === 'unavailable' ? 'Heat service is unavailable.' : '';
-const plotSource = plot?.source === 'demo' ? 'Synthetic demo geometry · not a surveyed farm'
-  : plot?.source === 'msil' ? 'MSIL plot geometry' : plot ? 'Uploaded plot geometry' : '';
-const pipelineStatus = hmi.status === 'available' ? 'Live pipeline connected'
-  : hmi.status === 'not-configured' ? 'Pipeline not configured' : 'Pipeline unavailable';
+  : speciesInfo?.status === 'not-configured'
+    ? (lang === 'ja' ? '魚種の基準データは未設定です。' : 'Species reference data is not configured.')
+  : speciesInfo?.status === 'not-found'
+    ? (lang === 'ja' ? `${species} の魚種基準データがありません。` : `No species reference for ${species}.`)
+  : speciesInfo?.status === 'invalid-payload'
+    ? (lang === 'ja' ? '魚種の基準データを検証できませんでした。' : 'Species reference data failed validation.')
+  : (lang === 'ja' ? '魚種の基準データに接続できません。' : 'Species reference data is unavailable.');
+
+const statusText = hmi.status === 'not-configured'
+  ? copy.pipelineMissing
+  : hmi.status === 'unavailable'
+    ? (lang === 'ja' ? '区画・海域データを取得できません。' : 'Plot and sea-area data are unavailable.')
+    : hmi.status === 'invalid-payload'
+      ? (lang === 'ja' ? '地図データを読み取れません。' : 'Map data could not be read.')
+      : '';
+
+const riskText = !plot ? ''
+  : risk?.status === 'not-configured' ? (lang === 'ja' ? '水温データは未設定です。' : 'Heat data is not configured.')
+  : risk?.status === 'unimplemented' ? (lang === 'ja' ? '水温解析は未対応です。' : 'Heat analysis is not available.')
+  : risk?.status === 'not-found' ? (lang === 'ja' ? `${plot.plotCode}の${season}年水温データはありません。` : `No heat data for ${plot.plotCode} in ${season}.`)
+  : risk?.status === 'stale' ? (lang === 'ja' ? '対象期間の最新観測値がありません。' : 'Latest observations are not available for this period.')
+  : risk?.status === 'partial' ? (lang === 'ja' ? '水温データに欠測があります。' : 'Some heat observations are missing.')
+  : risk?.status === 'invalid-payload' ? (lang === 'ja' ? '水温データを読み取れません。' : 'Heat data could not be read.')
+  : risk?.status === 'timeout' || risk?.status === 'unavailable'
+    ? (lang === 'ja' ? '水温データに接続できません。' : 'Heat data is unavailable.')
+    : '';
+
+const plotSource = plot?.source === 'demo'
+  ? (lang === 'ja' ? 'デモ用形状 · 実測区画ではありません' : 'Synthetic demo geometry · not a surveyed farm')
+  : plot?.source === 'msil'
+    ? (lang === 'ja' ? 'MSIL区画形状' : 'MSIL plot geometry')
+    : plot ? (lang === 'ja' ? '登録区画形状' : 'Uploaded plot geometry') : '';
+
+const mapFeatures = JSON.stringify({
+  plots: hmi.status === 'available' ? hmi.plots.map((item) => ({
+    plotCode: item.plotCode,
+    centroid: item.centroid,
+    geometry: item.geometry,
+    source: item.source,
+    selected: item.plotCode === plot?.plotCode,
+  })) : [],
+  zones: hmi.status === 'available' ? hmi.zones.filter((zone) => zone.geometry).map((zone) => ({
+    geometry: zone.geometry,
+    name: lang === 'ja' ? zone.nameJa ?? zone.name : zone.name,
+  })) : [],
+});
+
+const languageUrl = (locale: string) => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('lang', locale);
+  return `/hmi?${params}`;
+};
+const speciesName = (value: string) => lang === 'ja'
+  ? ({ nori: 'ノリ', wakame: 'ワカメ', kombu: 'コンブ', scallop: 'ホタテ', oyster: 'カキ', hoya: 'ホヤ', yellowtail: 'ブリ', sea_bream: 'マダイ', coho_salmon: 'ギンザケ', bluefin_tuna: 'クロマグロ' }[value] ?? value)
+  : value.replaceAll('_', ' ');
+const metricName = metric === 'SST_ANOM'
+  ? (lang === 'ja' ? '水温偏差' : 'SST anomaly')
+  : metric === 'SST_MONTH'
+    ? (lang === 'ja' ? '月平均水温' : 'Monthly SST')
+    : (lang === 'ja' ? '海面水温' : 'Sea surface temperature');
 ---
-<BaseLayout title="Aquaculture HMI" description="Japan coastal aquaculture map and species-specific observed heat indicators." section="hmi">
-  <div class="hmi-page">
+
+<BaseLayout title={copy.title} description={copy.subtitle} section="hmi" lang={lang}>
+  <div
+    class="hmi-page"
+    data-copy={JSON.stringify(copy)}
+    data-season={season}
+    data-lang={lang}
+    data-map-features={mapFeatures}
+  >
     <header class="hmi-heading">
-      <div><p class="eyebrow">REELDEAL · COASTAL INTELLIGENCE</p><h1>Aquaculture HMI</h1><p>Japan coastal plots, observed conditions, and species-specific heat thresholds.</p></div>
-      <span class:list={['live-badge', hmi.status !== 'available' && 'offline']}><i></i>{pipelineStatus}</span>
+      <div>
+        <h1>{copy.title}</h1>
+        <p>{copy.subtitle}</p>
+      </div>
+      <div class="heading-tools">
+        <nav class="language" aria-label={lang === 'ja' ? '言語' : 'Language'}>
+          <a href={languageUrl('en')} aria-current={lang === 'en' ? 'page' : undefined}>EN</a>
+          <a href={languageUrl('ja')} lang="ja" aria-current={lang === 'ja' ? 'page' : undefined}>日本語</a>
+        </nav>
+        <span class:list={['live-badge', hmi.status !== 'available' && 'offline']}>
+          <i aria-hidden="true"></i>
+          {hmi.status === 'available' ? copy.pipeline : hmi.status === 'not-configured' ? copy.notConfigured : copy.offline}
+        </span>
+      </div>
     </header>
+
     <div class="hmi-workspace">
-      <aside class="hmi-rail" aria-label="Map and risk controls">
+      <aside class="hmi-rail" aria-label={lang === 'ja' ? '地図と観測条件' : 'Map and observation controls'}>
         <form method="get" class="controls">
-          {plot && <input type="hidden" name="plot" value={plot.plotCode} />}
-          <label>Species
+          <input type="hidden" name="lang" value={lang} />
+
+          <label>{copy.plot}
+            <select name="plot" disabled={hmi.status !== 'available' || !hmi.plots.length}>
+              {hmi.status === 'available' && hmi.plots.length
+                ? hmi.plots.map((item) => <option value={item.plotCode} selected={item.plotCode === plot?.plotCode}>
+                    {item.plotCode}{item.source === 'demo' ? (lang === 'ja' ? ' · デモ' : ' · demo') : ''}
+                  </option>)
+                : <option>{copy.noPlot}</option>}
+            </select>
+          </label>
+
+          <label>{copy.species}
             <select name="species" disabled={!supportedSpecies.length}>
-              {supportedSpecies.map((item) => <option value={item} selected={item === species}>{item.replaceAll('_', ' ')}</option>)}
+              {supportedSpecies.length
+                ? supportedSpecies.map((item) => <option value={item} selected={item === species}>{speciesName(item)}</option>)
+                : <option>—</option>}
             </select>
           </label>
-          <label>Season
+
+          <label>{copy.season}
             <select name="season">
-              {[2025, 2024, 2023, 2022].map((year) => <option value={year} selected={String(year) === season}>{year}</option>)}
+              {seasons.map((year) => <option value={year} selected={String(year) === season}>{year}</option>)}
             </select>
           </label>
-          <label>Observed layer
+
+          <label>{copy.layer}
             <select name="metric">
-              <option value="SST" selected={metric === 'SST'}>Sea surface temperature</option>
-              <option value="SST_ANOM" selected={metric === 'SST_ANOM'}>Temperature anomaly</option>
-              <option value="SST_MONTH" selected={metric === 'SST_MONTH'}>Monthly temperature</option>
+              <option value="SST" selected={metric === 'SST'}>{lang === 'ja' ? '海面水温' : 'Sea surface temperature'}</option>
+              <option value="SST_ANOM" selected={metric === 'SST_ANOM'}>{lang === 'ja' ? '水温偏差' : 'SST anomaly'}</option>
+              <option value="SST_MONTH" selected={metric === 'SST_MONTH'}>{lang === 'ja' ? '月平均水温' : 'Monthly SST'}</option>
             </select>
           </label>
-          <button type="submit">Update view</button>
+
+          <button type="submit">{copy.update}</button>
         </form>
-        <section class="layer-list" aria-labelledby="layers-title">
-          <h2 id="layers-title">Risk layers</h2>
-          <p class="layer-row"><span class="swatch heat"></span>Heat <small>{data ? 'Observed' : 'Unavailable'}</small></p>
-          <p class="layer-row disabled"><span class="swatch hab"></span>HAB <small>Pipeline 501</small></p>
-          <p class="layer-row disabled"><span class="swatch storm"></span>Storm <small>Pipeline 501</small></p>
-          <p class="layer-note">Environmental observations are shared across species. Species selection changes only the displayed trigger references.</p>
-        </section>
-        <section class="mode-panel" aria-labelledby="mode-title">
-          <h2 id="mode-title">Map mode</h2>
-          <div class="mode-switch"><button type="button" aria-pressed="true">2D</button><button type="button" disabled title="No validated bathymetry or 3D map source is available">3D unavailable</button></div>
-          <p>Bathymetry and validated 3D layers are not connected yet.</p>
-        </section>
       </aside>
+
       <section class="map-panel" aria-labelledby="map-title">
-        <div class="panel-heading"><div><p class="eyebrow">MIYAGI · NORTHEAST JAPAN</p><h2 id="map-title">Farm and sea-area map</h2></div><span class="map-scale">38.8°N · 141.6°E</span></div>
-        {statusText && <p class="notice" role="status">{statusText}</p>}
-        <div class="map-wrap">
-          <svg class="map" viewBox="0 0 800 620" role="img" aria-label="Map of Miyagi coastal sea areas and pipeline plot records">
-            <rect width="800" height="620" fill="#cbe9e8" />
-            <g class="graticule"><path d="M0 155H800M0 310H800M0 465H800M200 0V620M400 0V620M600 0V620" /></g>
-            {hmi.status === 'available' && hmi.zones.map((zone) => zone.geometry && <path d={geoPath(zone.geometry)} class="zone" fill-rule="evenodd"><title>{zone.nameJa ?? zone.name} · approximate monitoring zone</title></path>)}
-            {hmi.status === 'available' && hmi.plots.map((item) => { const [x,y] = geoPoint(item.centroid); const href = `/hmi?plot=${encodeURIComponent(item.plotCode)}&season=${season}&species=${encodeURIComponent(species)}&metric=${metric}`; return <g class={item.source === 'demo' ? 'farm demo' : 'farm'}><path d={geoPath(item.geometry)} class="farm-area"><title>{item.plotCode} · {item.source === 'demo' ? 'synthetic demo' : item.source}</title></path><a href={href} aria-label={`Select plot ${item.plotCode}`}><circle cx={x} cy={y} r={item.plotCode === plot?.plotCode ? 9 : 6} class="plot"><title>{item.plotCode} · select plot</title></circle></a></g>; })}
-            <text x="600" y="570" class="map-label">PACIFIC OCEAN</text>
-            <text x="30" y="594" class="coord">140.5°E — 143.1°E</text>
-          </svg>
-          {!statusText && hmi.status === 'available' && !hmi.plots.length && <p class="empty-map">No plot records in the Miyagi map extent.</p>}
+        <div class="panel-heading">
+          <h2 id="map-title">{copy.map}</h2>
+          <output class="map-scale" data-map-center aria-live="polite">38.85°N · 141.80°E</output>
         </div>
-        <div class="map-legend"><span><i class="legend-plot"></i>Plot record</span><span><i class="legend-demo"></i>Synthetic demo plot</span><span><i class="legend-zone"></i>Approximate sea-area boundary</span></div>
-        {plot && <p class="source-note">Selected {plot.plotCode} · {plotSource} · {plot.prefecture ?? 'Japan'}{plot.seaArea ? ` · ${plot.seaArea}` : ''}</p>}
+
+        {statusText && <p class="notice" role="status">{statusText}</p>}
+
+        <div class="map-toolbar">
+          <nav class="map-layers" aria-label={lang === 'ja' ? '衛星データレイヤー' : 'Satellite data layers'}>
+            <button type="button" data-map-layer="satellite" aria-pressed="true">{lang === 'ja' ? '衛星写真' : 'Satellite'}</button>
+            <button type="button" data-map-layer="sst" aria-pressed="false">SST</button>
+            <button type="button" data-map-layer="anom" aria-pressed="false">{lang === 'ja' ? '水温偏差' : 'SST anomaly'}</button>
+            <button type="button" data-map-layer="chl" aria-pressed="false">{lang === 'ja' ? 'クロロフィルa' : 'Chlorophyll-a'}</button>
+          </nav>
+
+          <div class="map-controls" role="group" aria-label={copy.mapControls}>
+            <div>
+              <button type="button" data-map-zoom="in" aria-label={lang === 'ja' ? '拡大' : 'Zoom in'}>+</button>
+              <button type="button" data-map-zoom="out" aria-label={lang === 'ja' ? '縮小' : 'Zoom out'}>−</button>
+              <button type="button" data-map-zoom="reset">{copy.reset}</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="map-layer-note" data-map-layer-note>{lang === 'ja' ? '衛星画像のみ · Esri World Imagery' : 'Imagery only · Esri World Imagery'}</p>
+
+        <div class="map-wrap">
+          <div
+            id="hmi-map"
+            class="map"
+            role="application"
+            aria-label={lang === 'ja' ? '宮城県の養殖区画図。ドラッグで移動できます。' : 'Miyagi plot map. Drag to pan the map.'}
+            tabindex="0"
+          ></div>
+          {!statusText && hmi.status === 'available' && !hmi.plots.length && <p class="empty-map">
+            {lang === 'ja' ? '表示範囲内に区画がありません。' : 'No plots in this map extent.'}
+          </p>}
+        </div>
+
+        <p class="map-attribution">
+          {lang === 'ja' ? '背景地図' : 'Basemap'}: Esri, Maxar, Earthstar Geographics, GIS User Community
+          · {lang === 'ja' ? '衛星レイヤー' : 'overlays'}: NASA GIBS / GHRSST MUR / PACE OCI
+        </p>
+
+        <p class="map-tile-status" data-map-tile-status role="status" hidden>
+          <span>{lang === 'ja' ? '地図タイルを読み込めませんでした。区画と観測データは引き続き利用できます。' : 'Map tiles failed to load. Plot and observation data remain available.'}</span>
+          <button type="button" data-map-tiles-retry>{lang === 'ja' ? '再試行' : 'Retry'}</button>
+        </p>
+
+        <div class="area-controls" role="group" aria-label={lang === 'ja' ? '範囲解析' : 'Area analysis'}>
+          <button type="button" data-area-draw aria-pressed="false">{copy.draw}</button>
+          <button type="button" data-area-run disabled>{copy.analyze}</button>
+          <button type="button" data-area-clear disabled>{copy.clear}</button>
+        </div>
+
+        <p class="map-help">{copy.mapHelp}</p>
+        <p class="map-help">{copy.imageryContext}</p>
+        <p class="map-help" data-area-help aria-live="polite">{copy.help} {copy.extent}</p>
+        <section class="area-result" data-area-result aria-live="polite" hidden></section>
+
+        <div class="map-legend">
+          <span><i class="legend-plot" aria-hidden="true"></i>{lang === 'ja' ? '養殖区画' : 'Farm plot'}</span>
+          <span><i class="legend-demo" aria-hidden="true"></i>{lang === 'ja' ? 'デモ区画' : 'Demo plot'}</span>
+          <span><i class="legend-zone" aria-hidden="true"></i>{lang === 'ja' ? '概略海域' : 'Approximate sea area'}</span>
+        </div>
+
+        {plot && <p class="source-note">
+          {lang === 'ja' ? '選択中' : 'Selected'} {plot.plotCode}
+          · {plot.centroid[1].toFixed(4)}°N, {plot.centroid[0].toFixed(4)}°E
+          · {plotSource}
+          {plot.prefecture ? ` · ${plot.prefecture}` : ''}
+          {plot.seaArea ? ` · ${plot.seaArea}` : ''}
+        </p>}
       </section>
-      <aside class="detail-rail" aria-label="Selected plot observations">
+
+      <aside class="detail-rail" aria-label={lang === 'ja' ? '選択区画の観測値' : 'Selected plot observations'}>
         <section class="detail-card">
-          <p class="eyebrow">SELECTED PLOT</p>
-          {plot ? <><h2>{plot.plotCode}</h2><p>{plot.species.map((item) => item.replaceAll('_', ' ')).join(' · ')}</p><p class="source-note">{plotSource}</p></> : <><h2>Live plot data required</h2><p>Plot details appear when the configured pipeline returns records.</p></>}
+          <p class="eyebrow">{copy.selected}</p>
+          {plot ? <>
+            <h2>{plot.plotCode}</h2>
+            <p>{plot.species.map(speciesName).join(' · ') || '—'}</p>
+            <p class="source-note">{plotSource}</p>
+            <p class="source-note">{plot.areaM2.toLocaleString(lang === 'ja' ? 'ja-JP' : 'en-US')} m²{plot.operation ? ` · ${plot.operation}` : ''}</p>
+          </> : <>
+            <h2>{copy.noPlot}</h2>
+            <p>{copy.noPlotDetail}</p>
+          </>}
         </section>
+
+        <HmiObservations data={data} metric={metric} lang={lang} season={season} title={metricName} message={riskText || copy.noObservations} />
+
         <section class="detail-card">
-          <div class="section-title"><div><p class="eyebrow">OBSERVED · {season}</p><h2>{metric.replace('_', ' ')}</h2></div><span class="unit">°C</span></div>
-          {data && values.length > 1 ? <svg class="chart" viewBox="0 0 800 210" role="img" aria-label={`${metric} observed time series for ${plot?.plotCode}`}><path class="chart-grid" d="M20 40H780M20 110H780M20 180H780"/>{chartSegments.map((points) => <polyline points={points} />)}<text x="20" y="202">{series[0]?.asOf}</text><text x="690" y="202">{series.at(-1)?.asOf}</text></svg> : <p class="empty-chart">{riskText || 'No validated observations to chart.'}</p>}
-          {coverage && <p class="coverage">{coverage.observedDays} observed days · {coverage.nullDays} null · {coverage.omittedDays} missing from response</p>}
-          {!!provenance.length && <p class="coverage">Products: {provenance.map((source) => `${source.product} · ${source.sha256.slice(0, 12)}`).join(' / ')}</p>}
-        </section>
-        <section class="detail-card">
-          <p class="eyebrow">SPECIES RESPONSE REFERENCES</p><h2>{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : species ? species.replaceAll('_', ' ') : 'Select a species'}</h2>
+          <p class="eyebrow">{copy.references}</p>
+          <h2>{speciesData ? `${speciesData.name} · ${speciesData.nameJa}` : species ? speciesName(species) : copy.species}</h2>
           {speciesData && <p class="source-note">{speciesData.taxon}</p>}
-          {speciesText ? <p>{speciesText}</p> : counts.length ? counts.map(({ rule, count }) => <div class="threshold"><div><strong>Tier {rule.tier}</strong><span>{rule.tempC}°C · {rule.window?.start} to {rule.window?.end}</span></div><b>{count}/{rule.threshold} days</b></div>) : <p>No heat threshold is defined for this species.</p>}
-          {speciesData && <p class="coverage">Rules {speciesData.rules_version} · profiles {speciesData.profile_version}</p>}
-          {speciesData && !!speciesData.evidence.length && <div class="evidence"><p class="eyebrow">RESPONSE EVIDENCE</p>{speciesData.evidence.map((study) => <p class="coverage"><a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a> · {study.factors.join(', ').replaceAll('_', ' ')} · {study.lifeStage ?? 'life stage unrecorded'} · {study.endpoint ?? 'endpoint unrecorded'} · {study.status === 'measured' ? `${study.points.length} measured points` : 'no supported response data'}{study.note && <><br />{study.note}</>}</p>)}</div>}
-          <p class="layer-note">Observed count only. This screen does not determine eligibility or relief payment.</p>
+          {speciesText
+            ? <p>{speciesText}</p>
+            : counts.length
+              ? counts.map(({ rule, count }) => <div class="threshold">
+                  <div>
+                    <strong>{lang === 'ja' ? `段階 ${rule.tier}` : `Tier ${rule.tier}`}</strong>
+                    <span>{rule.tempC == null ? '—' : `${rule.tempC}°C / ${(rule.tempC * 9 / 5 + 32).toFixed(1)}°F`} · {rule.window?.start} – {rule.window?.end}</span>
+                  </div>
+                  <b>{count}/{rule.threshold}{lang === 'ja' ? '日' : ' days'}</b>
+                </div>)
+              : <p>{copy.noThreshold}</p>}
+          {speciesData && <p class="coverage">{lang === 'ja' ? 'ルール' : 'Rules'} {speciesData.rules_version} · {lang === 'ja' ? 'プロファイル' : 'profiles'} {speciesData.profile_version}</p>}
+          {speciesData && !!speciesData.evidence.length && <details class="species-evidence">
+            <summary>{lang === 'ja' ? '魚種の根拠資料' : 'Species evidence'}</summary>
+            {speciesData.evidence.map((study) => <p class="coverage">
+              <a href={study.url} target="_blank" rel="noopener noreferrer">{study.id}</a>
+              · {study.factors.join(', ').replaceAll('_', ' ')}
+              · {study.lifeStage ?? (lang === 'ja' ? '成長段階の記録なし' : 'life stage unrecorded')}
+              · {study.status === 'measured' ? `${study.points.length} ${lang === 'ja' ? '測定点' : 'measured points'}` : (lang === 'ja' ? '対応データなし' : 'no supported response data')}
+              {study.note && <><br />{study.note}</>}
+            </p>)}
+          </details>}
+          <p class="layer-note">{copy.countOnly}</p>
         </section>
-        <section class="detail-card forecast-card"><p class="eyebrow">FORECAST & EVENT REPLAY</p><h2>Unavailable</h2><p>Storm #25/#26 replay and forecast require validated event tracks and impact data. No forecast is inferred from current observations.</p></section>
       </aside>
     </div>
-    <footer class="hmi-foot">Data source: pipeline response provenance is retained per observation. Sea-area boundaries are approximate; plot records may be synthetic.</footer>
+
+    <footer class="hmi-foot">
+      {copy.source}: {lang === 'ja'
+        ? '検証済み区画観測はパイプライン由来。背景地図・NASAレイヤーは参考表示です。'
+        : 'Validated plot observations come from the pipeline; basemap and NASA overlays are visual context.'}
+    </footer>
   </div>
 </BaseLayout>
-<style>
-  :global(.app-frame:has(.hmi-page)) { width: min(calc(100% - 32px), 1500px); height: auto; min-height: min(900px, calc(100dvh - 32px)); max-height: none; overflow: visible; border-radius: 22px; }
-  :global(.app-frame:has(.hmi-page) > main) { min-height: 0; }
-  .hmi-page { --hmi-ink: #102a30; --hmi-muted: #587078; width: min(100% - 36px, 1420px); margin: 24px auto 18px; color: var(--hmi-ink); }
-  .hmi-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 20px; }
-  h1,h2,p { margin: 0; } h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.04em; } h2 { font-size: 1.05rem; line-height: 1.2; }
-  .hmi-heading > div > p:last-child { margin-top: 8px; color: var(--hmi-muted); }
-  .eyebrow { margin-bottom: 6px; color: #39717a; font-size: .68rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
-  .live-badge { flex: none; padding: 8px 11px; border: 1px solid #96b9b5; border-radius: 999px; color: #335e61; background: #edf7f2; font-size: .72rem; }.live-badge.offline { border-color: #cfb4a1; color: #785545; background: #faf1e8; }.live-badge.offline i { background: #c77b50; }
-  .live-badge i,.swatch { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; background: #178c73; }
-  .hmi-workspace { display: grid; grid-template-columns: 208px minmax(350px, 1fr) 300px; gap: 14px; align-items: start; }
-  .hmi-rail,.detail-rail { display: grid; gap: 12px; }
-  .controls,.layer-list,.mode-panel,.map-panel,.detail-card { padding: 15px; border: 1px solid #c7d6d1; border-radius: 10px; background: #fbfcf8; box-shadow: 0 2px 7px #163e4410; }
-  .controls { display: grid; gap: 11px; } label { display: grid; gap: 4px; color: var(--hmi-muted); font-size: .76rem; font-weight: 700; }
-  select { width: 100%; min-height: 38px; padding: 6px 9px; border: 1px solid #a6bdb8; border-radius: 6px; color: var(--hmi-ink); background: white; font: inherit; text-transform: capitalize; }
-  .controls button { min-height: 40px; border: 0; border-radius: 6px; color: white; background: #124750; font: inherit; font-weight: 750; cursor: pointer; }
-  .layer-list h2,.mode-panel h2 { margin-bottom: 10px; }
-  .layer-row { display: flex; align-items: center; padding: 7px 0; border-top: 1px solid #e1e9e4; font-size: .82rem; text-transform: capitalize; }
-  .layer-row small { margin-left: auto; color: var(--hmi-muted); font-size: .66rem; text-transform: none; }
-  .swatch.heat { background: #db714d; }.swatch.hab { background: #8d60a9; }.swatch.storm { background: #547bca; }.disabled { opacity: .62; }
-  .layer-note,.mode-panel > p,.source-note,.coverage { margin-top: 9px; color: var(--hmi-muted); font-size: .7rem; line-height: 1.45; }
-  .mode-switch { display: flex; gap: 5px; }.mode-switch button { min-height: 34px; padding: 0 10px; border: 1px solid #98b1ad; border-radius: 5px; color: var(--hmi-ink); background: white; font: inherit; font-size: .72rem; font-weight: 700; }.mode-switch [aria-pressed="true"] { color: white; background: #124750; }.mode-switch button:disabled { opacity: .6; }
-  .map-panel { min-width: 0; }.panel-heading,.section-title { display: flex; justify-content: space-between; align-items: center; gap: 10px; }.map-scale,.unit { color: var(--hmi-muted); font-size: .72rem; }.map-wrap { position: relative; margin-top: 12px; overflow: hidden; border: 1px solid #9bb9b8; border-radius: 7px; background: #cbe9e8; }.map { display: block; width: 100%; height: auto; min-height: 370px; }.graticule { fill: none; stroke: #66999c; stroke-width: .7; opacity: .26; }.zone { fill: #b8bb88; fill-opacity: .2; stroke: #75846c; stroke-width: 1.5; stroke-dasharray: 5 4; }.farm-area { fill: #df6948; fill-opacity: .22; stroke: #c65339; stroke-width: 2; }.farm.demo .farm-area { fill: #dfa83f; stroke: #57461e; stroke-dasharray: 5 3; }.plot { fill: #e15f43; stroke: white; stroke-width: 3; }.map-label { fill: #4a7e83; font-size: 18px; font-weight: 800; letter-spacing: 3px; opacity: .75; }.coord { fill: #526b6a; font-size: 12px; }.map-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; color: var(--hmi-muted); font-size: .69rem; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-plot,.legend-demo { width: 9px; height: 9px; border-radius: 50%; background: #e15f43; }.legend-demo { background: #dfa83f; }.legend-zone { width: 14px; height: 8px; border: 1px dashed #75846c; background: #b8bb88; }.notice,.empty-chart,.empty-map { padding: 12px; border-radius: 6px; color: #425957; background: #eef3ec; font-size: .8rem; }.empty-map { position: absolute; inset: 42% 20px auto; text-align: center; }
-  .detail-card h2 { margin-bottom: 7px; text-transform: capitalize; }.detail-card > p:not(.eyebrow) { color: var(--hmi-muted); font-size: .78rem; line-height: 1.45; }.section-title { align-items: end; }.chart { display: block; width: 100%; margin-top: 8px; overflow: visible; }.chart polyline { fill: none; stroke: #ce6548; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }.chart-grid { fill: none; stroke: #d9e3dd; stroke-width: 1; }.chart text { fill: var(--hmi-muted); font-size: 11px; }.empty-chart { margin-top: 12px; }.threshold { display: flex; justify-content: space-between; gap: 8px; padding: 9px 0; border-top: 1px solid #e1e9e4; font-size: .75rem; }.threshold div { display: grid; gap: 2px; }.threshold span { color: var(--hmi-muted); font-size: .67rem; }.threshold b { white-space: nowrap; }.forecast-card { border-color: #dbcbc1; background: #faf6f0; }.hmi-foot { padding-top: 13px; color: var(--hmi-muted); font-size: .68rem; }
-  @media(max-width: 980px) { .hmi-workspace { grid-template-columns: 190px minmax(0,1fr); }.detail-rail { grid-column: 1 / -1; grid-template-columns: repeat(2,minmax(0,1fr)); }.detail-card { min-width: 0; } }
-  @media(max-width: 620px) { :global(.app-frame:has(.hmi-page)) { width: calc(100% - 12px); min-height: calc(100dvh - 12px); margin: 6px auto; border-radius: 18px; }.hmi-page { width: calc(100% - 20px); margin-top: 15px; }.hmi-heading { display: block; }.live-badge { display: inline-block; margin-top: 12px; }.hmi-workspace { grid-template-columns: 1fr; }.hmi-rail,.detail-rail { grid-column: auto; grid-template-columns: 1fr; }.map { min-height: 260px; }.panel-heading { align-items: start; }.map-scale { text-align: right; } }
-</style>
+
+<script>
+  import L from 'leaflet';
+
+  const page = document.querySelector<HTMLElement>('.hmi-page');
+  const copy = JSON.parse(page?.dataset.copy ?? '{}') as Record<string, string>;
+  const season = page?.dataset.season ?? '2025';
+  const lang = page?.dataset.lang ?? 'en';
+  const features = JSON.parse(page?.dataset.mapFeatures ?? '{"plots":[],"zones":[]}') as {
+    plots: { plotCode: string; centroid: [number, number]; geometry: GeoJSON.Geometry; source: string; selected: boolean }[];
+    zones: { geometry: GeoJSON.Geometry; name: string }[];
+  };
+
+  const element = document.querySelector<HTMLElement>('#hmi-map');
+  const map = element && L.map(element, {
+    minZoom: 6,
+    maxZoom: 16,
+    zoomControl: false,
+    attributionControl: false,
+    preferCanvas: true,
+  }).setView([38.85, 141.8], 7);
+
+  if (map) {
+    const regionBounds = L.latLngBounds([[37.2, 140.5], [40.5, 143.1]]);
+    map.setMaxBounds([[36.8, 139.9], [41.0, 143.7]]);
+
+    const params = new URLSearchParams(location.search);
+    const savedLat = Number(params.get('lat'));
+    const savedLng = Number(params.get('lng'));
+    const savedZoom = Number(params.get('zoom'));
+    if (Number.isFinite(savedLat) && Number.isFinite(savedLng) && Number.isFinite(savedZoom)
+      && savedLat >= 36.8 && savedLat <= 41 && savedLng >= 139.9 && savedLng <= 143.7 && savedZoom >= 6 && savedZoom <= 16) {
+      map.setView([savedLat, savedLng], savedZoom);
+    } else {
+      map.fitBounds(regionBounds, { padding: [10, 10] });
+    }
+
+    const imagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+    });
+    const gibs = 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
+    const overlays: Record<string, L.TileLayer.WMS> = {
+      sst: L.tileLayer.wms(gibs, {
+        layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.72,
+        version: '1.1.1',
+      }),
+      anom: L.tileLayer.wms(gibs, {
+        layers: 'GHRSST_L4_MUR_Sea_Surface_Temperature_Anomalies',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.72,
+        version: '1.1.1',
+      }),
+      chl: L.tileLayer.wms(gibs, {
+        layers: 'OCI_PACE_Chlorophyll_a',
+        format: 'image/png',
+        transparent: true,
+        opacity: 0.78,
+        version: '1.1.1',
+      }),
+    };
+
+    const tileStatus = document.querySelector<HTMLElement>('[data-map-tile-status]');
+    let activeLayer = 'satellite';
+    let tileFailures = 0;
+    const monitorTiles = (layer: L.TileLayer, name: string) => layer
+      .on('loading', () => {
+        tileFailures = 0;
+        if (activeLayer === name && tileStatus) tileStatus.hidden = true;
+      })
+      .on('tileerror', () => {
+        tileFailures += 1;
+        if (activeLayer === name && tileFailures >= 2 && tileStatus) tileStatus.hidden = false;
+      });
+
+    monitorTiles(imagery, 'satellite').addTo(map);
+    Object.entries(overlays).forEach(([name, layer]) => monitorTiles(layer, name));
+
+    let drawing = false;
+    let busy = false;
+    const drawLayer = L.layerGroup().addTo(map);
+    const dataLayer = L.layerGroup().addTo(map);
+
+    features.zones.forEach((zone) => {
+      L.geoJSON(zone.geometry, {
+        style: { color: '#7b6c35', weight: 1.5, dashArray: '5 4', fillColor: '#e8db99', fillOpacity: 0.12 },
+      }).bindTooltip(zone.name).addTo(dataLayer);
+    });
+
+    features.plots.forEach((plot) => {
+      const style = {
+        color: plot.selected ? '#122f34' : plot.source === 'demo' ? '#725c23' : '#a6402e',
+        weight: plot.selected ? 4 : 2,
+        dashArray: plot.selected ? '8 4' : plot.source === 'demo' ? '5 3' : undefined,
+        fillColor: plot.source === 'demo' ? '#e6b94f' : '#eb6046',
+        fillOpacity: plot.selected ? 0.42 : 0.28,
+      };
+      L.geoJSON(plot.geometry, { style })
+        .bindTooltip(plot.plotCode, { permanent: plot.selected, direction: 'top' })
+        .on('click', () => {
+          if (drawing || busy) return;
+          const next = new URLSearchParams(location.search);
+          const center = map.getCenter();
+          next.set('plot', plot.plotCode);
+          next.set('lat', center.lat.toFixed(5));
+          next.set('lng', center.lng.toFixed(5));
+          next.set('zoom', String(map.getZoom()));
+          location.assign('/hmi?' + next.toString());
+        })
+        .addTo(dataLayer);
+
+      L.circleMarker([plot.centroid[1], plot.centroid[0]], {
+        radius: plot.selected ? 9 : 6,
+        color: plot.selected ? '#122f34' : '#fff',
+        weight: plot.selected ? 3 : 2,
+        fillColor: plot.source === 'demo' ? '#e6b94f' : '#eb6046',
+        fillOpacity: 1,
+      }).bindTooltip(plot.plotCode).on('click', () => {
+        if (drawing || busy) return;
+        const next = new URLSearchParams(location.search);
+        const center = map.getCenter();
+        next.set('plot', plot.plotCode);
+        next.set('lat', center.lat.toFixed(5));
+        next.set('lng', center.lng.toFixed(5));
+        next.set('zoom', String(map.getZoom()));
+        location.assign('/hmi?' + next.toString());
+      }).addTo(dataLayer);
+
+    });
+
+    const centerOutput = document.querySelector<HTMLOutputElement>('[data-map-center]');
+    const setCenter = () => {
+      const center = map.getCenter();
+      if (centerOutput) centerOutput.value = `${Math.abs(center.lat).toFixed(2)}°${center.lat < 0 ? 'S' : 'N'} · ${Math.abs(center.lng).toFixed(2)}°${center.lng < 0 ? 'W' : 'E'}`;
+    };
+    map.on('moveend', setCenter);
+    setCenter();
+
+    const layerButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-map-layer]')];
+    const layerNote = document.querySelector<HTMLElement>('[data-map-layer-note]');
+    const layerNotes: Record<string, string> = lang === 'ja' ? {
+      satellite: '衛星画像のみ · Esri World Imagery',
+      sst: 'NASA GIBS · 日別解析海面水温（MUR） · °C',
+      anom: 'NASA GIBS · 海面水温偏差（MUR） · °C',
+      chl: 'NASA PACE OCI · クロロフィルa · mg/m³',
+    } : {
+      satellite: 'Imagery only · Esri World Imagery',
+      sst: 'NASA GIBS · Daily analyzed SST (MUR) · °C',
+      anom: 'NASA GIBS · SST anomaly (MUR) · °C',
+      chl: 'NASA PACE OCI · Chlorophyll-a · mg/m³',
+    };
+
+    const activate = (name: string) => {
+      activeLayer = name;
+      tileFailures = 0;
+      if (tileStatus) tileStatus.hidden = true;
+      Object.values(overlays).forEach((layer) => map.removeLayer(layer));
+      if (name !== 'satellite') overlays[name]?.addTo(map);
+      layerButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.mapLayer === name)));
+      if (layerNote) layerNote.textContent = layerNotes[name] ?? layerNotes.satellite;
+    };
+
+    layerButtons.forEach((button) => button.addEventListener('click', () => activate(button.dataset.mapLayer ?? 'satellite')));
+    document.querySelector<HTMLButtonElement>('[data-map-tiles-retry]')?.addEventListener('click', () => {
+      tileFailures = 0;
+      if (tileStatus) tileStatus.hidden = true;
+      if (activeLayer === 'satellite') imagery.redraw();
+      else overlays[activeLayer]?.redraw();
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('[data-map-zoom]').forEach((button) => button.addEventListener('click', () => {
+      if (button.dataset.mapZoom === 'reset') {
+        const selected = features.plots.find((plot) => plot.selected);
+        if (selected) map.setView([selected.centroid[1], selected.centroid[0]], 12);
+        else map.fitBounds(regionBounds, { padding: [10, 10] });
+      } else if (button.dataset.mapZoom === 'in') map.zoomIn();
+      else map.zoomOut();
+    }));
+
+    const drawButton = document.querySelector<HTMLButtonElement>('[data-area-draw]');
+    const runButton = document.querySelector<HTMLButtonElement>('[data-area-run]');
+    const clearButton = document.querySelector<HTMLButtonElement>('[data-area-clear]');
+    const areaHelp = document.querySelector<HTMLElement>('[data-area-help]');
+    const areaResult = document.querySelector<HTMLElement>('[data-area-result]');
+    let coordinates: [number, number][] = [];
+    let sketch: L.Polygon | undefined;
+
+    const redraw = () => {
+      if (sketch) drawLayer.removeLayer(sketch);
+      sketch = coordinates.length
+        ? L.polygon(coordinates.map(([lng, lat]) => [lat, lng]), {
+            color: '#9e4b34',
+            weight: 3,
+            dashArray: '6 4',
+            fillColor: '#f5b84b',
+            fillOpacity: 0.18,
+          }).addTo(drawLayer)
+        : undefined;
+      if (runButton) runButton.disabled = coordinates.length < 3 || busy;
+      if (clearButton) clearButton.disabled = coordinates.length === 0 && !drawing;
+    };
+
+    drawButton?.addEventListener('click', () => {
+      if (busy) return;
+      drawing = !drawing;
+      if (drawing) {
+        coordinates = [];
+        if (areaResult) areaResult.hidden = true;
+        map.getContainer().classList.add('drawing');
+        drawButton.textContent = copy.cancel;
+        drawButton.setAttribute('aria-pressed', 'true');
+      } else {
+        map.getContainer().classList.remove('drawing');
+        drawButton.textContent = copy.draw;
+        drawButton.setAttribute('aria-pressed', 'false');
+      }
+      redraw();
+    });
+
+    map.on('click', (event: L.LeafletMouseEvent) => {
+      if (!drawing || busy) return;
+      coordinates.push([event.latlng.lng, event.latlng.lat]);
+      redraw();
+    });
+
+    clearButton?.addEventListener('click', () => {
+      if (busy) return;
+      drawing = false;
+      coordinates = [];
+      map.getContainer().classList.remove('drawing');
+      if (drawButton) {
+        drawButton.textContent = copy.draw;
+        drawButton.setAttribute('aria-pressed', 'false');
+      }
+      redraw();
+      if (areaHelp) areaHelp.textContent = copy.help + ' ' + copy.extent;
+      if (areaResult) {
+        areaResult.hidden = true;
+        areaResult.removeAttribute('data-error');
+        areaResult.textContent = '';
+      }
+    });
+
+    runButton?.addEventListener('click', async () => {
+      if (coordinates.length < 3 || !areaResult || busy) return;
+      busy = true;
+      drawing = false;
+      map.getContainer().classList.remove('drawing');
+      if (drawButton) {
+        drawButton.textContent = copy.draw;
+        drawButton.setAttribute('aria-pressed', 'false');
+        drawButton.disabled = true;
+      }
+      const ring = [...coordinates, coordinates[0]];
+      areaResult.hidden = false;
+      areaResult.removeAttribute('data-error');
+      areaResult.textContent = copy.sampling;
+      runButton.disabled = true;
+
+      try {
+        const response = await fetch('/api/risk/heat/area', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            feature: { type: 'Feature', properties: null, geometry: { type: 'Polygon', coordinates: [ring] } },
+            start: season + '-06-01',
+            end: season + '-10-31',
+          }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Area analysis unavailable.');
+        const observed = result.indices.filter((item: { index: string; value: number | null }) => item.index === 'SST' && item.value !== null);
+        const values = observed.map((item: { value: number }) => item.value);
+        if (!values.length) {
+          areaResult.textContent = copy.noData;
+        } else {
+          const mean = values.reduce((sum: number, value: number) => sum + value, 0) / values.length;
+          const min = Math.min(...values);
+          const max = Math.max(...values);
+          areaResult.textContent = lang === 'ja'
+            ? `平均 ${mean.toFixed(1)}°C · 範囲 ${min.toFixed(1)}–${max.toFixed(1)}°C · 観測 ${values.length}日`
+            : `Mean ${mean.toFixed(1)}°C · range ${min.toFixed(1)}–${max.toFixed(1)}°C · ${values.length} observed days`;
+        }
+      } catch (error) {
+        areaResult.dataset.error = 'true';
+        areaResult.textContent = lang === 'ja'
+          ? '範囲を解析できませんでした。区画別の観測データは引き続き利用できます。'
+          : error instanceof Error ? error.message : 'Area analysis unavailable.';
+      } finally {
+        busy = false;
+        if (drawButton) drawButton.disabled = false;
+        redraw();
+      }
+    });
+
+    setTimeout(() => map.invalidateSize(), 0);
+  }
+</script>
