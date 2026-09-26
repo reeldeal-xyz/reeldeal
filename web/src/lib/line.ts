@@ -217,3 +217,13 @@ export async function pushHeld(userId: string, params: HeldPushParams): Promise<
   const altText = `保留中: ${params.reasonJa}`;
   await sendFlex(userId, altText, heldFlexContents(params));
 }
+
+/**
+ * Replies to a LINE webhook event using its replyToken (Jev intent routing). Unlike pushPaid/pushHeld,
+ * replies don't count against the free-plan push quota, but the replyToken is single-use and only valid
+ * for a short window after the webhook fires -- always reply from inside the same request that received it.
+ */
+export async function replyMessage(replyToken: string, messages: messagingApi.Message[]): Promise<void> {
+  const client = await messagingClient();
+  await client.replyMessage({ replyToken, messages });
+}
