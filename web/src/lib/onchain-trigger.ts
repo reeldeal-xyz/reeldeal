@@ -6,6 +6,7 @@ import { ReliefPoolAbi } from '@repo/shared';
 import { createPublicClient, http, type Hex } from 'viem';
 import { sepolia } from 'viem/chains';
 import { env } from './env';
+import { sepoliaTransport } from '@/lib/rpc';
 
 export interface OnChainTrigger {
   dataHash: Hex;
@@ -26,7 +27,7 @@ export async function readOnChainTrigger(eventId: Hex): Promise<OnChainResult> {
   if (!address) return { deployed: false };
 
   try {
-    const client = createPublicClient({ chain: sepolia, transport: http(env.sepoliaRpc()) });
+    const client = createPublicClient({ chain: sepolia, transport: sepoliaTransport() });
     const logs = await client.getContractEvents({
       address: address as Hex,
       abi: ReliefPoolAbi,
