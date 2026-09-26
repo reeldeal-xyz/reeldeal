@@ -24,8 +24,20 @@ import {
 } from 'viem';
 import { CHAIN_ID, JPYC, JPYC_EIP712_DOMAIN, JpycAbi } from '@repo/shared';
 import { walletForLineUser as defaultWalletForLineUser } from '@/lib/payout-directory';
+import { walletFromSessionUserId } from '@/lib/siwe';
 import { getKeeperChainClients, type KeeperPublicClient, type KeeperWalletClient } from '@/lib/keeper/chain-clients';
 import { TRANSFER_WITH_AUTHORIZATION_TYPES } from './wallet-authorization';
+
+/** Resolves the wallet for whatever `lineUserId` (really: `session.userId`, see route.ts) the caller passes
+ *  in -- a wallet session's id (`wallet:<address>`, lib/siwe.ts) decodes straight to the address it *is*,
+ *  no lookup needed; anything else is treated as a real LINE `sub` and goes through the usual pinned-wallet
+ *  directory (lib/payout-directory.ts). This is what makes the gasless relay work for both session kinds
+ *  without either one needing to know about the other. */
+export function defaultGetPinnedWallet(userId: string): Promise<string | null> | string | null {
+  const walletSession = walletFromSessionUserId(userId);
+  if (walletSession) return walletSession;
+  return defaultWalletForLineUser(userId);
+}
 
 /** Server-side ceiling on the client-signed window (lib/liff/wallet-authorization.ts signs for 10 minutes) --
  *  a little slack for relay latency/clock skew, but nowhere near "indefinitely replayable". */
@@ -138,7 +150,8 @@ export interface HandleRelayTransferDeps {
     account: Account;
   };
   jpycAddress: Address;
-  /** The LINE user's pinned wallet (lib/payout-directory.ts), or null if none is pinned yet. */
+  /** The session's wallet -- LINE's pinned wallet (lib/payout-directory.ts), or decoded straight out of a
+   *  wallet session's own id (see `defaultGetPinnedWallet` below) -- or null if none is pinned yet. */
   getPinnedWallet: (lineUserId: string) => Promise<string | null> | string | null;
   /** Unix seconds. Injectable so tests can control the validAfter/validBefore window without real timers. */
   now: () => number;
@@ -149,7 +162,7 @@ export function defaultRelayTransferDeps(): HandleRelayTransferDeps {
   return {
     getChainClients: getKeeperChainClients,
     jpycAddress: JPYC as Address,
-    getPinnedWallet: defaultWalletForLineUser,
+    getPinnedWallet: defaultGetPinnedWallet,
     now: () => Math.floor(Date.now() / 1000),
     rateLimiter: defaultRateLimiter,
   };

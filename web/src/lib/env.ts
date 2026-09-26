@@ -92,5 +92,8 @@ export const publicEnv = {
   ensParentRegistry: () => optional('NEXT_PUBLIC_ENS_PARENT_REGISTRY_ADDRESS'),
   ensPlotResolver: () => optional('NEXT_PUBLIC_ENS_PLOT_RESOLVER_ADDRESS'),
   ensSlotRegistry: () => optional('NEXT_PUBLIC_ENS_SLOT_REGISTRY_ADDRESS'),
-
+  // Reown (WalletConnect) AppKit project id, from dashboard.reown.com -- public, not a secret (issue: wallet
+  // login for farmers without a LINE account). Unset means "Connect wallet" explains it isn't configured yet
+  // instead of crashing -- see components/app/wallet-providers.tsx.
+  reownProjectId: () => optional('NEXT_PUBLIC_REOWN_PROJECT_ID'),
 };

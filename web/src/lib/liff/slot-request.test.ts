@@ -65,6 +65,15 @@ describe('handleCreateSlotRequest', () => {
     expect(binds).toHaveLength(1); // not re-bound on the idempotent replay
   });
 
+  test('a wallet session (no LINE account) skips the wallet<->LINE push bind', async () => {
+    const { deps, binds } = makeDeps();
+    const res = await handleCreateSlotRequest({ plotLabel: 'p1213-002', wallet: WALLET }, 'wallet:0xabc', undefined, deps, 'wallet');
+    expect(res.status).toBe(201);
+    const { request } = res.body as { request: SlotRequest };
+    expect(request.lineUserId).toBe('wallet:0xabc'); // still filed under the session's own id for GET's "my requests"
+    expect(binds).toEqual([]); // no LINE account exists for this session, so nothing to bind
+  });
+
   test('does not treat a revoked request as an existing one -- a new request can be re-submitted', async () => {
     const { deps, requests } = makeDeps();
     const first = await handleCreateSlotRequest({ plotLabel: 'p1', wallet: WALLET }, 'U1', undefined, deps);

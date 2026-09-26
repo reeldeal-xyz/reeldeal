@@ -33,7 +33,9 @@ export interface SignedTransferAuthorization {
   signature: Hex;
 }
 
-function randomNonce(): Hex {
+/** Exported so a wallet-session sender (components/liff/wallet-panel.tsx, signing via wagmi instead of a
+ *  local PrivateKeyAccount) can build the same message shape without duplicating this. */
+export function randomNonce(): Hex {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
   let out = '0x';
