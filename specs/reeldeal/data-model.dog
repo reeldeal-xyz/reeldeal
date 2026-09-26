@@ -34,7 +34,7 @@ states: [observed]
 
 ### Entity: Pipeline
 
-Python (uv) FastAPI risk API scaffold for the heat, HAB and storm modules, its Docker/Caddy deployment files and pytest suite, plus pinned buoy/toxin/geographic inputs. Domain routes remain 501 stubs; /health, API docs and OpenAPI are available. Real index values are planned under #82. The TypeScript feed server and signer were removed; signing moves to the keeper (#64).
+Python (uv) FastAPI risk API scaffold for the heat, HAB and storm modules, its Docker/Caddy deployment files and pytest suite, plus pinned buoy/toxin/geographic inputs, and the separate PostgreSQL/PostGIS service spec under db/ (#110). Domain routes remain 501 stubs; /health, API docs and OpenAPI are available. Real index values are planned under #82. The TypeScript feed server and signer were removed; signing moves to the keeper (#64).
 
 ```yaml
 entity: Pipeline
@@ -43,7 +43,7 @@ properties:
   adr:
     default: docs/adrs/0003-risk-api-and-keeper.md
   paths:
-    default: pipeline/
+    default: pipeline/ db/
 states: [observed]
 ```
 
