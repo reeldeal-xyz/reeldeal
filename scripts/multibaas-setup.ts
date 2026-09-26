@@ -197,6 +197,8 @@ async function ensureContract(plan: ContractPlan, existing: ContractOverview[]):
       contractName: plan.contractName,
       version: plan.version,
       rawAbi: JSON.stringify(plan.abi),
+      // MultiBaas rejects contracts without bytecode; read it from the Foundry build output.
+      bin: bytecodeFor(plan.contractName),
     }),
   });
   return created.result;
@@ -281,3 +283,13 @@ async function main() {
 }
 
 await main();
+
+function bytecodeFor(contractName: string): string {
+  const path = new URL(`../contracts/out/${contractName}.sol/${contractName}.json`, import.meta.url);
+  try {
+    const artifact = JSON.parse(require('node:fs').readFileSync(path, 'utf8')) as { bytecode?: { object?: string } };
+    return artifact.bytecode?.object ?? '0x';
+  } catch {
+    return '0x';
+  }
+}
