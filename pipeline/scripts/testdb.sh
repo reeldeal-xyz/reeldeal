@@ -26,8 +26,15 @@ docker rm -f "$name" >/dev/null 2>&1 || true
 docker run -d --name "$name" -p "127.0.0.1:$port:5432" \
   -e POSTGRES_PASSWORD="$pw" -e POSTGRES_DB=reeldeal postgis/postgis:16-3.4 >/dev/null
 # The image runs its init scripts on a temporary server, then restarts; wait for the final one.
-until docker logs "$name" 2>&1 | grep -q "PostgreSQL init process complete"; do sleep 0.5; done
-until docker exec "$name" pg_isready -U postgres -d reeldeal -q 2>/dev/null; do sleep 0.5; done
+deadline=$((SECONDS + 120))
+until docker logs "$name" 2>&1 | grep -q "PostgreSQL init process complete"; do
+  [ "$SECONDS" -lt "$deadline" ] || { echo "PostGIS initialization timed out" >&2; exit 1; }
+  sleep 0.5
+done
+until docker exec "$name" pg_isready -U postgres -d reeldeal -q 2>/dev/null; do
+  [ "$SECONDS" -lt "$deadline" ] || { echo "PostGIS readiness timed out" >&2; exit 1; }
+  sleep 0.5
+done
 
 docker cp db/bootstrap/bootstrap.sh "$name:/bootstrap.sh"
 docker exec -e POSTGRES_DB=reeldeal \

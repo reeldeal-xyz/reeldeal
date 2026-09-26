@@ -21,6 +21,7 @@ WINDOW = {"start": "2025-07-01", "end": "2025-09-30"}
 
 # (method, path as in the README, concrete URL, body)
 ROUTES = [
+    ("GET", "/ready", "/ready", None),
     ("GET", "/plots", "/plots", None),
     ("POST", "/plots", "/plots", {"plotCode": "K-1", "geometry": KESENNUMA_PLOT["geometry"], "species": ["scallop"], "operation": "longline"}),
     ("GET", "/stations", "/stations", None),
