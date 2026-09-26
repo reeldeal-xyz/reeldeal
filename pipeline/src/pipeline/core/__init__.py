@@ -1,0 +1,1 @@
+"""Shared, hazard-agnostic core."""

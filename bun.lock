@@ -41,14 +41,6 @@
         "zod": "^3.25.0",
       },
     },
-    "pipeline": {
-      "name": "pipeline",
-      "dependencies": {
-        "@repo/shared": "workspace:*",
-        "viem": "^2.56.9",
-        "zod": "^3.25.0",
-      },
-    },
     "web": {
       "name": "web",
       "dependencies": {
@@ -1194,8 +1186,6 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
-
-    "pipeline": ["pipeline@workspace:pipeline"],
 
     "pngjs": ["pngjs@5.0.0", "", {}, "sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw=="],
 

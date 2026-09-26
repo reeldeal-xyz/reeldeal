@@ -30,7 +30,7 @@ We can understand / forecast / hindcast the occurrence of threshold triggering e
 
 - `contracts/` Foundry: `ReliefPool`, `HumanRegistry`
 - `web/` Next.js: donor, co-op, holder screens, `/liff` farmer app, `/verify/[eventId]`, API routes
-- `pipeline/` ocean data ingestion, indices, trigger signing, feed server (owner: Jay)
+- `pipeline/` Python (uv, FastAPI): satellite risk indices for heat, HAB and storm; index values only, no Triggers (owner: Jay). Spec: `pipeline/README.md`
 - `packages/shared/` Types, zod schemas, rules, addresses: the interface contract
 - `docs/INTERFACE.md` Pipeline ↔ app contract. `docs/ARCHITECTURE.md` stack.
 - [`docs/adrs/`](docs/adrs/README.md) Architecture decisions, implementation status, and issue/code evidence.
@@ -43,9 +43,11 @@ git clone --recurse-submodules https://github.com/reeldeal-xyz/reeldeal.git
 cd reeldeal
 cp .env.example .env
 bun install
+(cd pipeline && uv sync)
 bun run contracts:build && bun run contracts:test
 bun run typecheck
-bun run pipeline   # feed on :8787
+bun run pipeline   # pipeline API on :8787 (uv run pipeline-serve)
+bun run pipeline:test
 bun run dev        # web on :3000
 ```
 
