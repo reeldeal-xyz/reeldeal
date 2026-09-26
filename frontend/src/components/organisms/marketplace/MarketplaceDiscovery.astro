@@ -1,0 +1,64 @@
+---
+import MarketplaceBrowser from '../../react/MarketplaceBrowser';
+import MarketCard from '../../molecules/MarketCard.astro';
+import Amount from '../../atoms/Amount.astro';
+import { marketplaceCopy, marketplacePreviewItems, type MarketplaceLocale, type PreviewAvailability, type PreviewSpecies } from '../../../fixtures/marketplace-preview';
+import { filterPreviewItems } from './filter';
+
+interface Props {
+  initialLocale?: MarketplaceLocale;
+  initialQuery?: string;
+  initialSpecies?: PreviewSpecies | 'all';
+  initialAvailability?: PreviewAvailability | 'all';
+  initialState?: 'ready' | 'loading' | 'unavailable';
+}
+const { initialLocale = 'en', initialQuery = '', initialSpecies = 'all', initialAvailability = 'all', initialState = 'ready' } = Astro.props;
+const visible = new Set(filterPreviewItems(marketplacePreviewItems, { query: initialQuery, species: initialSpecies, availability: initialAvailability }).map(item => item.lot.id));
+const t = marketplaceCopy[initialLocale];
+---
+
+<MarketplaceBrowser items={marketplacePreviewItems} initialLocale={initialLocale} initialQuery={initialQuery} initialSpecies={initialSpecies} initialAvailability={initialAvailability} initialState={initialState} client:load>
+  <div class="market-grid marketplace-preview__grid">
+    {marketplacePreviewItems.map((item, index) => <div class="marketplace-preview__item" data-market-preview-item={item.lot.id} hidden={!visible.has(item.lot.id)}>
+      <p class="marketplace-preview__availability" data-preview-en={marketplaceCopy.en[item.availability]} data-preview-ja={marketplaceCopy.ja[item.availability]}>{t[item.availability]}</p>
+      <MarketCard lot={{ ...item.lot, species: `${item.nameJa} / ${item.lot.species}` }} first={index === 0} index={index} href={`#market-preview-detail-${item.lot.id}`} labels={{ preview: t.previewBadge, sample: t.sampleLanding, view: t.view, imageAlt: t.imageAlt }} />
+      <details class="marketplace-preview__detail" id={`market-preview-detail-${item.lot.id}`}>
+        <summary data-preview-en={marketplaceCopy.en.details} data-preview-ja={marketplaceCopy.ja.details}>{t.details}</summary>
+        <dl>
+          <div><dt data-preview-en={marketplaceCopy.en.weight} data-preview-ja={marketplaceCopy.ja.weight}>{t.weight}</dt><dd>{item.lot.weightG.toLocaleString('ja-JP')} g</dd></div>
+          <div><dt data-preview-en={marketplaceCopy.en.length} data-preview-ja={marketplaceCopy.ja.length}>{t.length}</dt><dd>{item.lot.lengthMm} mm</dd></div>
+          <div><dt>JPY</dt><dd><Amount value={String(item.lot.priceJpy)} currency="JPY" /></dd></div>
+        </dl>
+        <p data-preview-en={marketplaceCopy.en.noReceipt} data-preview-ja={marketplaceCopy.ja.noReceipt}>{t.noReceipt}</p>
+      </details>
+    </div>)}
+  </div>
+</MarketplaceBrowser>
+
+<style is:inline>
+  .marketplace-preview { display: grid; gap: var(--space-5); max-width: var(--content-width); margin-inline: auto; padding: var(--space-4); background: var(--color-paper); }
+  .marketplace-preview__toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+  .marketplace-preview__languages { display: flex; gap: var(--space-3); }
+  .marketplace-preview__languages button { min-height: var(--tap-size); padding: 8px 12px; border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-surface); color: var(--color-ink); font: 800 .875rem var(--font-body); cursor: pointer; }
+  .marketplace-preview__languages button[aria-pressed='true'] { background: var(--color-listed); }
+  .marketplace-preview__heading h1 { margin: 0 0 var(--space-3); font: 900 2rem/1.1 var(--font-impact); }
+  .marketplace-preview__heading p { margin: 0; }
+  .marketplace-preview__filters { display: grid; min-width: 0; gap: var(--space-4); border: 0; margin: 0; padding: 0; }
+  .marketplace-preview__selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+  .marketplace-preview__filters label { font-weight: 800; }
+  .marketplace-preview__results { font-weight: 700; }
+  .marketplace-preview__grid { align-items: start; }
+  .marketplace-preview__item { display: grid; min-width: 0; gap: var(--space-3); }
+  .marketplace-preview__availability { margin: 0; font-size: .875rem; font-weight: 800; }
+  .marketplace-preview__detail { background: var(--color-surface); border: 2px solid var(--color-ink); border-radius: var(--radius-card); overflow-wrap: anywhere; }
+  .marketplace-preview__detail summary { min-height: var(--tap-size); padding: var(--space-3); cursor: pointer; font-weight: 800; }
+  .marketplace-preview__detail summary:focus-visible { outline: var(--focus-ring); outline-offset: 3px; }
+  .marketplace-preview__detail dl { display: grid; gap: var(--space-3); margin: 0; padding: var(--space-3); }
+  .marketplace-preview__detail dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); }
+  .marketplace-preview__detail dd { margin: 0; font-weight: 700; }
+  .marketplace-preview__detail p { margin: 0; padding: var(--space-3); font-size: .875rem; }
+  .marketplace-preview__note { margin: 0; color: var(--color-ink-soft); font-size: .875rem; }
+  .marketplace-preview__sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (min-width: 768px) { .marketplace-preview__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 359px) { .marketplace-preview__selects { grid-template-columns: 1fr; } }
+</style>
