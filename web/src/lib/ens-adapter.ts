@@ -13,7 +13,7 @@
 //     yet. TODO(#10): replace both the moment the real per-plot registry ships — nothing outside this file
 //     imports an ENSv2 ABI directly, so that's a one-file swap.
 import type { Address, Hex } from 'viem';
-import { toHex } from 'viem';
+import { keccak256, stringToHex, toHex } from 'viem';
 import { packetToBytes } from 'viem/ens';
 import type { Config } from 'wagmi';
 import { readContract, writeContract, waitForTransactionReceipt } from 'wagmi/actions';
@@ -88,11 +88,12 @@ export const PlotRegistryAbi = [
     outputs: [{ name: 'tokenId', type: 'uint256' }],
   },
   {
-    // TODO(#10): unconfirmed name/signature — best guess, mirrors `register`'s label-based calling convention.
+    // IStandardRegistry.unregister(uint256 anyId): a labelhash, token id or EAC resource (contracts/script/ens/EnsV2.sol).
+    // Confirmed on Sepolia: unregister(keccak256("2026")) on p1213-001's registry cleared its slot.
     type: 'function',
     name: 'unregister',
     stateMutability: 'nonpayable',
-    inputs: [{ name: 'label', type: 'string' }],
+    inputs: [{ name: 'anyId', type: 'uint256' }],
     outputs: [],
   },
   {
@@ -212,7 +213,7 @@ export async function revokeSeasonSlot(
       address: addresses.slotRegistry,
       abi: PlotRegistryAbi,
       functionName: 'unregister',
-      args: [seasonLabel],
+      args: [BigInt(keccak256(stringToHex(seasonLabel)))],
     });
     await waitForTransactionReceipt(config, { hash });
     return { ok: true, hash };
