@@ -161,12 +161,15 @@ Notes:
 
 ## 6. Daily build job
 
-> The `pipeline` CLI (README §9, `cli.py`) isn't written yet. Once it exists and is registered under `[project.scripts]`, add this crontab entry (`crontab -e` as `ubuntu`):
+Add this crontab entry (`crontab -e` as `ubuntu`). The `pipeline` CLI (README §9, §14) prints one JSON summary line per module.
 
 ```cron
-# 03:00 JST (18:00 UTC; the instance clock is UTC) daily: build all modules' layers for the JST date
-0 18 * * * cd /home/ubuntu/reeldeal/pipeline && docker compose run --rm api pipeline all build --date "$(TZ=Asia/Tokyo date +\%F)" >> /home/ubuntu/pipeline-cron.log 2>&1
+# 03:00 JST (18:00 UTC; the instance clock is UTC) daily: build the last 35 days (JST). JAXA publishes daily files
+# ~3 days late and monthly composites after the month ends; existing layers are kept, so only new files are fetched.
+0 18 * * * cd /home/ubuntu/reeldeal/pipeline && docker compose run --rm api pipeline all build --days 35 >> /home/ubuntu/pipeline-cron.log 2>&1
 ```
+
+Pinned inputs go to `data/raw/` (~1 GB per Miyagi heat season) and layers and indices to `out/`; both are volumes, so they survive redeploys.
 
 `docker compose run` uses the same image, `.env` and volumes as the API, so layers written to `out/` are served immediately.
 

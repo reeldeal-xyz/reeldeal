@@ -39,12 +39,13 @@ const REFERENCE_EVENT_DEFS: ReadonlyArray<{
   peril: Peril;
   firedOn: string;
 }> = [
-  { dataSeason: '2023', species: 'scallop', tier: 2, peril: 'HEAT26', firedOn: '2023-08-11' },
-  { dataSeason: '2023', species: 'scallop', tier: 1, peril: 'HEAT25', firedOn: '2023-08-12' },
-  { dataSeason: '2023', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2023-08-25' },
-  { dataSeason: '2024', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2024-09-15' },
-  { dataSeason: '2025', species: 'scallop', tier: 1, peril: 'HEAT25', firedOn: '2025-08-28' },
-  { dataSeason: '2025', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2025-09-01' },
+  { dataSeason: '2023', species: 'scallop', tier: 1, peril: 'HEAT25', firedOn: '2023-08-13' },
+  { dataSeason: '2023', species: 'scallop', tier: 2, peril: 'HEAT26', firedOn: '2023-08-14' },
+  { dataSeason: '2023', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2023-08-27' },
+  { dataSeason: '2024', species: 'scallop', tier: 1, peril: 'HEAT25', firedOn: '2024-09-05' },
+  { dataSeason: '2024', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2024-09-09' },
+  { dataSeason: '2025', species: 'scallop', tier: 1, peril: 'HEAT25', firedOn: '2025-08-20' },
+  { dataSeason: '2025', species: 'hoya', tier: 1, peril: 'HEAT24', firedOn: '2025-08-31' },
 ];
 
 export const REFERENCE_EVENTS: readonly ReferenceEvent[] = REFERENCE_EVENT_DEFS.map((d) => ({

@@ -1,7 +1,7 @@
 // Zone polygons and synthetic plot points for the map (#18).
 //
 // Zone geometry is copied from the real, hand-traced GeoJSON issue #22 landed at
-// pipeline/data/zones/{karakuwa-east,kesennuma-bay}.geojson (source: 宮城海区漁場計画 令和5年一斉更新, a
+// pipeline/data/ref/zones/{karakuwa-east,kesennuma-bay}.geojson (source: 宮城海区漁場計画 令和5年一斉更新, a
 // 2023 Miyagi-prefecture fishery map; see that directory's sources.json for full citations and the
 // geocoding method). It is still APPROXIMATE by the source's own admission — "not surveyed; do not use
 // for navigation or legal boundary purposes" — which this module carries through as `properties.accuracy`

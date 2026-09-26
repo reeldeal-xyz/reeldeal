@@ -4,10 +4,16 @@ from datetime import date
 
 from pydantic import Field
 
-from pipeline.core.schemas import AdvisoryValue, IndexValue, Model, RiskEnvelope, RiskRequestBase
+from pipeline.core.schemas import (
+    AdvisoryValue,
+    IndexValue,
+    Model,
+    RiskEnvelope,
+    RiskRequestBase,
+)
 
-# SST, SST_ANOM, MHW_DAYS, MHW_INTENSITY, T_D{z} (gear depth, m) and HEAT{t} (request-only convenience).
-HEAT_INDEX_PATTERN = r"^(SST|SST_ANOM|MHW_DAYS|MHW_INTENSITY|T_D\d+|HEAT\d+(\.\d+)?)$"
+# SST, SST_ANOM, SST_MONTH, MHW_DAYS, MHW_INTENSITY, T_D{z} (gear depth, m) and HEAT{t} (request-only convenience).
+HEAT_INDEX_PATTERN = r"^(SST|SST_ANOM|SST_MONTH|MHW_DAYS|MHW_INTENSITY|T_D\d+|HEAT\d+(\.\d+)?)$"
 
 
 class HeatIndexValue(IndexValue):

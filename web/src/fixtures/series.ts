@@ -89,9 +89,10 @@ function buildKarakuwaSeason(year: number, plan: { A: CategoryPlan; B: CategoryP
 // counts nest correctly (heat26 <= heat25 <= heat24).
 const KARAKUWA_PLANS: Record<string, { A: CategoryPlan; B: CategoryPlan; C: CategoryPlan }> = {
   '2022': { A: { count: 0, last: null }, B: { count: 2, last: null }, C: { count: 8, last: null } },
-  '2023': { A: { count: 12, last: 42 }, B: { count: 2, last: 43 }, C: { count: 16, last: 56 } }, // Aug 11/12/25
-  '2024': { A: { count: 0, last: null }, B: { count: 0, last: null }, C: { count: 30, last: 77 } }, // Sep 15
-  '2025': { A: { count: 0, last: null }, B: { count: 14, last: 59 }, C: { count: 16, last: 63 } }, // Aug 28, Sep 1
+  // 2023: scallop:1 (HEAT25) reaches 14 on Aug 13, the day before scallop:2 (HEAT26) reaches 12 on Aug 14.
+  '2023': { A: { count: 12, last: 45 }, B: { count: 3, last: 44 }, C: { count: 15, last: 58 } }, // Aug 13/14/27
+  '2024': { A: { count: 0, last: null }, B: { count: 14, last: 67 }, C: { count: 16, last: 71 } }, // Sep 5, Sep 9
+  '2025': { A: { count: 0, last: null }, B: { count: 14, last: 51 }, C: { count: 16, last: 62 } }, // Aug 20, Aug 31
 };
 
 /** Kesennuma Bay sits nearer the coast; offset it cooler than the open-water reference point. */

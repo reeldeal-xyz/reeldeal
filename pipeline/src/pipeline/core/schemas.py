@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
 ModuleName = Literal["heat", "hab", "storm"]
+Day = date  # for fields named `date`, which would otherwise shadow the type
 
 # Q4: species / operation list is still open.
 Species = Literal[
@@ -66,7 +67,7 @@ class Plot(Model):
     prefecture: str | None = None
     area_m2: float
     centroid: tuple[float, float]
-    source: Literal["msil", "upload"]
+    source: Literal["msil", "upload", "demo"] = Field(description="demo: synthetic plot for the Kesennuma demo, not surveyed")
 
 
 class PlotCreate(Model):
@@ -133,20 +134,28 @@ class Source(Model):
 
 
 class Pixels(Model):
+    """How a value was extracted from its product (README §3)."""
+
     strategy: ExtractionStrategy
     count: int
     product: str
+    distance_km: float | None = Field(default=None, description="Set when strategy is nearest_pixel")
     station_id: str | None = Field(default=None, description="Set when strategy is tide_station")
 
 
 class IndexValue(Model):
-    """One observed index value. Modules narrow `index` to their own names."""
+    """One observed index value. Modules narrow `index` to their own names.
+
+    `source` and `pixels` are per value, because one index can come from different products on different days
+    (e.g. SST from SGLI night, SGLI day or AMSR2). Both are null when the value is null.
+    """
 
     index: str
     unit: str
-    value: float | None = Field(description="null when no valid input (e.g. cloud)")
+    value: float | None = Field(description="null when the input exists but has no valid pixel in reach (e.g. cloud)")
     as_of: date
-    source: Source
+    source: Source | None
+    pixels: Pixels | None = None
 
 
 class AdvisoryValue(Model):
@@ -167,20 +176,25 @@ class RiskEnvelope(Model):
     module_version: str = Field(alias="module_version")
     plot: PlotSummary
     window: Window
-    pixels: Pixels | None = None
-    indices: list[IndexValue]
+    indices: list[IndexValue] = Field(description="One entry per index per day (daily indices) or per window (e.g. HEAT{t})")
     advisory: list[AdvisoryValue] = []
 
 
 class IndexPoint(Model):
     date: date
     value: float | None
+    source: Source | None = None
+    pixels: Pixels | None = None
+    event: str | None = Field(default=None, description="Storm event id for per-event storm indices")
 
 
 class IndexSeries(Model):
+    """One index for one sea area. Days with no built input are omitted; a null value means no valid pixel."""
+
     index: str
     unit: str
-    source: Source
+    species: Species | None = Field(default=None, description="HAB ban indices are per species")
+    toxin: str | None = Field(default=None, description="BAN_ACTIVE is per toxin (PSP|DSP)")
     points: list[IndexPoint]
 
 
@@ -195,17 +209,21 @@ class IndicesResponse(Model):
 
 
 class LayerInfo(Model):
-    """GET /<module>/layers/{date}: metadata for one precomputed daily layer."""
+    """GET /<module>/layers/{date}: metadata for one precomputed layer (daily, or the monthly composite covering the date)."""
 
     module: ModuleName
-    date: date
+    layer: str = Field(examples=["sst_sgli_night"])
+    cadence: Literal["daily", "half-monthly", "monthly", "daily-normal"]
+    date: Day = Field(description="First day of the layer's period")
+    region: str
     product: str
     variable: str
     unit: str
     bbox: tuple[float, float, float, float] = Field(description="[west, south, east, north]")
+    valid_fraction: float = Field(description="Share of grid cells with a valid value (cloud, land and no-pass cells are missing)")
     tile_url: str | None = None
     zarr_url: str | None = None
-    sha256: str
+    sha256: str = Field(description="sha256 of the pinned input (or of the sorted input digests when several tiles)")
 
 
 # --- requests ------------------------------------------------------------------

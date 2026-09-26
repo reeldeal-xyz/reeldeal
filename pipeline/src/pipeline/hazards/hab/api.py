@@ -1,13 +1,21 @@
-"""HAB router (README §7). Routes are defined; analysis is not implemented yet."""
+"""HAB router (README §7). Chlorophyll-a layers are served; ban, red-tide and CHL indices are not implemented yet (#80)."""
 
 from datetime import date
 
 from fastapi import APIRouter
 
 from pipeline.core.errors import not_implemented, stub
+from pipeline.core.layers import layers_on
 from pipeline.core.schemas import IndicesResponse, LayerInfo
 
-from .schemas import BanInterval, HabForecast, HabRiskRequest, HabRiskResponse, RedTideEvent
+from . import MODULE
+from .schemas import (
+    BanInterval,
+    HabForecast,
+    HabRiskRequest,
+    HabRiskResponse,
+    RedTideEvent,
+)
 
 router = APIRouter(prefix="/hab", tags=["hab"])
 
@@ -55,7 +63,6 @@ def forecast(zone: str) -> HabForecast:
 
 
 @router.get("/layers/{day}", response_model=list[LayerInfo])
-@stub
 def layers(day: date) -> list[LayerInfo]:
-    """Chlorophyll-a layer metadata / tile URL."""
-    raise not_implemented("GET /hab/layers/{date}")
+    """Chlorophyll-a layers covering a date: the daily SGLI layer and the monthly composite containing it."""
+    return layers_on(MODULE, day)

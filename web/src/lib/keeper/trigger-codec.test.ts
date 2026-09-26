@@ -44,8 +44,8 @@ describe('buildFallbackTrigger', () => {
     expect(trigger.seasonLabel).toBe('2026');
     expect(trigger.index).toBe(rule.threshold);
     expect(trigger.threshold).toBe(rule.threshold);
-    // 2023-08-11T00:00:00Z
-    expect(trigger.firedAt).toBe(1691712000n);
+    // 2023-08-14T00:00:00Z
+    expect(trigger.firedAt).toBe(1691971200n);
   });
 
   test('window covers the whole 07-01..09-30 range inclusive', () => {

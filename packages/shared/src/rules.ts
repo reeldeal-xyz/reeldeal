@@ -21,10 +21,15 @@ export const RULES: readonly Rule[] = [
   { species: 'scallop', tier: 1, peril: 'BANWEEKS', threshold: 4 },
 ] as const;
 
-/** Expected fire dates at the reference point (38.85N 141.66E), verified 2026-09-25 against raw MUR CSVs. Regression target for the pipeline. */
+/**
+ * Expected fire dates at the reference point (38.85N 141.66E) under RULES. Re-derived 2026-09-26 from the pipeline's
+ * JAXA daily SST series (pipeline/tests/heat/snapshots/kesennuma-sst-2022-2025.csv: SGLI night -> SGLI day -> AMSR2
+ * gap fill, pipeline/README.md Q10), replacing the NASA MUR dates. test/reference-fires.test.ts recomputes them from
+ * that snapshot. Regression target for the pipeline.
+ */
 export const REFERENCE_FIRES = {
-  '2023': { 'scallop:1': '2023-08-12', 'scallop:2': '2023-08-11', 'hoya:1': '2023-08-25' },
-  '2024': { 'hoya:1': '2024-09-15' },
-  '2025': { 'scallop:1': '2025-08-28', 'hoya:1': '2025-09-01' },
+  '2023': { 'scallop:1': '2023-08-13', 'scallop:2': '2023-08-14', 'hoya:1': '2023-08-27' },
+  '2024': { 'scallop:1': '2024-09-05', 'hoya:1': '2024-09-09' },
+  '2025': { 'scallop:1': '2025-08-20', 'hoya:1': '2025-08-31' },
   '2022': {},
 } as const;
