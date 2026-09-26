@@ -7,7 +7,7 @@ import { isAddress } from 'viem';
 import { bindWalletToLineUser as defaultBindWalletToLineUser } from '@/lib/payout-directory';
 
 export interface WorldBindDeps {
-  bindWalletToLineUser: (wallet: string, lineUserId: string) => void;
+  bindWalletToLineUser: (wallet: string, lineUserId: string) => void | Promise<void>;
 }
 
 export function defaultWorldBindDeps(): WorldBindDeps {
@@ -20,12 +20,12 @@ export interface WorldBindResponse {
 }
 
 /** `lineUserId` always comes from the caller's own session (route.ts), never the request body. */
-export function handleWorldBind(raw: unknown, lineUserId: string, deps: WorldBindDeps = defaultWorldBindDeps()): WorldBindResponse {
+export async function handleWorldBind(raw: unknown, lineUserId: string, deps: WorldBindDeps = defaultWorldBindDeps()): Promise<WorldBindResponse> {
   const wallet = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>).wallet : undefined;
   if (typeof wallet !== 'string' || !isAddress(wallet)) {
     return { status: 400, body: { error: 'invalid_wallet' } };
   }
 
-  deps.bindWalletToLineUser(wallet, lineUserId);
+  await deps.bindWalletToLineUser(wallet, lineUserId);
   return { status: 200, body: { ok: true } };
 }

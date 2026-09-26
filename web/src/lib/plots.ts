@@ -2,6 +2,12 @@
 // the real 15 plots (8 scallop, 4 hoya, 3 oyster) in karakuwa-east and their 2026 season slots on-chain — this
 // file is a placeholder so the table/QR/CSV UI has real shape before that lands. TODO(#16): once addresses are
 // committed, swap this for the deployed plot list (ideally re-exported from packages/shared alongside DEPLOYED).
+//
+// Deliberately has NO database import: this file is pulled into the browser bundle (coop-screen.tsx,
+// liff-app.tsx, use-plot-table.ts are all 'use client' and import `DEMO_PLOTS` at module scope), and the
+// Postgres driver depends on Node built-ins (tls, net, perf_hooks) that don't exist in a browser bundle.
+// The DB-backed accessor lives in ./plots.server.ts instead -- server-only code (Server Components,
+// Route Handlers) imports that file, never this one's DEMO_PLOTS consumers.
 import type { Species, Zone } from '@repo/shared';
 
 export interface DemoPlot {
@@ -10,7 +16,7 @@ export interface DemoPlot {
   species: Species;
 }
 
-const ZONE: Zone = 'karakuwa-east';
+export const ZONE: Zone = 'karakuwa-east';
 
 const speciesForIndex = (i: number): Species => {
   if (i < 8) return 'scallop'; // p1213-001..008

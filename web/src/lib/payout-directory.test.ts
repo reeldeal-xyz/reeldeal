@@ -30,29 +30,29 @@ afterAll(() => {
 describe('payoutDirectory', () => {
   test('lineUserIdForWallet is null until bindWalletToLineUser is called (issue #15 not landed)', async () => {
     expect(await payoutDirectory.lineUserIdForWallet('0xAAA')).toBeNull();
-    bindWalletToLineUser('0xAAA', 'U1');
+    await bindWalletToLineUser('0xAAA', 'U1');
     expect(await payoutDirectory.lineUserIdForWallet('0xAAA')).toBe('U1');
   });
 
   test('wallet lookup is case-insensitive', async () => {
-    bindWalletToLineUser('0xABCDEF0000000000000000000000000000000000', 'U2');
+    await bindWalletToLineUser('0xABCDEF0000000000000000000000000000000000', 'U2');
     expect(await payoutDirectory.lineUserIdForWallet('0xabcdef0000000000000000000000000000000000')).toBe('U2');
   });
 
   test('lineUserIdForPlot composes plotWallet + walletLine (the keeper knows the wallet before #15 binds it)', async () => {
     expect(await payoutDirectory.lineUserIdForPlot('p1213-017')).toBeNull();
 
-    recordPlotWallet('p1213-017', '0xFARMER0000000000000000000000000000000000');
+    await recordPlotWallet('p1213-017', '0xFARMER0000000000000000000000000000000000');
     // Known wallet, but not yet bound to a LINE user -- still null.
     expect(await payoutDirectory.lineUserIdForPlot('p1213-017')).toBeNull();
 
-    bindWalletToLineUser('0xFARMER0000000000000000000000000000000000', 'U3');
+    await bindWalletToLineUser('0xFARMER0000000000000000000000000000000000', 'U3');
     expect(await payoutDirectory.lineUserIdForPlot('p1213-017')).toBe('U3');
   });
 
   test('persists to disk and survives a cache reset (new process would see it too)', async () => {
-    recordPlotWallet('p-persist', '0xPERSIST000000000000000000000000000000000');
-    bindWalletToLineUser('0xPERSIST000000000000000000000000000000000', 'U4');
+    await recordPlotWallet('p-persist', '0xPERSIST000000000000000000000000000000000');
+    await bindWalletToLineUser('0xPERSIST000000000000000000000000000000000', 'U4');
 
     _resetPayoutDirectoryCacheForTests(); // simulates a fresh read, e.g. a new serverless invocation
 
@@ -60,12 +60,12 @@ describe('payoutDirectory', () => {
   });
 
   test('recordPlotWallet overwrites a stale mapping (plot changed farmer)', async () => {
-    recordPlotWallet('p1', '0x1111111111111111111111111111111111111111');
-    bindWalletToLineUser('0x1111111111111111111111111111111111111111', 'OLD-FARMER');
+    await recordPlotWallet('p1', '0x1111111111111111111111111111111111111111');
+    await bindWalletToLineUser('0x1111111111111111111111111111111111111111', 'OLD-FARMER');
     expect(await payoutDirectory.lineUserIdForPlot('p1')).toBe('OLD-FARMER');
 
-    recordPlotWallet('p1', '0x2222222222222222222222222222222222222222');
-    bindWalletToLineUser('0x2222222222222222222222222222222222222222', 'NEW-FARMER');
+    await recordPlotWallet('p1', '0x2222222222222222222222222222222222222222');
+    await bindWalletToLineUser('0x2222222222222222222222222222222222222222', 'NEW-FARMER');
     expect(await payoutDirectory.lineUserIdForPlot('p1')).toBe('NEW-FARMER');
   });
 });

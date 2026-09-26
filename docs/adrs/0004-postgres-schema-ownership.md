@@ -1,6 +1,15 @@
 # 0004: Separate app and risk ownership in PostgreSQL
 
-Status: Proposed. Database access, roles, and migration order await #55.
+Status: Proposed, partially realized. A live Railway PostgreSQL 16 + PostGIS 3.7 instance now exists
+(db/postgres-plots task, 2026-09-26): `app` schema tables (`slot_requests`, `wallet_links`,
+`plot_wallets`) are migrated with Drizzle and a bootstrap of the plot/zone geometry this decision
+called "risk" now lives in `geo.plots` / `geo.sea_areas` instead — db/README.md (issue #110, merged to
+main after this ADR was written) supersedes the schema-naming/tooling specifics below: Alembic-in-
+pipeline becomes dbmate in `db/`, and `risk` is redefined as pipeline's time-varying outputs (index
+values, observations) rather than the plot/zone geometry this ADR originally described. The ownership
+principle this ADR states — one writable schema owner, app references geometry rather than copying it —
+is unchanged; see db/README.md for the current table-level source of truth. Database access, roles, and
+migration order await #55/#103.
 
 ## Context
 

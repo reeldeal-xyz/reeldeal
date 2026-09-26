@@ -8,16 +8,21 @@
     "start": "next start",
     "typecheck": "tsc --noEmit -p .",
     "test": "bun test --pass-with-no-tests",
-    "keeper": "bun src/scripts/keeper-cli.ts"
+    "keeper": "bun src/scripts/keeper-cli.ts",
+    "cross-check-plots": "bun src/scripts/cross-check-plots.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "bun src/db/migrate.ts"
   },
   "dependencies": {
-    "@repo/shared": "workspace:*",
-    "@line/liff": "^2.27.0",
     "@line/bot-sdk": "^10.0.0",
+    "@line/liff": "^2.27.0",
+    "@repo/shared": "workspace:*",
     "@tanstack/react-query": "^5.103.3",
     "@worldcoin/idkit-core": "^4.3.0",
+    "drizzle-orm": "0.45.3",
     "maplibre-gl": "^5.24.0",
     "next": "^16.3.0",
+    "postgres": "^3.4.9",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -25,10 +30,11 @@
     "wagmi": "^3.7.7"
   },
   "devDependencies": {
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^24.0.0",
     "@types/qrcode": "^1.5.6",
-    "@types/geojson": "^7946.0.16"
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "0.31.11"
   }
 }
