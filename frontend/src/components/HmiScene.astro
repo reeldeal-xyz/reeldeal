@@ -123,7 +123,7 @@ const operationNames: Record<string, string> = ja
   : { longline: 'longline', raft: 'raft', cage: 'cage', other: 'other / mixed' };
 const pipelineStatus = hmi.status === 'available' ? (ja ? 'パイプライン接続中' : 'Live pipeline connected')
   : hmi.status === 'not-configured' ? (ja ? 'パイプライン未設定' : 'Pipeline not configured') : (ja ? 'パイプライン接続なし' : 'Pipeline unavailable');
-const mapFeatures = JSON.stringify({ plots, zones: hmi.status === 'available' ? hmi.zones : [] });
+const mapFeatures = JSON.stringify({ plots });
 // JAXA SGLI chl-a from the pipeline's own tiles (#135), proxied same-origin by /api/tiles.
 const habLayer = hab?.status === 'available' ? hab.layer : null;
 const habText = habLayer ? ''

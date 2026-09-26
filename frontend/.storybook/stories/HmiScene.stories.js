@@ -1,6 +1,5 @@
 import HmiScene from '../../src/components/HmiScene.astro';
 import plots from '../fixtures/hmi-plots.json';
-import zones from '../fixtures/hmi-zones.json';
 import heat from '../fixtures/hmi-heat.json';
 import species from '../fixtures/hmi-species.json';
 import { expect, userEvent, waitFor, within } from 'storybook/test';
@@ -24,7 +23,7 @@ export default {
   component: HmiScene,
   parameters: { layout: 'fullscreen', backgrounds: { default: 'paper' } },
   args: {
-    hmi: { status: 'available', plots, zones },
+    hmi: { status: 'available', plots },
     risk: { status: 'partial', data: heat },
     speciesInfo: { status: 'available', data: species },
     plotCode: 'p1213-001',
