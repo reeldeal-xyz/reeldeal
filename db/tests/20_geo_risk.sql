@@ -39,10 +39,13 @@ BEGIN
   END;
   UPDATE geo.plots SET retired_at = NULL WHERE id = p.id;
 
-  -- Demo plots for the deployed ReliefPool (README §4.1): 15 synthetic polygons in karakuwa-east.
+  -- Demo plots for the deployed ReliefPool (README §4.1): 15 distinct fishery-right zones, in karakuwa-east.
   ASSERT (SELECT count(*) FROM geo.plots WHERE plot_code LIKE 'p1213-%') = 15, 'demo plots p1213-001..015';
   ASSERT NOT EXISTS (SELECT 1 FROM geo.plots WHERE plot_code LIKE 'p1213-%' AND sea_area_id IS DISTINCT FROM 'karakuwa-east'),
     'demo plots in karakuwa-east';
+  ASSERT NOT EXISTS (SELECT 1 FROM geo.plots WHERE plot_code LIKE 'p1213-%' AND origin <> 'fishery_right'),
+    'demo plots carry real zone polygons';
+  ASSERT (SELECT count(DISTINCT geom) FROM geo.plots WHERE plot_code LIKE 'p1213-%') = 15, 'one zone per demo plot';
 
   -- Uploaded plots carry an upload: code.
   BEGIN
