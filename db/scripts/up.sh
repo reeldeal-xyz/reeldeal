@@ -16,7 +16,7 @@ if [ -n "$data" ] && [ "${data#/}" != "$data" ] && [ ! -d "$data" ]; then
 fi
 
 docker network inspect reeldeal >/dev/null 2>&1 || docker network create reeldeal >/dev/null
-docker compose up -d --build --wait db backup
+docker compose up -d --build --wait --quiet-pull db backup
 docker compose exec -T -u postgres db bash /db/bootstrap/bootstrap.sh
-docker compose run --rm migrate up
+docker compose run --rm --quiet-pull migrate up
 ./scripts/test.sh
