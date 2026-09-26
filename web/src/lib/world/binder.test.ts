@@ -90,7 +90,7 @@ describe('bindOrUpgradeOnChain', () => {
       }),
     });
     const result = await bindOrUpgradeOnChain(
-      { wallet: WALLET, nullifier: NULLIFIER, schemaId: 9310, sybilScoreBps: 0, verifiedAt: 2000, receiptHash: zeroHash },
+      { wallet: WALLET, nullifier: NULLIFIER, schemaId: 1, sybilScoreBps: 0, verifiedAt: 2000, receiptHash: zeroHash },
       clients,
     );
     expect(result.call).toBe('upgrade');

@@ -22,7 +22,7 @@ function clampToUint16(n: number): number {
 /**
  * Returns the first response in `result.responses` that:
  * - is a World ID 4.0 uniqueness proof (not a v3 legacy proof, not a session proof)
- * - has an identifier expected for `level` (selfie for level1; mnc/passport/proof_of_human for level2)
+ * - has an identifier expected for `level` (selfie for level1; proof_of_human (Orb) for level2)
  * - carries a signal_hash equal to hashSignal(wallet)
  * - has an issuer_schema_id that maps to the requested level
  *

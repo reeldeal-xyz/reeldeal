@@ -68,7 +68,7 @@ export async function fetchWorldLevel(
 }
 
 /** Reads which World ID schema last verified this wallet (0 if never verified) -- lets the wallet tab show
- *  "verified via My Number Card / passport / World ID (Orb)" without re-running IDKit. `humanOf` returns the
+ *  "verified via World ID (Orb)" without re-running IDKit. `humanOf` returns the
  *  zero struct (schemaId 0) for a wallet that's never bound; see contracts/src/HumanRegistry.sol. */
 export async function fetchWorldSchema(
   client: Pick<LiffStatusClient, 'readContract'>,

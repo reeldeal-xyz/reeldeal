@@ -82,7 +82,7 @@ with a public paper trail.*
    `karakuwa.umi.eth` and issues a non-transferable, expiring **"2026" season slot** to
    the farmer working that plot (`docs/INTERFACE.md`'s ENS layout, issues #7/#10/#11).
 3. **Farmers verify humanity.** World ID (IDKit 4.3) verifies the farmer server-side —
-   Selfie Check (level 1) or My Number Card / passport / Orb (level 2) — and
+   Selfie Check (level 1) or World ID Orb (level 2) — and
    `HumanRegistry.sol` records a per-nullifier level that caps units paid per real
    person, not per wallet.
 4. **A public risk index crosses a threshold.** The pipeline (`pipeline/`, Jay) publishes
@@ -124,7 +124,7 @@ JMA tide/track, 貝毒/赤潮 bulletins ─┘  (Jay,      └─ storm (surge, 
                                        national)                                                                     v
                                             keeper (app): RULES thresholds ─> Jev gate ─> signed Trigger ─> ReliefPool
 ENSv2 Sepolia: karakuwa.umi.eth ─> p1213-NNN (x15) ─> "2026" season slot ─> ReliefPool (JPYC) ─> farmer wallet (LIFF)
-World ID (IDKit 4.3) ─> server verify (developer.world.org/api/v4/verify) ─> HumanRegistry (level 1 Selfie Check, level 2 MNC/passport/Orb)
+World ID (IDKit 4.3) ─> server verify (developer.world.org/api/v4/verify) ─> HumanRegistry (level 1 Selfie Check, level 2 World ID Orb)
 MultiBaas (Curvegrid) indexes Donated/Attested/Paid/Held ─> HMAC-signed webhook ─> LINE Messaging API push
 ```
 
@@ -325,10 +325,10 @@ say what's real, say what isn't, don't blur the line.
   separately deployed container, but LIFF/donor/co-op/holder/verify routes there still
   redirect to the Next.js app until #67/#68 land — Astro is a component workshop with a
   few live endpoints today, not yet the production surface.
-- **Marketplace storefront wiring is pending.** The SaleRouter is deployed and tested (#125); calling it from the Astro checkout is SP-12 (#66).
-- **My Number Card (schema 9310) wasn't run live.** Level 2 was proven with an Orb credential (schema 1, `Upgraded` on Sepolia); see `docs/WORLD_DEBRIEF.md` for the full friction log and the fixes it drove (#101, #113).
+- **The marketplace lives in the Next.js app.** Six listings at `/market` on Railway check out through the deployed SaleRouter (#160; first live sale donated 45 JPYC, tx `0x03507296…23606`). The Astro `/market` is still empty (#144).
+- **Level 2 is World ID Orb only.** My Number Card and passport credentials are not integrated or tested, so the app neither requests nor accepts them. The deployed HumanRegistry still recognises their schema ids (9303/9310), but nothing sends them. Level 2 was proven with an Orb credential (schema 1, `Upgraded` on Sepolia); see `docs/WORLD_DEBRIEF.md` for the friction log and the fixes it drove (#101, #113).
 
 **What's next, roughly in order:** finish #67/#68 (Astro takes over the live routes),
 implement HAB/storm pipeline routes for real live monitoring (retiring the pinned-PDF
-replay), wire the deployed SaleRouter into the storefront (#66),
-and repeat the level-2 upgrade with a My Number Card tester (#25).
+replay), move the marketplace into the Astro storefront (#66),
+and integrate and test My Number Card / passport as level-2 credentials (#25).

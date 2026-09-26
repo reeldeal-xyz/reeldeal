@@ -9,10 +9,13 @@ describe('levelForSchema', () => {
     expect(levelForSchema(11)).toBe(1);
   });
 
-  test('1, 9303, 9310 map to level 2', () => {
+  test('1 (World ID Orb) maps to level 2', () => {
     expect(levelForSchema(1)).toBe(2);
-    expect(levelForSchema(9303)).toBe(2);
-    expect(levelForSchema(9310)).toBe(2);
+  });
+
+  test('passport (9303) and My Number Card (9310) are not accepted', () => {
+    expect(levelForSchema(9303)).toBeNull();
+    expect(levelForSchema(9310)).toBeNull();
   });
 
   test('unknown schemas map to null', () => {
@@ -29,8 +32,8 @@ describe('actionForLevel', () => {
 });
 
 describe('identifiersForLevel', () => {
-  test('level1 is selfie only; level2 is mnc/passport/proof_of_human', () => {
+  test('level1 is selfie only; level2 is proof_of_human (Orb) only', () => {
     expect(identifiersForLevel('level1')).toEqual(['selfie']);
-    expect(identifiersForLevel('level2')).toEqual(['mnc', 'passport', 'proof_of_human']);
+    expect(identifiersForLevel('level2')).toEqual(['proof_of_human']);
   });
 });
