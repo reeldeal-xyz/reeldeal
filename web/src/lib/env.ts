@@ -37,3 +37,22 @@ export const env = {
   multibaasUrl: () => process.env.MULTIBAAS_URL,
   multibaasApiKey: () => process.env.MULTIBAAS_API_KEY,
 };
+
+// Public, client-safe config (issues #19/#20/#21). Unlike `env` above these never throw: an unset address means
+// "not deployed yet" (see #16), and screens render a clean empty state instead of crashing. Read these from
+// Server Components/route handlers and pass the resolved values down as props — NEXT_PUBLIC_* vars are only
+// statically inlined for literal `process.env.NEXT_PUBLIC_X` access in client bundles, so a shared dynamic
+// getter like this must be called server-side.
+const optional = (k: string) => {
+  const v = process.env[k];
+  return v && v.length > 0 ? v : undefined;
+};
+export const publicEnv = {
+  sepoliaRpcUrl: () => optional('NEXT_PUBLIC_SEPOLIA_RPC_URL'),
+  reliefPool: () => optional('NEXT_PUBLIC_RELIEF_POOL_ADDRESS'),
+  reliefPoolDeployBlock: () => optional('NEXT_PUBLIC_RELIEF_POOL_DEPLOY_BLOCK'),
+  humanRegistry: () => optional('NEXT_PUBLIC_HUMAN_REGISTRY_ADDRESS'),
+  ensParentRegistry: () => optional('NEXT_PUBLIC_ENS_PARENT_REGISTRY_ADDRESS'),
+  ensPlotResolver: () => optional('NEXT_PUBLIC_ENS_PLOT_RESOLVER_ADDRESS'),
+  ensSlotRegistry: () => optional('NEXT_PUBLIC_ENS_SLOT_REGISTRY_ADDRESS'),
+};
