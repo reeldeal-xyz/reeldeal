@@ -14,7 +14,7 @@ Use the vendor's official skill wherever one exists. Where a vendor ships none, 
 | LINE LIFF, Login, Messaging API | none published | https://developers.line.biz/llms.txt |
 | JPYC | none published | `@jpyc/sdk-core` README (github.com/jcam1/sdks), faucet.jpyc.co.jp |
 | Curvegrid MultiBaas | none published | docs.curvegrid.com |
-| Copernicus Marine (pipeline main data) | none | help.marine.copernicus.eu (`copernicusmarine` toolkit), data.marine.copernicus.eu catalogue |
-| NASA MUR SST v4.1 | none | registry.opendata.aws/mur (Zarr on S3) |
+| JAXA Earth API (pipeline SST, chlorophyll-a) | none | data.earth.jaxa.jp/en (Python `jaxa.earth` module), STAC catalogue data.earth.jaxa.jp/stac/cog/v1/catalog.json, terms earth.jaxa.jp/en/data/policy |
+| Copernicus Marine (pipeline physics, waves) | none | help.marine.copernicus.eu (`copernicusmarine` toolkit), data.marine.copernicus.eu catalogue |
 | FastAPI (pipeline API) | none | fastapi.tiangolo.com |
 | JMA tide / best track (storm module) | none | data.jma.go.jp (潮位観測), jma.go.jp/jma/jma-eng/jma-center/rsmc-hp-pub-eg |
