@@ -21,9 +21,15 @@ export async function callWorldVerify(rpId: string, result: unknown, fetchImpl: 
   const endpoint = `https://developer.world.org/api/v4/verify/${rpId}`;
   let response: Response;
   try {
+    // Staging/sandbox (World ID Simulator) proofs must carry the portal's staging verification token.
+    const env = (result as { environment?: string } | null)?.environment;
+    const stagingToken = process.env.WORLD_STAGING_VERIFICATION_TOKEN;
     response = await fetchImpl(endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(stagingToken && env && env !== 'production' ? { 'x-staging-verification-token': stagingToken } : {}),
+      },
       body: JSON.stringify(result),
     });
   } catch (err) {
