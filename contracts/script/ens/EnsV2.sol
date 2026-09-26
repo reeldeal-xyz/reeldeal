@@ -94,7 +94,16 @@ interface IEnhancedAccessControlV2 {
 
 /// @notice Write surface of a `PermissionedRegistry`-family contract (`ETHRegistry`, `RootRegistry`, and
 ///         the `UserRegistry` proxies this script deploys all share this ABI). Extends the pinned
-///         production read surface (`IEnsV2Registry`: getSubregistry/getResolver/findOwner).
+///         production read surface (`IEnsV2Registry`: getSubregistry/getResolver/findOwner/findExpiry).
+///
+///         `register`/`renew`/`unregister`/`findTokenId` transcribed from (same commit as the rest of this
+///         file's sources):
+///           contracts/src/registry/interfaces/IStandardRegistry.sol  (register, renew, unregister)
+///           contracts/src/registry/interfaces/ITokenizedRegistry.sol (findTokenId)
+///         `unregister`/`renew` take `anyId` — a labelhash, token ID or EAC resource, all interchangeable
+///         (`PermissionedRegistry` zeroes version bits to resolve any of them to the same entry); the
+///         labelhash form issue #10's plot/season-slot flows use is `uint256(keccak256(bytes(label)))`
+///         (`LibLabel.id`).
 interface IUserRegistryWrite is IEnsV2Registry, IEnhancedAccessControlV2 {
     /// @dev `registry`/`resolver` are `address` here (an ABI-compatible narrowing of the real
     ///      `IRegistry`/interface-typed params — interface types encode as `address`).
@@ -106,6 +115,20 @@ interface IUserRegistryWrite is IEnsV2Registry, IEnhancedAccessControlV2 {
         uint256 roleBitmap,
         uint64 expiry
     ) external returns (uint256 tokenId);
+
+    /// @notice Extends a label's expiry. Requires `ROLE_RENEW` (root or on the label's own resource).
+    function renew(uint256 anyId, uint64 newExpiry) external;
+
+    /// @notice Deletes a label — the plot holder's revoke path for a season slot (issue #10). Requires
+    ///         `ROLE_UNREGISTER` (root or on the label's own resource); root holders can unregister any
+    ///         name in the registry regardless of who currently owns it (`EnhancedAccessControl` treats
+    ///         `ROOT_RESOURCE` roles as effective on every resource — see `EnhancedAccessControl.sol`
+    ///         `_effectiveRoles`). After this, `findOwner`/`findExpiry` for the label return zero/elapsed.
+    function unregister(uint256 anyId) external;
+
+    /// @notice The label's current ERC1155-style token ID (labelhash with its low 32 "version" bits
+    ///         replaced — NOT simply `keccak256(label)`; only meaningful for a currently-registered label).
+    function findTokenId(string calldata label) external view returns (uint256);
 }
 
 /// @notice UUPS proxy initializer for a freshly `deployProxy`'d `UserRegistry`.
