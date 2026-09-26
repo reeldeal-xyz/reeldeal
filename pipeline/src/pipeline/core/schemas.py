@@ -208,6 +208,16 @@ class IndicesResponse(Model):
     series: list[IndexSeries]
 
 
+class TileScale(Model):
+    """How a layer's tiles are coloured: values from `min` to `max` (linear or log10) spread evenly over `colors`."""
+
+    kind: Literal["linear", "log"]
+    min: float
+    max: float
+    unit: str
+    colors: list[str] = Field(description="Colour stops from low to high as #rrggbb; values beyond the range are clipped")
+
+
 class LayerInfo(Model):
     """GET /<module>/layers/{date}: metadata for one precomputed layer (daily, or the monthly composite covering the date)."""
 
@@ -221,7 +231,12 @@ class LayerInfo(Model):
     unit: str
     bbox: tuple[float, float, float, float] = Field(description="[west, south, east, north]")
     valid_fraction: float = Field(description="Share of grid cells with a valid value (cloud, land and no-pass cells are missing)")
-    tile_url: str | None = None
+    tile_url: str | None = Field(
+        None,
+        description="XYZ PNG template relative to the API origin, e.g. "
+        "/hab/tiles/miyagi/monthly/2025-08/chla_sgli_monthly/{z}/{x}/{y}.png. Display only; null when the layer has no colour scale",
+    )
+    tile_scale: TileScale | None = None
     zarr_url: str | None = None
     sha256: str = Field(description="sha256 of the pinned input (or of the sorted input digests when several tiles)")
 

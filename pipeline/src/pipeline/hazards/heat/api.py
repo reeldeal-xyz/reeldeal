@@ -10,6 +10,7 @@ from pipeline.core.layers import layers_on
 from pipeline.core.plots import store
 from pipeline.core.regions import sea_area
 from pipeline.core.schemas import IndicesResponse, LayerInfo
+from pipeline.core.tiles import add_tile_route
 
 from . import MODULE
 from .build import NotBuilt, read_plot_risk, read_zone_indices
@@ -88,3 +89,6 @@ def layers(day: date) -> list[LayerInfo]:
 def climatology(zone: str) -> HeatClimatology:
     """SST trend and marine heatwave statistics."""
     raise not_implemented("GET /heat/climatology/{zone}")
+
+
+add_tile_route(router, MODULE)
