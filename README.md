@@ -1,5 +1,24 @@
 # Reel Deal
 
+**Community-funded relief payments for aquaculture farmers.**
+
+Parametric relief for Japan's aquaculture farmers: donors fund a pool, a public ocean
+risk index (JAXA satellite data, prefecture shipping-restriction bulletins) crosses a
+species threshold, and JPYC pays out on Sepolia to the ENSv2-registered owner of the
+affected plot's season slot — capped per real person with World ID, explained and
+delivered over LINE.
+
+Built at ETHGlobal Tokyo 2026 (Classic track). For the submission write-up —
+sponsor-by-sponsor integration table with code references and proof transactions,
+deployed addresses, demo script, team, and an honest list of what's real today versus
+what's still in progress — see **[docs/SUBMISSION.md](docs/SUBMISSION.md)**.
+
+- Farmer app (LINE LIFF): <https://liff.line.me/2011749457-SgvM5ahH>
+- Astro app: <https://app.13-196-78-137.sslip.io> · Pipeline risk API: <https://13-196-78-137.sslip.io>
+- ReliefPool (Sepolia): [`0x560E…96D32`](https://sepolia.etherscan.io/address/0x560E8404be74DCB7F3877835F374CF1B1B696D32) · HumanRegistry: [`0xc713…D4F8`](https://sepolia.etherscan.io/address/0xc713c174b33B071f7Bf6dC571E3dd7BfB441D4F8)
+
+---
+
 Reel Deal is a fisheries and aquaculture relief fund for climate change, harmful algal blooms, and storm damages. With increasing uncertainty of conditions, fisherman and aquaculture operators are facing financial challenges to respond and adapt. This relief fund is designed to be funded by the sale of local goods, informed by real-time data from satellite imagery and existing oceanographic sensor networks, and transparent and timely release of funds to affected fisherman / aquaculture farms. The scale of the project is within Japan's Exclusive Economic Zone.
 
 Insurance is the regular collection of manageable funds before an event that catastrophically damages or negatively effects the business, so that the fund can pay out to affected beneficiaries in the case of the event.
