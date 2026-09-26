@@ -12,8 +12,8 @@ FastAPI scaffold; that implementation remains pending under #64/#79.
 
 | | Pipeline (`pipeline/`, Python + FastAPI) | App + chain (`web/`, `contracts/`, `packages/shared`) |
 |---|---|---|
-| Does | Ingests ocean data nationally, publishes **risk index values** per plot and sea area, with provenance | Holds thresholds, tiers and windows (`RULES`), builds and signs `Trigger`s, attests, pays |
-| Never | Thresholds, statuses, tiers, Triggers, signing | Computes indices from raw data |
+| Does | Ingests ocean data nationally, publishes **risk index values** per plot and sea area, with provenance. Keeps the canonical species reference data (`pipeline/data/ref/species.json`: profiles, response evidence, rule values) and serves it at `/species` | Applies thresholds, tiers and windows (`RULES`, generated from the pipeline's species.json), builds and signs `Trigger`s, attests, pays |
+| Never | Evaluates thresholds; statuses, Triggers, signing | Computes indices from raw data; edits the generated rule copy by hand |
 
 The pipeline has three independent hazard modules, each with its own routes and version: **heat** (climate change), **hab** (harmful algal blooms) and **storm** (storm surge, waves, wind).
 
@@ -154,7 +154,7 @@ Same JSON as the files. CORS open. The web app may also import the files directl
 
 ## Rules and regression
 
-`RULES`, `REFERENCE_POINT` and `REFERENCE_FIRES` live in `packages/shared/src/rules.ts` and stay app-side. The pipeline publishes the daily `SST` series for the zone containing 38.85N 141.66E. `heatFiredOn(sst, rule)` for each `HEAT` rule must reproduce `REFERENCE_FIRES` exactly. The dates were re-derived on 2026-09-26 from the pipeline's JAXA daily SST series (`pipeline/tests/heat/snapshots/kesennuma-sst-2022-2025.csv`; gap fill SGLI night → SGLI day → AMSR2, `pipeline/README.md` Q10), replacing the NASA MUR dates. `packages/shared/test/reference-fires.test.ts` recomputes them from that snapshot.
+`RULES`, `REFERENCE_POINT` and `REFERENCE_FIRES` are exported from `packages/shared/src/rules.ts` and applied app-side. The `RULES` values (and `RULES_VERSION`) are canonical in `pipeline/data/ref/species.json` (`pipeline/README.md` §5a). `bun run species:gen` copies them to `packages/shared/src/species.data.json`, and `packages/shared/test/species-drift.test.ts` fails if the copy drifts. Change a rule there, bump `rules_version`, regenerate, and update the contracts' tests and deploy scripts that mirror it. The HMI reads the same values from `GET /species/{id}`. The pipeline publishes the daily `SST` series for the zone containing 38.85N 141.66E. `heatFiredOn(sst, rule)` for each `HEAT` rule must reproduce `REFERENCE_FIRES` exactly. The dates were re-derived on 2026-09-26 from the pipeline's JAXA daily SST series (`pipeline/tests/heat/snapshots/kesennuma-sst-2022-2025.csv`; gap fill SGLI night → SGLI day → AMSR2, `pipeline/README.md` Q10), replacing the NASA MUR dates. `packages/shared/test/reference-fires.test.ts` recomputes them from that snapshot.
 
 | Season | Fires |
 |---|---|

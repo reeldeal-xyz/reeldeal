@@ -14,7 +14,7 @@ This directory contains the pipeline for satellite imagery analysis of aquacultu
 
 Analysis is written as plain Python functions and exposed via FastAPI. **The output is risk index values** per plot and per sea area, each with the provenance of the inputs it was computed from.
 
-**Out of scope: payouts.** The pipeline does not threshold, grade or decide anything. Payout thresholds, tiers, rule windows, Triggers and signing live on chain and in the app (`contracts/`, `packages/shared/src/rules.ts`). They consume the index values this pipeline publishes. No field in the pipeline's output says "exceeded", "watch" or "fired".
+**Out of scope: payouts.** The pipeline does not threshold, grade or decide anything. Triggers and signing live on chain and in the app (`contracts/`, `packages/shared/src/rules.ts`), which applies the payout thresholds, tiers and rule windows to the index values this pipeline publishes. Those rule values are kept here as reference data (§5a, `data/ref/species.json`) so every consumer reads one copy, but the pipeline never evaluates them. No field in the pipeline's output says "exceeded", "watch" or "fired".
 
 ## 1. Scope
 
@@ -24,7 +24,7 @@ Analysis is written as plain Python functions and exposed via FastAPI. **The out
 | Unit of study | **Aquaculture plot polygon** (GeoJSON, EPSG:4326). Plots roll up to sea area → prefecture → nation. |
 | Hazards | Three separate modules (§6–§8): heat (climate change), HABs, storm surge |
 | Operations | Seaweed (nori, wakame, kombu), shellfish (scallop, oyster, hoya), finfish (yellowtail, sea bream, salmon/coho, bluefin tuna) |
-| Output | Risk index values with units, time window and input provenance. No thresholds, statuses or payout decisions. |
+| Output | Risk index values with units, time window and input provenance, plus species reference data (§5a). No statuses or payout decisions. |
 | Main data | **JAXA Earth API** for SST and chlorophyll-a; **Copernicus Marine** for ocean physics (temperature at depth, salinity, currents, mixed layer, sea level) and waves; JMA and prefectures for surge, typhoons, toxin bans and in-situ stations |
 | Training | AWS (S3 data lake + SageMaker/EC2), one model family per module |
 
@@ -125,6 +125,25 @@ Modules read from the registry but own their own observation series (e.g. heat r
 - Satellite-vs-station offsets per region and season (generalizes the old `buoy-<month>.json`).
 - Model training per module (§6–§8).
 - Map QA in the web app.
+
+## 5a. Species reference data (shared core)
+
+`data/ref/species.json` is the canonical record of species-specific values (#47), served under `/species` for the HMI. It holds:
+
+- **Profiles:** one per species id (`nori` … `bluefin-tuna`; the labels in `packages/shared/src/ids.ts`, hashed on chain), with names, group, taxon and the modules whose hazards affect it.
+- **Response evidence:** one entry per study with its domain: factors, life stage, size, exposure, endpoint, tested range and units. `points` holds measured values only; an entry without points reports `status: "no_supported_data"`. There are no fitted curves, combined-factor results or farm predictions. A combined expectation such as `S_AB = S_A × S_B / S_0` needs compatible survival endpoints and a matched baseline, and is not served until such evidence exists.
+- **Rules:** the app's trigger rules (species, tier, peril, `tempC`, threshold, window). They are served for display only. The app and chain apply them (§13), and the pipeline never compares an index to them.
+
+`profile_version` and `rules_version` are separate; bump `rules_version` for any rule change, because it changes relief. `bun run species:gen` writes the copy the app reads (`packages/shared/src/species.data.json`, behind `RULES` and the `SPECIES` check), and `packages/shared/test/species-drift.test.ts` fails when the two differ.
+
+```
+GET  /species                                  all profiles, profile_version, rules_version
+GET  /species/{id}                             profile, response evidence and rules for one species
+GET  /species/{id}/rules?peril=                trigger rules (reference only)
+GET  /species/{id}/responses?factor=           measured response points per study, with study domain
+```
+
+Every response carries `kind: "reference"`.
 
 ## 6. Heat module (climate change)
 
@@ -281,6 +300,7 @@ POST /plots                                    register/upload a plot polygon
 GET  /stations?bbox=&type=                     station registry
 GET  /stations/{id}/series?var=                station observations
 GET  /zones                                    sea areas
+GET  /species[/{id}[/rules|/responses]]        species reference data (§5a)
 POST /risk                                     convenience: calls /heat/risk, /hab/risk, /storm/risk and merges them; no logic of its own
 ```
 
@@ -323,6 +343,7 @@ pipeline/
     core/                        # shared, hazard-agnostic
       config.py  regions.py      # paths; build regions (bbox), sea areas
       schemas.py                 # shared pydantic models (plot, station, index envelope)
+      species.py                 # species reference data (§5a), loaded from data/ref/species.json
       pin.py  grid.py  extract.py
       layers.py                  # build/read JAXA-product layers (LayerSpec), shared by modules
       clients/                   # jaxa_earth.py (JAXA Earth API), cmems.py (Copernicus Marine toolkit)
@@ -345,7 +366,8 @@ pipeline/
         events.py  layers.py  indices.py  schemas.py
         models/                  # nowcast.py, damage.py
         api.py                   # APIRouter(prefix="/storm")
-    api.py                       # mounts core routes + module routers
+    species/api.py               # APIRouter(prefix="/species")
+    api.py                       # mounts core routes, species routes + module routers
     cli.py
   data/raw/<module>/  data/ref/  # small pinned inputs; reviewed lookup tables
   out/<module>/
@@ -356,7 +378,7 @@ pipeline/
 
 These follow from this spec. Coordinate them with the app owner in one PR:
 
-- **Payout logic moves fully to the app / chain.** `RULES` in `packages/shared/src/rules.ts` and the contracts keep the thresholds, tiers and windows. Whatever produces `Trigger`s (keeper, oracle) reads index values from this pipeline and applies them; the pipeline no longer signs or emits Triggers (`Q2`).
+- **Payout logic moves fully to the app / chain.** `RULES` in `packages/shared/src/rules.ts` and the contracts apply the thresholds, tiers and windows. Whatever produces `Trigger`s (keeper, oracle) reads index values from this pipeline and applies them; the pipeline no longer signs or emits Triggers (`Q2`). The rule values themselves are canonical in `data/ref/species.json` (§5a). `RULES` reads the generated `packages/shared/src/species.data.json` (done, #47).
 - `packages/shared/src/feed.ts` + `docs/INTERFACE.md`: replace `TriggersFile` and the `/triggers/*` route with the index envelope (§11) and per-module routes (`/heat/indices/...`). `BuoyFile` is replaced by `StationSeries`. `SeriesFile` is folded into `IndicesFile` (SST is the `SST` index), which gains `module`, `unit` and `source.sha256` per series.
 - `packages/shared` pipeline types (#79): values carry `source` and `pixels` each (the envelope-level `pixels` is gone); `IndexPoint` gains `source`, `pixels`, `event`; `IndexSeries` loses its series-level `source` and gains `species`, `toxin`; `LayerInfo` gains `layer`, `cadence`, `region`, `validFraction`; `Plot.source` gains `demo`.
 - `packages/shared/src/ids.ts`: `ZONES` becomes a national sea-area list (or generated from `data/ref/sea_areas`), and `SPECIES` grows. `PERILS` and `eventIdOf` stay app-side; the pipeline only needs index names that match them (`Q7`).
@@ -387,10 +409,10 @@ uv run pytest tests/hab                               # one module's tests
 - **Q1** Consumer granularity: does the chain read sea-area indices (a plot inherits its sea area's value) or per-plot indices?
 - **Q2** Delivery to chain: does the consumer fetch index values over HTTP, or does it need them signed/attested by the pipeline (a signed index value, not a Trigger)?
 - **Q3** Plot inventory: are 海しる 区画漁業権 polygons usable (licence, bulk access), and are they granular enough (fishery-right areas are often larger than individual plots)?
-- **Q4** Species/operation list, and which index parameters (`h` for `HS_HOURS{h}`, depth z for `T_D{z}`) to precompute.
+- **Q4** Species/operation list (species ids now follow `packages/shared/src/ids.ts`, §5a), and which index parameters (`h` for `HS_HOURS{h}`, depth z for `T_D{z}`) to precompute.
 - **Q5** AWS model priority for the hackathon: which module's model first (heat bias/forecast, HAB onset, storm nowcast/damage)?
 - **Q6** ~~OK to change the root `package.json` / bun workspace now?~~ Resolved 2026-09-26: done (§13).
-- **Q7** Single source for index names and ids: Python generates JSON consumed by `packages/shared`, or the reverse?
+- **Q7** Single source for index names and ids: Python generates JSON consumed by `packages/shared`, or the reverse? Species ids and rules are decided (2026-09-26): canonical in `data/ref/species.json`, generated into `packages/shared` (§5a). Index names and zones are still open.
 - **Q8** Coastal mask width, and storage: S3 bucket/region and who pays for it.
 - **Q9** ~~JAXA Earth API coverage: grid spacing and record start?~~ Resolved 2026-09-26: SGLI L3 SST and chl-a are served at 1/360° (~300 m) and the v3 daily record starts in January 2018 (the collections' STAC `temporal` extent of 2024 is wrong; the catalogue and files go back to 2018-01-22). Still open: inside narrow bays even 300 m is often land-masked, so is Himawari SST / chl-a from P-Tree (registration, 72 h NRT retention) an acceptable second JAXA source?
 - **Q10** ~~Daily `SST` from JAXA~~ Decided 2026-09-26: keep the proposed order SGLI night → SGLI day → AMSR2 → null, with the conventions in §6; consumers keep `source.product` with each value; `REFERENCE_FIRES` re-derived from the JAXA series (§13). The original question: SGLI is optical, so summer cloud (tsuyu, typhoons) leaves gaps exactly when heat matters. Proposed order: SGLI night → SGLI day → AMSR2 → null. Is AMSR2 near the coast acceptable, or should gaps stay null (then the app counts fewer days)? This decides the regression series and the re-derived `REFERENCE_FIRES`. Also conventions: SST rounding (the app counts `≥ tempC`), day boundary in UTC vs JST, and pixel aggregation (median vs mean vs max).
